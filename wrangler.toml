@@ -1,0 +1,17 @@
+name = "quan-ly-chuyen-may-wip"
+main = "src/index.js"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = "frontend"
+binding = "ASSETS"
+
+# Cấu hình D1 Database (nếu sử dụng trên Cloudflare)
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "wip_tracking_db"
+# database_id = "xxxx-xxxx-xxxx-xxxx"
+
+[vars]
+APP_NAME = "Hệ Thống Quản Lý Tiến Độ Chuyền May"

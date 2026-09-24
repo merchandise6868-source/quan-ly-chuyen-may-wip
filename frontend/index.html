@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BÁO CÁO ĐỐI CHIẾU NHẬP XUẤT TỒN - WIP FLOW TRACKING</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0f172a">
+  <!-- cdn for sheetjs (xlsx) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toastNotification" class="toast-popup">✅ Đã lưu dữ liệu thành công!</div>
+
+  <!-- TOP APP BAR WITH FILTERS (HÌNH 3) -->
+  <header class="top-app-bar">
+    <div class="app-title">
+      <span class="icon">🧵</span>
+      <div>
+        <h2>D&D LONG AN - QUẢN LÝ TIẾN ĐỘ CHUYỀN MAY</h2>
+        <small>Hệ Thống Kiểm Kê Dở Dang & Cân Bằng Dòng Hàng Hóa (WIP Tracking)</small>
+      </div>
+    </div>
+
+    <div class="top-controls">
+      <div class="control-item">
+        <label for="selectCustomer">KHÁCH HÀNG:</label>
+        <select id="selectCustomer" class="form-control select-customer-styled">
+          <!-- Dynamically populated -->
+        </select>
+      </div>
+      <div class="control-item">
+        <label for="selectPO">ĐƠN HÀNG / PO:</label>
+        <select id="selectPO" class="form-control select-po-styled">
+          <!-- Dynamically populated -->
+        </select>
+      </div>
+    </div>
+  </header>
+
+  <!-- TAB NAVIGATION -->
+  <nav class="nav-tabs">
+    <button class="tab-btn active" data-tab="tab-wip">
+      📊 1. Báo Cáo Đối Chiếu Nhập Xuất Tồn
+    </button>
+    <button class="tab-btn" data-tab="tab-flow-log">
+      📜 2. Nhật Ký Giao Dịch Hằng Ngày (Flow Log)
+    </button>
+    <button class="tab-btn" data-tab="tab-manage">
+      ⚙️ 3. Quản Lý Khách Hàng & Đơn Hàng Lô
+    </button>
+    <div class="status-tag" id="reportStatusTag">TRẠNG THÁI: BẢN NHÁP</div>
+  </nav>
+
+  <!-- MAIN CONTAINER -->
+  <main class="main-content">
+
+    <!-- TAB 1: BÁO CÁO ĐỐI CHIẾU NHẬP XUẤT TỒN -->
+    <section id="tab-wip" class="tab-pane active">
+      
+      <!-- TOOLBAR NÚT TÁC VỤ -->
+      <div class="action-toolbar">
+        <div class="btn-group-left">
+          <button class="btn btn-primary" id="btnAddBatch">
+            ➕ Thêm Lô Mới
+          </button>
+          <button class="btn btn-outline" id="btnRefresh">
+            🔄 Tải Lại Dữ Liệu
+          </button>
+          <span class="keyboard-hint">💡 Phím tắt: Dùng <strong>Enter</strong> để lưu, <strong>4 Phím Mũi Tên (◀ ▲ ▼ ▶)</strong> để chuyển ô, <strong>Ctrl+V</strong> để dán từ Excel</span>
+        </div>
+        <div class="btn-group-right">
+          <button class="btn btn-secondary" id="btnSaveDraft">
+            💾 Lưu Nháp
+          </button>
+          <button class="btn btn-success" id="btnSubmitReport">
+            ✅ Chốt Sổ Cuối Ngày
+          </button>
+          <button class="btn btn-info" id="btnExportExcel">
+            📊 Xuất Excel
+          </button>
+          <button class="btn btn-dark" onclick="window.print()">
+            🖨️ In Báo Cáo
+          </button>
+        </div>
+      </div>
+
+      <!-- MAIN EXCEL SHEET CONTAINER -->
+      <div class="excel-sheet-wrapper">
+        
+        <!-- HEADER NẰM NGANG CÙNG DÒNG VỚI BỘ CHỌN NGÀY -->
+        <div class="report-header-banner">
+          <div class="banner-title-group">
+            <h1 class="sheet-title">BÁO CÁO ĐỐI CHIẾU NHẬP XUẤT TỒN</h1>
+            <span class="sheet-subtitle">Theo Dõi Kiểm Kê Dở Dang (WIP) & Cân Đối Hao Hụt Chuyền May</span>
+          </div>
+
+          <div class="banner-date-picker">
+            <label for="reportDate">📅 Ngày Báo Cáo:</label>
+            <div class="date-input-wrapper">
+              <button class="btn-date-nav" id="btnPrevDay" title="Hôm trước">◀</button>
+              <input type="date" id="reportDate" class="report-date-control">
+              <button class="btn-date-nav" id="btnNextDay" title="Hôm sau">▶</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- BẢNG TỔNG HỢP CỐ ĐỊNH PHÍA TRÊN -->
+        <div class="summary-card-wrapper">
+          <table class="excel-summary-table">
+            <tr>
+              <td class="lbl-summary cell-header">Ngày</td>
+              <td class="val-summary cell-val font-semibold" id="summaryDateVal">--</td>
+              <td class="lbl-summary bg-prep-hdr">CHUẨN BỊ còn nợ (đôi)</td>
+              <td class="val-summary bg-prep-val" id="summaryPrepDebt">0</td>
+              <td colspan="2" class="blank-cell"></td>
+            </tr>
+            <tr>
+              <td class="lbl-summary cell-header">PO</td>
+              <td class="val-summary cell-val bold-txt" id="summaryPoNum">--</td>
+              <td colspan="4" class="blank-cell"></td>
+            </tr>
+            <tr>
+              <td class="lbl-summary cell-header">Tổng đơn (đôi)</td>
+              <td class="val-summary cell-val bold-txt" id="summaryPoPlan">0</td>
+              <td class="lbl-summary bg-sum-hdr">TỔNG NHẬN (đôi)</td>
+              <td class="lbl-summary bg-sum-hdr">TỔNG XUẤT CHO KH (đôi)</td>
+              <td class="lbl-summary bg-sum-hdr">TỔNG TỒN THỰC TẾ (đôi)</td>
+              <td class="lbl-summary bg-sum-hdr">TỔNG THIẾU (đôi)</td>
+            </tr>
+            <tr>
+              <td colspan="2" class="blank-cell"></td>
+              <td class="val-summary bg-sum-val" id="summaryTotalReceived">0</td>
+              <td class="val-summary bg-sum-val" id="summaryTotalDelivered">0</td>
+              <td class="val-summary bg-sum-val" id="summaryTotalActualWip">0</td>
+              <td class="val-summary bg-sum-val txt-red" id="summaryTotalShortage">0</td>
+            </tr>
+          </table>
+        </div>
+
+        <!-- DANH SÁCH BẢNG CÁC LÔ HÀNG (RENDER DYNAMICALLY) -->
+        <div id="excelBatchesContainer" class="excel-batches-container">
+          <!-- Dynamic batch tables injected here -->
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- TAB 2: BÁO CÁO ĐỐI CHIẾU NHẬP XUẤT TỒN + THEO DÕI SẢN LƯỢNG -->
+    <section id="tab-flow-log" class="tab-pane">
+      
+      <!-- TOOLBAR NÚT TÁC VỤ CHO TAB 2 -->
+      <div class="action-toolbar">
+        <div class="btn-group-left">
+          <button class="btn btn-secondary" id="btnSaveDeptLogs">
+            💾 Lưu Sản Lượng
+          </button>
+          <button class="btn btn-outline" id="btnRefreshDeptLogs">
+            🔄 Tải Lại
+          </button>
+          <span class="keyboard-hint">💡 Bảng bên phải điền tay (Ngày, Nhập phối, Giao ĐG, Nhập kho, Xuất kho TP). Bảng bên trái & Tổng hợp tự động tính tức thì.</span>
+        </div>
+        <div class="btn-group-right">
+          <button class="btn btn-info" id="btnExportDeptExcel">
+            📊 Xuất Excel
+          </button>
+          <button class="btn btn-dark" onclick="window.print()">
+            🖨️ In Báo Cáo
+          </button>
+        </div>
+      </div>
+
+      <!-- MAIN TAB 2 CONTAINER -->
+      <div class="excel-sheet-wrapper">
+        
+        <!-- TITLE BANNER -->
+        <div class="dept-main-header">
+          <h1 class="sheet-title" style="text-align:center; margin-bottom:12px;">BÁO CÁO ĐỐI CHIẾU NHẬP XUẤT TỒN + THEO DÕI SẢN LƯỢNG</h1>
+        </div>
+
+        <!-- TOP SUMMARY TABLE & SECTION TITLE -->
+        <div class="dept-top-container">
+          <div class="dept-summary-wrapper">
+            <table class="dept-summary-table">
+              <tr>
+                <td class="lbl-dept-sum bg-hdr-cyan">Ngày</td>
+                <td class="val-dept-sum font-semibold" id="deptSummaryDate">--</td>
+                <td class="lbl-dept-sum bg-hdr-slate">CHUẨN BỊ còn nợ (đôi)</td>
+                <td class="val-dept-sum bold-txt" id="deptSummaryDebt">0</td>
+              </tr>
+              <tr>
+                <td class="lbl-dept-sum bg-hdr-cyan">PO</td>
+                <td class="val-dept-sum bold-txt" id="deptSummaryPO">--</td>
+                <td colspan="2" class="blank-cell"></td>
+              </tr>
+              <tr>
+                <td class="lbl-dept-sum bg-hdr-slate">Tổng đơn (đôi)</td>
+                <td class="lbl-dept-sum bg-hdr-slate">TỔNG NHẬN (đôi)</td>
+                <td class="lbl-dept-sum bg-hdr-slate">TỔNG XUẤT CHO KH (đôi)</td>
+                <td class="lbl-dept-sum bg-hdr-slate">TỒN CUỐI NGÀY (đôi)</td>
+              </tr>
+              <tr>
+                <td class="val-dept-sum bold-txt" id="deptSummaryPlan">0</td>
+                <td class="val-dept-sum bold-txt txt-blue" id="deptSummaryTotalReceived">0</td>
+                <td class="val-dept-sum bold-txt txt-green" id="deptSummaryTotalDelivered">0</td>
+                <td class="val-dept-sum bold-txt txt-amber" id="deptSummaryTotalTonCuoi">0</td>
+              </tr>
+            </table>
+          </div>
+
+          <div class="dept-section-title-right">
+            <h3>BÁO THEO DÕI SẢN LƯỢNG CÁC BỘ PHẬN</h3>
+          </div>
+        </div>
+
+        <!-- DYNAMIC BATCH LIST (LEFT SUMMARY TABLE + RIGHT DEPARTMENT LOG TABLE) -->
+        <div id="deptBatchesContainer" class="dept-batches-container">
+          <!-- Injected dynamically per batch via JavaScript -->
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- TAB 3: QUẢN LÝ KHÁCH HÀNG & PO CHI TIẾT -->
+    <section id="tab-manage" class="tab-pane">
+
+      <!-- STATS KPI BANNER FOR ALL COMPANIES -->
+      <div class="manage-stats-banner">
+        <div class="stat-card">
+          <span class="stat-label">🏢 Tổng Số Công Ty / KH</span>
+          <span class="stat-value" id="statTotalCust">3</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">📦 Tổng Số Đơn Hàng / PO</span>
+          <span class="stat-value" id="statTotalPO">3</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">🎯 Tổng Kế Hoạch Đơn Hàng</span>
+          <span class="stat-value" id="statTotalPlan">5.123 đôi</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">🏷️ Tổng Số Lô Hàng Đang Chạy</span>
+          <span class="stat-value" id="statTotalBatches">7 Lô</span>
+        </div>
+      </div>
+      
+      <div class="manage-grid">
+        
+        <!-- CARD 1: QUẢN LÝ KHÁCH HÀNG -->
+        <div class="manage-card">
+          <div class="manage-card-header">
+            <h3>🏢 1. Danh Sách Khách Hàng (3 Công Ty)</h3>
+          </div>
+          <div class="manage-card-body">
+            <form id="formAddCustomer" class="form-grid">
+              <input type="hidden" id="editCustId" value="">
+              <div class="form-group">
+                <label>Tên Khách Hàng / Công Ty:</label>
+                <input type="text" id="custName" class="form-control" placeholder="Ví dụ: Puma Global, Nike, D&D Long An..." required>
+              </div>
+              <div class="form-group">
+                <label>Mã Khách Hàng:</label>
+                <input type="text" id="custCode" class="form-control" placeholder="Ví dụ: PUMA, NIKE, D&D..." required>
+              </div>
+              <div style="display:flex; gap:8px;">
+                <button type="submit" class="btn btn-primary" id="btnSubmitCust">➕ Thêm Khách Hàng</button>
+                <button type="button" class="btn btn-secondary" id="btnCancelEditCust" style="display:none;">Hủy Sửa</button>
+              </div>
+            </form>
+
+            <div class="table-responsive" style="margin-top: 15px;">
+              <table class="flow-log-table" id="tableCustomers">
+                <thead>
+                  <tr>
+                    <th>Mã KH</th>
+                    <th>Tên Khách Hàng</th>
+                    <th>Số PO</th>
+                    <th>Thao Tác</th>
+                  </tr>
+                </thead>
+                <tbody id="tbodyCustomers">
+                  <!-- Dynamic customer rows -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- CARD 2: QUẢN LÝ ĐƠN HÀNG / PO & CHI TIẾT LÔ HÀNG -->
+        <div class="manage-card">
+          <div class="manage-card-header">
+            <h3>📦 2. Chi Tiết Đơn Hàng / PO & Lô Hàng (Khách Hàng Đang Chọn)</h3>
+          </div>
+          <div class="manage-card-body">
+            <form id="formAddPO" class="form-grid">
+              <input type="hidden" id="editOrderId" value="">
+
+              <div class="form-row" style="display:flex; gap:10px;">
+                <div class="form-group" style="flex:1;">
+                  <label>Khách Hàng:</label>
+                  <select id="poCustomerSelect" class="form-control" required>
+                    <!-- Populated dynamically -->
+                  </select>
+                </div>
+                <div class="form-group" style="flex:1;">
+                  <label>Số PO:</label>
+                  <input type="text" id="poNumber" class="form-control" placeholder="Ví dụ: PO-050, PO-100..." required>
+                </div>
+              </div>
+
+              <div class="form-row" style="display:flex; gap:10px;">
+                <div class="form-group" style="flex:1;">
+                  <label>Mã Style / Tên Đơn:</label>
+                  <input type="text" id="poStyleCode" class="form-control" placeholder="Ví dụ: Mã Style Alpha 050..." required>
+                </div>
+                <div class="form-group" style="flex:1;">
+                  <label>Chuyền May:</label>
+                  <input type="text" id="poLineName" class="form-control" placeholder="Ví dụ: Chuyền 1 - Xưởng 2..." required>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>Kế Hoạch Tổng PO (đôi):</label>
+                <input type="number" id="poPlanTotal" class="form-control" placeholder="Ví dụ: 1623" required>
+              </div>
+
+              <!-- THIẾT LẬP SỐ LÔ & KHUNG NHẬP CỐ ĐỊNH TỪNG LÔ + SỐ ĐUÔI -->
+              <div class="form-group batch-config-wrapper">
+                <div class="batch-config-header">
+                  <label class="batch-config-title">🏷️ Thiết Lập Số Lô & Số Lượng Nhập Cố Định:</label>
+                  <div class="batch-count-control">
+                    <label for="poBatchCountSelect">Số Lô Kế Hoạch:</label>
+                    <select id="poBatchCountSelect" class="form-control select-batch-count">
+                      <option value="1">1 Lô + Số đuôi</option>
+                      <option value="2">2 Lô + Số đuôi</option>
+                      <option value="3" selected>3 Lô + Số đuôi</option>
+                      <option value="4">4 Lô + Số đuôi</option>
+                      <option value="5">5 Lô + Số đuôi</option>
+                      <option value="6">6 Lô + Số đuôi</option>
+                      <option value="7">7 Lô + Số đuôi</option>
+                      <option value="8">8 Lô + Số đuôi</option>
+                      <option value="9">9 Lô + Số đuôi</option>
+                      <option value="10">10 Lô + Số đuôi</option>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- DYNAMIC GRID FOR BATCH 1, 2, ... N AND SỐ ĐUÔI -->
+                <div id="batchInputGrid" class="batch-cards-grid">
+                  <!-- Injected via JavaScript -->
+                </div>
+
+                <!-- SUMMARY CHECKER FOR BATCH QUANTITIES -->
+                <div class="batch-summary-bar">
+                  <span class="batch-sum-info">
+                    Tổng nhập các Lô: <strong id="batchSumDisplay" class="txt-primary">0</strong> / Kế hoạch PO: <strong id="batchPlanDisplay">0</strong> đôi
+                  </span>
+                  <span id="batchDiffDisplay" class="batch-diff-badge match">✅ Đã khớp số lượng</span>
+                </div>
+              </div>
+
+              <div style="display:flex; gap:8px; margin-top:6px;">
+                <button type="submit" class="btn btn-success" id="btnSubmitPO">➕ Thêm Đơn Hàng / PO Mới</button>
+                <button type="button" class="btn btn-secondary" id="btnCancelEditPO" style="display:none;">Hủy Sửa</button>
+              </div>
+            </form>
+
+            <div class="table-responsive" style="margin-top: 15px;">
+              <table class="flow-log-table" id="tableOrders">
+                <thead>
+                  <tr>
+                    <th>Số PO</th>
+                    <th>Mã Style</th>
+                    <th>Chuyền May</th>
+                    <th>Kế Hoạch</th>
+                    <th>Chi Tiết Lô & Số Nhập Cố Định</th>
+                    <th>Thao Tác</th>
+                  </tr>
+                </thead>
+                <tbody id="tbodyOrders">
+                  <!-- Dynamic order rows -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- MODAL: NUMPAD CHO THIẾT BỊ DI ĐỘNG -->
+  <div class="modal-overlay" id="numpadModal">
+    <div class="modal-numpad">
+      <div class="modal-header">
+        <h4 id="numpadTitle">Bàn Phím Số Cảm Ứng</h4>
+        <button class="btn-close" id="btnCloseNumpad">&times;</button>
+      </div>
+      <div class="numpad-display" id="numpadDisplay">0</div>
+      <div class="numpad-grid">
+        <button class="num-key">7</button>
+        <button class="num-key">8</button>
+        <button class="num-key">9</button>
+        <button class="num-key">4</button>
+        <button class="num-key">5</button>
+        <button class="num-key">6</button>
+        <button class="num-key">1</button>
+        <button class="num-key">2</button>
+        <button class="num-key">3</button>
+        <button class="num-key num-clear">C</button>
+        <button class="num-key">0</button>
+        <button class="num-key num-back">&LeftArrow;</button>
+      </div>
+      <div class="numpad-footer">
+        <button class="btn btn-success btn-block" id="btnNumpadConfirm">XÁC NHẬN SỐ (ENTER)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL THÊM GIAO DỊCH FLOW LOG -->
+  <div class="modal-overlay" id="flowLogModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h4>Thêm Giao Dịch Sản Lượng Hằng Ngày</h4>
+        <button class="btn-close" id="btnCloseFlowModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Ngày Giao Dịch:</label>
+          <input type="date" id="flTransDate" class="form-control">
+        </div>
+        <div class="form-group">
+          <label>Lô Hàng:</label>
+          <select id="flBatchSelect" class="form-control">
+            <option value="Lô 1">Lô 1</option>
+            <option value="Lô 2">Lô 2</option>
+            <option value="Lô 3">Lô 3</option>
+            <option value="Lô 4">Lô 4</option>
+          </select>
+        </div>
+        <div class="form-row" style="display:flex; gap:10px;">
+          <div class="form-group" style="flex:1;">
+            <label>1. Nhập May (BTP Nhận):</label>
+            <input type="number" id="flInSewing" class="form-control" value="0">
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label>2. Xuất May (May xong):</label>
+            <input type="number" id="flOutSewing" class="form-control" value="0">
+          </div>
+        </div>
+        <div class="form-row" style="display:flex; gap:10px;">
+          <div class="form-group" style="flex:1;">
+            <label>3. Xuất Đóng Gói (Nhập Kho TP):</label>
+            <input type="number" id="flOutPacking" class="form-control" value="0">
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label>4. Xuất Kho TP (Xuất Xe):</label>
+            <input type="number" id="flOutWarehouse" class="form-control" value="0">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>5. Giao Khách Hàng (Ký Nhận):</label>
+          <input type="number" id="flDelivered" class="form-control" value="0">
+        </div>
+        <div class="form-group">
+          <label>Ghi Chú Chứng Từ / Mã Phiếu:</label>
+          <input type="text" id="flNote" class="form-control" placeholder="Ví dụ: Phiếu giao BTP đợt 1...">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="btnCancelFlowModal">Hủy</button>
+        <button class="btn btn-primary" id="btnSaveFlowLog">Lưu Giao Dịch</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
