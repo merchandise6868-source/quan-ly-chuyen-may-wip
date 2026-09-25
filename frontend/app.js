@@ -1,7 +1,7 @@
 // STATE MANAGEMENT
 let appState = {
-  currentUserRole: localStorage.getItem("dd_wip_role") || "worker", // "worker" | "manager" | "admin"
-  currentUser: JSON.parse(localStorage.getItem("dd_user_info") || 'null'),
+  currentUserRole: null, // Set dynamically upon login
+  currentUser: null,     // Set dynamically upon login
   customers: [],
   orders: [],
   usersList: [],
@@ -274,6 +274,8 @@ function bindEvents() {
       if (targetPane) targetPane.classList.add("active");
       if (btn.dataset.tab === "tab-manage") {
         renderManageTab();
+      } else if (btn.dataset.tab === "tab-users") {
+        fetchUsers();
       } else if (btn.dataset.tab === "tab-flow-log") {
         loadDeptLogs();
       } else if (btn.dataset.tab === "tab-history") {
@@ -2166,6 +2168,7 @@ function applyUserRole(role, user = null) {
   const badge = document.getElementById("currentRoleBadge");
   const tabManageBtn = document.getElementById("tabBtnManage");
   const tabHistoryBtn = document.getElementById("tabBtnHistory");
+  const tabUsersBtn = document.getElementById("tabBtnUsers");
 
   const displayName = user ? (user.full_name || user.email || user.phone) : (role === "admin" ? "Sếp Tổng" : (role === "manager" ? "Quản lý" : "Công nhân"));
 
@@ -2176,6 +2179,7 @@ function applyUserRole(role, user = null) {
     }
     if (tabManageBtn) tabManageBtn.classList.remove("hidden");
     if (tabHistoryBtn) tabHistoryBtn.classList.remove("hidden");
+    if (tabUsersBtn) tabUsersBtn.classList.remove("hidden");
   } else if (role === "manager") {
     if (badge) {
       badge.className = "role-badge is-manager";
@@ -2183,6 +2187,13 @@ function applyUserRole(role, user = null) {
     }
     if (tabManageBtn) tabManageBtn.classList.remove("hidden");
     if (tabHistoryBtn) tabHistoryBtn.classList.remove("hidden");
+    if (tabUsersBtn) tabUsersBtn.classList.add("hidden");
+    
+    // If manager is on tab-users, switch to tab-manage
+    const activeTab = document.querySelector(".tab-btn.active");
+    if (activeTab && activeTab.dataset.tab === "tab-users") {
+      if (tabManageBtn) tabManageBtn.click();
+    }
   } else {
     if (badge) {
       badge.className = "role-badge is-worker";
@@ -2190,10 +2201,11 @@ function applyUserRole(role, user = null) {
     }
     if (tabManageBtn) tabManageBtn.classList.add("hidden");
     if (tabHistoryBtn) tabHistoryBtn.classList.add("hidden");
+    if (tabUsersBtn) tabUsersBtn.classList.add("hidden");
 
-    // If user is currently on Tab 2 (History) or Tab 4 (Manage), automatically switch back to Tab 1
+    // If user is currently on Tab 2, Tab 4, or Tab 5, automatically switch back to Tab 1
     const activeTab = document.querySelector(".tab-btn.active");
-    if (activeTab && (activeTab.dataset.tab === "tab-manage" || activeTab.dataset.tab === "tab-history")) {
+    if (activeTab && (activeTab.dataset.tab === "tab-manage" || activeTab.dataset.tab === "tab-history" || activeTab.dataset.tab === "tab-users")) {
       const wipTab = document.querySelector('.tab-btn[data-tab="tab-wip"]');
       if (wipTab) wipTab.click();
     }
