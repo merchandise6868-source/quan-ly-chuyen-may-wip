@@ -53,11 +53,14 @@
     <button class="tab-btn active" data-tab="tab-wip">
       📊 1. Báo Cáo Đối Chiếu Nhập Xuất Tồn
     </button>
+    <button class="tab-btn manager-only-tab" id="tabBtnHistory" data-tab="tab-history">
+      📈 2. Thống Kê Lô Tất Cả Các Ngày
+    </button>
     <button class="tab-btn" data-tab="tab-flow-log">
-      📜 2. Báo Cáo Theo Dõi Sản Lượng (Flow Log)
+      📜 3. Báo Cáo Theo Dõi Sản Lượng (Flow Log)
     </button>
     <button class="tab-btn manager-only-tab" id="tabBtnManage" data-tab="tab-manage">
-      ⚙️ 3. Quản Lý Khách Hàng & Đơn Hàng Lô
+      ⚙️ 4. Quản Lý Khách Hàng & Đơn Hàng Lô
     </button>
     <div class="status-tag" id="reportStatusTag">TRẠNG THÁI: BẢN NHÁP</div>
   </nav>
@@ -65,194 +68,180 @@
   <!-- MAIN CONTAINER -->
   <main class="main-content">
 
-    <!-- TAB 1: BÁO CÁO ĐỐI CHIẾU NHẬP XUẤT TỒN -->
+    <!-- TAB 1: BÁO CÁO ĐỐI CHIẾU NHẬP XUẤT TỒN (THEO NGÀY) -->
     <section id="tab-wip" class="tab-pane active">
       
-      <!-- SUB-TAB BAR FOR TAB 1 -->
-      <div class="sub-tab-bar">
-        <button class="sub-tab-btn active" id="subtabBtnDaily" data-subtab="subtab-daily">
-          📅 1.1. Kiểm Kê Theo Ngày
-        </button>
-        <button class="sub-tab-btn" id="subtabBtnHistory" data-subtab="subtab-history">
-          📈 1.2. Thống Kê Lô Theo Tất Cả Các Ngày
-        </button>
-      </div>
-
-      <!-- SUB-TAB 1.1: KIỂM KÊ THEO NGÀY (HIỆN TẠI) -->
-      <div id="subtab-daily" class="subtab-pane active">
-        <!-- TOOLBAR NÚT TÁC VỤ -->
-        <div class="action-toolbar">
-          <div class="btn-group-left">
-            <button class="btn btn-primary" id="btnAddBatch">
-              ➕ Thêm Lô Mới
-            </button>
-            <button class="btn btn-outline" id="btnRefresh">
-              🔄 Tải Lại Dữ Liệu
-            </button>
-            <span class="keyboard-hint">💡 Phím tắt: Dùng <strong>Enter</strong> để lưu, <strong>4 Phím Mũi Tên (◀ ▲ ▼ ▶)</strong> để chuyển ô, <strong>Ctrl+V</strong> để dán từ Excel</span>
-          </div>
-          <div class="btn-group-right">
-            <button class="btn btn-secondary" id="btnSaveDraft">
-              💾 Lưu Nháp
-            </button>
-            <button class="btn btn-success" id="btnSubmitReport">
-              ✅ Chốt Sổ Cuối Ngày
-            </button>
-            <button class="btn btn-info" id="btnExportExcel">
-              📊 Xuất Excel
-            </button>
-            <button class="btn btn-dark" onclick="window.print()">
-              🖨️ In Báo Cáo
-            </button>
-          </div>
+      <!-- TOOLBAR NÚT TÁC VỤ -->
+      <div class="action-toolbar">
+        <div class="btn-group-left">
+          <button class="btn btn-primary" id="btnAddBatch">
+            ➕ Thêm Lô Mới
+          </button>
+          <button class="btn btn-outline" id="btnRefresh">
+            🔄 Tải Lại Dữ Liệu
+          </button>
+          <span class="keyboard-hint">💡 Phím tắt: Dùng <strong>Enter</strong> để lưu, <strong>4 Phím Mũi Tên (◀ ▲ ▼ ▶)</strong> để chuyển ô, <strong>Ctrl+V</strong> để dán từ Excel</span>
         </div>
-
-        <!-- MAIN EXCEL SHEET CONTAINER -->
-        <div class="excel-sheet-wrapper">
-          
-          <!-- HEADER NẰM NGANG CÙNG DÒNG VỚI BỘ CHỌN NGÀY -->
-          <div class="report-header-banner">
-            <div class="banner-title-group">
-              <h1 class="sheet-title">BÁO CÁO ĐỐI CHIẾU NHẬP XUẤT TỒN</h1>
-              <span class="sheet-subtitle">Theo Dõi Kiểm Kê Dở Dang (WIP) & Cân Đối Hao Hụt Chuyền May</span>
-            </div>
-
-            <div class="banner-date-picker">
-              <label for="reportDate">📅 Ngày Báo Cáo:</label>
-              <div class="date-input-wrapper">
-                <button class="btn-date-nav" id="btnPrevDay" title="Hôm trước">◀</button>
-                <input type="date" id="reportDate" class="report-date-control">
-                <button class="btn-date-nav" id="btnNextDay" title="Hôm sau">▶</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- BẢNG TỔNG HỢP CỐ ĐỊNH PHÍA TRÊN -->
-          <div class="summary-card-wrapper">
-            <table class="excel-summary-table">
-              <tr>
-                <td class="lbl-summary cell-header">Ngày</td>
-                <td class="val-summary cell-val font-semibold" id="summaryDateVal">--</td>
-                <td class="lbl-summary bg-prep-hdr">CHUẨN BỊ còn nợ (đôi)</td>
-                <td class="val-summary bg-prep-val" id="summaryPrepDebt">0</td>
-                <td colspan="2" class="blank-cell"></td>
-              </tr>
-              <tr>
-                <td class="lbl-summary cell-header">PO</td>
-                <td class="val-summary cell-val bold-txt" id="summaryPoNum">--</td>
-                <td colspan="4" class="blank-cell"></td>
-              </tr>
-              <tr>
-                <td class="lbl-summary cell-header">Tổng đơn (đôi)</td>
-                <td class="val-summary cell-val bold-txt" id="summaryPoPlan">0</td>
-                <td class="lbl-summary bg-sum-hdr">TỔNG NHẬN (đôi)</td>
-                <td class="lbl-summary bg-sum-hdr">TỔNG XUẤT CHO KH (đôi)</td>
-                <td class="lbl-summary bg-sum-hdr">TỔNG TỒN THỰC TẾ (đôi)</td>
-                <td class="lbl-summary bg-sum-hdr">TỔNG THIẾU (đôi)</td>
-              </tr>
-              <tr>
-                <td colspan="2" class="blank-cell"></td>
-                <td class="val-summary bg-sum-val" id="summaryTotalReceived">0</td>
-                <td class="val-summary bg-sum-val" id="summaryTotalDelivered">0</td>
-                <td class="val-summary bg-sum-val" id="summaryTotalActualWip">0</td>
-                <td class="val-summary bg-sum-val txt-red" id="summaryTotalShortage">0</td>
-              </tr>
-            </table>
-          </div>
-
-          <!-- DANH SÁCH BẢNG CÁC LÔ HÀNG (RENDER DYNAMICALLY) -->
-          <div id="excelBatchesContainer" class="excel-batches-container">
-            <!-- Dynamic batch tables injected here -->
-          </div>
-
+        <div class="btn-group-right">
+          <button class="btn btn-secondary" id="btnSaveDraft">
+            💾 Lưu Nháp
+          </button>
+          <button class="btn btn-success" id="btnSubmitReport">
+            ✅ Chốt Sổ Cuối Ngày
+          </button>
+          <button class="btn btn-info" id="btnExportExcel">
+            📊 Xuất Excel
+          </button>
+          <button class="btn btn-dark" onclick="window.print()">
+            🖨️ In Báo Cáo
+          </button>
         </div>
       </div>
 
-      <!-- SUB-TAB 1.2: THỐNG KÊ LÔ THEO TẤT CẢ CÁC NGÀY -->
-      <div id="subtab-history" class="subtab-pane">
-        <div class="action-toolbar">
-          <div class="btn-group-left">
-            <label for="historyBatchFilter" style="font-weight: 700; font-size: 13px; color: #1e293b;">🔍 Lọc Theo Lô Hàng:</label>
-            <select id="historyBatchFilter" class="form-control" style="font-weight: 600; width: 180px;">
-              <option value="ALL">-- Tất Cả Các Lô --</option>
-            </select>
-            <button class="btn btn-outline" id="btnRefreshHistory">
-              🔄 Tải Lại Dữ Liệu
-            </button>
+      <!-- MAIN EXCEL SHEET CONTAINER -->
+      <div class="excel-sheet-wrapper">
+        
+        <!-- HEADER NẰM NGANG CÙNG DÒNG VỚI BỘ CHỌN NGÀY -->
+        <div class="report-header-banner">
+          <div class="banner-title-group">
+            <h1 class="sheet-title">BÁO CÁO ĐỐI CHIẾU NHẬP XUẤT TỒN</h1>
+            <span class="sheet-subtitle">Theo Dõi Kiểm Kê Dở Dang (WIP) & Cân Đối Hao Hụt Chuyền May</span>
           </div>
-          <div class="btn-group-right">
-            <button class="btn btn-info" id="btnExportHistoryExcel">
-              📊 Xuất Excel Lịch Sử Lô
-            </button>
-            <button class="btn btn-dark" onclick="window.print()">
-              🖨️ In Thống Kê
-            </button>
+
+          <div class="banner-date-picker">
+            <label for="reportDate">📅 Ngày Báo Cáo:</label>
+            <div class="date-input-wrapper">
+              <button class="btn-date-nav" id="btnPrevDay" title="Hôm trước">◀</button>
+              <input type="date" id="reportDate" class="report-date-control">
+              <button class="btn-date-nav" id="btnNextDay" title="Hôm sau">▶</button>
+            </div>
           </div>
         </div>
 
-        <div class="excel-sheet-wrapper">
-          <div class="report-header-banner">
-            <div class="banner-title-group">
-              <h1 class="sheet-title">THỐNG KÊ LỊCH SỬ TIẾN ĐỘ CÁC LÔ THEO TẤT CẢ CÁC NGÀY</h1>
-              <span class="sheet-subtitle">Tổng hợp biến động kiểm kê, tồn thực tế và tồn lý thuyết qua từng ngày của Đơn hàng</span>
-            </div>
-            <div class="banner-date-picker" style="font-size: 13.5px; font-weight: 700; color: #0f766e;">
-              PO: <span id="histPoNum" style="color: #2563eb; margin-left: 4px;">--</span>
-            </div>
-          </div>
-
-          <div class="table-responsive history-table-wrapper">
-            <table class="history-table" id="tableHistoryAllDates">
-              <thead>
-                <tr>
-                  <th>Ngày Báo Cáo</th>
-                  <th>Lô Hàng</th>
-                  <th>Nhập (Vào chuyền)</th>
-                  <th>Xuất (Đã giao KH)</th>
-                  <th>KK May</th>
-                  <th>KK QC</th>
-                  <th>KK Phối Đôi</th>
-                  <th>KK Đóng Gói</th>
-                  <th>KK Kho TP</th>
-                  <th>Tổng Tồn Thực Tế</th>
-                  <th>Tồn Lý Thuyết</th>
-                  <th>Chênh Lệch / Thiếu</th>
-                  <th>Trạng Thái</th>
-                  <th>Lý Do / Ghi Chú</th>
-                </tr>
-              </thead>
-              <tbody id="historyTbody">
-                <!-- Dynamically populated -->
-              </tbody>
-              <tfoot class="history-tfoot">
-                <tr class="tr-hist-summary">
-                  <td colspan="2"><strong>TỔNG CỘNG</strong></td>
-                  <td id="histSumNhap">0</td>
-                  <td id="histSumXuat">0</td>
-                  <td id="histSumMay">0</td>
-                  <td id="histSumQC">0</td>
-                  <td id="histSumPhoi">0</td>
-                  <td id="histSumDG">0</td>
-                  <td id="histSumKho">0</td>
-                  <td id="histSumTonThucTe" class="txt-amber font-bold">0</td>
-                  <td id="histSumTonLyThuyet" class="txt-blue font-bold">0</td>
-                  <td id="histSumChenhLech" class="txt-red font-bold">0</td>
-                  <td id="histStatus">--</td>
-                  <td></td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
+        <!-- BẢNG TỔNG HỢP CỐ ĐỊNH PHÍA TRÊN -->
+        <div class="summary-card-wrapper">
+          <table class="excel-summary-table">
+            <tr>
+              <td class="lbl-summary cell-header">Ngày</td>
+              <td class="val-summary cell-val font-semibold" id="summaryDateVal">--</td>
+              <td class="lbl-summary bg-prep-hdr">CHUẨN BỊ còn nợ (đôi)</td>
+              <td class="val-summary bg-prep-val" id="summaryPrepDebt">0</td>
+              <td colspan="2" class="blank-cell"></td>
+            </tr>
+            <tr>
+              <td class="lbl-summary cell-header">PO</td>
+              <td class="val-summary cell-val bold-txt" id="summaryPoNum">--</td>
+              <td colspan="4" class="blank-cell"></td>
+            </tr>
+            <tr>
+              <td class="lbl-summary cell-header">Tổng đơn (đôi)</td>
+              <td class="val-summary cell-val bold-txt" id="summaryPoPlan">0</td>
+              <td class="lbl-summary bg-sum-hdr">TỔNG NHẬN (đôi)</td>
+              <td class="lbl-summary bg-sum-hdr">TỔNG XUẤT CHO KH (đôi)</td>
+              <td class="lbl-summary bg-sum-hdr">TỔNG TỒN THỰC TẾ (đôi)</td>
+              <td class="lbl-summary bg-sum-hdr">TỔNG THIẾU (đôi)</td>
+            </tr>
+            <tr>
+              <td colspan="2" class="blank-cell"></td>
+              <td class="val-summary bg-sum-val" id="summaryTotalReceived">0</td>
+              <td class="val-summary bg-sum-val" id="summaryTotalDelivered">0</td>
+              <td class="val-summary bg-sum-val" id="summaryTotalActualWip">0</td>
+              <td class="val-summary bg-sum-val txt-red" id="summaryTotalShortage">0</td>
+            </tr>
+          </table>
         </div>
+
+        <!-- DANH SÁCH BẢNG CÁC LÔ HÀNG (RENDER DYNAMICALLY) -->
+        <div id="excelBatchesContainer" class="excel-batches-container">
+          <!-- Dynamic batch tables injected here -->
+        </div>
+
       </div>
 
     </section>
 
+    <!-- TAB 2: THỐNG KÊ LÔ THEO TẤT CẢ CÁC NGÀY (DÀNH CHO SẾP & THEO DÕI TOÀN BỘ TIẾN ĐỘ) -->
+    <section id="tab-history" class="tab-pane">
+      <div class="action-toolbar">
+        <div class="btn-group-left">
+          <label for="historyBatchFilter" style="font-weight: 700; font-size: 13px; color: #1e293b;">🔍 Lọc Theo Lô Hàng:</label>
+          <select id="historyBatchFilter" class="form-control" style="font-weight: 600; width: 180px;">
+            <option value="ALL">-- Tất Cả Các Lô --</option>
+          </select>
+          <button class="btn btn-outline" id="btnRefreshHistory">
+            🔄 Tải Lại Dữ Liệu
+          </button>
+        </div>
+        <div class="btn-group-right">
+          <button class="btn btn-info" id="btnExportHistoryExcel">
+            📊 Xuất Excel Lịch Sử Lô
+          </button>
+          <button class="btn btn-dark" onclick="window.print()">
+            🖨️ In Thống Kê
+          </button>
+        </div>
+      </div>
 
-    <!-- TAB 2: BÁO CÁO ĐỐI CHIẾU NHẬP XUẤT TỒN + THEO DÕI SẢN LƯỢNG -->
+      <div class="excel-sheet-wrapper">
+        <div class="report-header-banner">
+          <div class="banner-title-group">
+            <h1 class="sheet-title">THỐNG KÊ LỊCH SỬ TIẾN ĐỘ CÁC LÔ THEO TẤT CẢ CÁC NGÀY</h1>
+            <span class="sheet-subtitle">Tổng hợp biến động kiểm kê, tồn thực tế và tồn lý thuyết qua từng ngày của Đơn hàng</span>
+          </div>
+          <div class="banner-date-picker" style="font-size: 13.5px; font-weight: 700; color: #0f766e;">
+            PO: <span id="histPoNum" style="color: #2563eb; margin-left: 4px;">--</span>
+          </div>
+        </div>
+
+        <div class="table-responsive history-table-wrapper">
+          <table class="history-table" id="tableHistoryAllDates">
+            <thead>
+              <tr>
+                <th>Ngày Báo Cáo</th>
+                <th>Lô Hàng</th>
+                <th>Nhập (Vào chuyền)</th>
+                <th>Xuất (Đã giao KH)</th>
+                <th>KK May</th>
+                <th>KK QC</th>
+                <th>KK Phối Đôi</th>
+                <th>KK Đóng Gói</th>
+                <th>KK Kho TP</th>
+                <th>Tổng Tồn Thực Tế</th>
+                <th>Tồn Lý Thuyết</th>
+                <th>Chênh Lệch / Thiếu</th>
+                <th>Trạng Thái</th>
+                <th>Lý Do / Ghi Chú</th>
+              </tr>
+            </thead>
+            <tbody id="historyTbody">
+              <!-- Dynamically populated -->
+            </tbody>
+            <tfoot class="history-tfoot">
+              <tr class="tr-hist-summary">
+                <td colspan="2"><strong>TỔNG CỘNG</strong></td>
+                <td id="histSumNhap">0</td>
+                <td id="histSumXuat">0</td>
+                <td id="histSumMay">0</td>
+                <td id="histSumQC">0</td>
+                <td id="histSumPhoi">0</td>
+                <td id="histSumDG">0</td>
+                <td id="histSumKho">0</td>
+                <td id="histSumTonThucTe" class="txt-amber font-bold">0</td>
+                <td id="histSumTonLyThuyet" class="txt-blue font-bold">0</td>
+                <td id="histSumChenhLech" class="txt-red font-bold">0</td>
+                <td id="histStatus">--</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: BÁO CÁO ĐỐI CHIẾU NHẬP XUẤT TỒN + THEO DÕI SẢN LƯỢNG -->
     <section id="tab-flow-log" class="tab-pane">
       
-      <!-- TOOLBAR NÚT TÁC VỤ CHO TAB 2 -->
+      <!-- TOOLBAR NÚT TÁC VỤ CHO TAB 3 -->
       <div class="action-toolbar">
         <div class="btn-group-left">
           <button class="btn btn-secondary" id="btnSaveDeptLogs">
@@ -273,7 +262,7 @@
         </div>
       </div>
 
-      <!-- MAIN TAB 2 CONTAINER -->
+      <!-- MAIN TAB 3 CONTAINER -->
       <div class="excel-sheet-wrapper">
         
         <!-- TITLE BANNER -->
@@ -325,7 +314,7 @@
 
     </section>
 
-    <!-- TAB 3: QUẢN LÝ KHÁCH HÀNG & PO CHI TIẾT (DÀNH CHO SẾP) -->
+    <!-- TAB 4: QUẢN LÝ KHÁCH HÀNG & PO CHI TIẾT (DÀNH CHO SẾP) -->
     <section id="tab-manage" class="tab-pane">
 
       <!-- STATS KPI BANNER FOR ALL COMPANIES -->
@@ -506,7 +495,7 @@
             <input type="radio" name="authRoleOption" value="worker" id="optRoleWorker">
             <div class="role-option-info">
               <strong>👤 Công Nhân</strong>
-              <small>Chỉ xem & điền số liệu kiểm kê và sản lượng (Tab 1 & Tab 2)</small>
+              <small>Chỉ xem & điền số liệu kiểm kê và sản lượng (Tab 1 & Tab 3)</small>
             </div>
           </label>
           <label class="role-option-card">

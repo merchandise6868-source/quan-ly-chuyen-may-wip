@@ -147,6 +147,8 @@ function bindEvents() {
         renderManageTab();
       } else if (btn.dataset.tab === "tab-flow-log") {
         loadDeptLogs();
+      } else if (btn.dataset.tab === "tab-history") {
+        fetchReportHistory();
       }
     });
   });
@@ -1716,26 +1718,26 @@ function applyUserRole(role) {
 
   const badge = document.getElementById("currentRoleBadge");
   const tabManageBtn = document.getElementById("tabBtnManage");
+  const tabHistoryBtn = document.getElementById("tabBtnHistory");
 
   if (role === "manager") {
     if (badge) {
       badge.className = "role-badge is-manager";
       badge.innerHTML = "👑 Quản lý (Sếp)";
     }
-    if (tabManageBtn) {
-      tabManageBtn.classList.remove("hidden");
-    }
+    if (tabManageBtn) tabManageBtn.classList.remove("hidden");
+    if (tabHistoryBtn) tabHistoryBtn.classList.remove("hidden");
   } else {
     if (badge) {
       badge.className = "role-badge is-worker";
       badge.innerHTML = "👤 Công nhân";
     }
-    if (tabManageBtn) {
-      tabManageBtn.classList.add("hidden");
-    }
-    // If user is currently on Tab 3, automatically switch back to Tab 1
+    if (tabManageBtn) tabManageBtn.classList.add("hidden");
+    if (tabHistoryBtn) tabHistoryBtn.classList.add("hidden");
+
+    // If user is currently on Tab 2 (History) or Tab 4 (Manage), automatically switch back to Tab 1
     const activeTab = document.querySelector(".tab-btn.active");
-    if (activeTab && activeTab.dataset.tab === "tab-manage") {
+    if (activeTab && (activeTab.dataset.tab === "tab-manage" || activeTab.dataset.tab === "tab-history")) {
       const wipTab = document.querySelector('.tab-btn[data-tab="tab-wip"]');
       if (wipTab) wipTab.click();
     }
