@@ -55,91 +55,39 @@
         </div>
       </div>
 
-      <!-- LOGIN METHOD TABS -->
-      <div class="login-portal-tabs">
-        <button type="button" class="login-portal-tab active" id="portalTabBtnEmail">📧 Email / SĐT</button>
-        <button type="button" class="login-portal-tab" id="portalTabBtnPhone">📲 OTP SMS</button>
-        <button type="button" class="login-portal-tab" id="portalTabBtnPin">🔑 Mã PIN</button>
-      </div>
-
-      <!-- LOGIN PORTAL BODY -->
+      <!-- SINGLE STREAMLINED LOGIN FORM (SĐT / EMAIL + MẬT KHẨU) -->
       <div class="login-portal-body">
-        
-        <!-- PANE 1: EMAIL / PHONE & PASSWORD -->
-        <div id="portalPaneEmail" class="portal-pane active">
-          <form id="formPortalEmail" autocomplete="on">
-            <div class="form-group" style="margin-bottom: 14px;">
-              <label for="portalTxtEmail" style="font-weight: 700; font-size: 13.5px; color: #1e293b;">Tài Khoản Đăng Nhập (Email hoặc SĐT):</label>
-              <input type="text" id="portalTxtEmail" class="form-control font-bold" placeholder="Nhập email hoặc số điện thoại..." required autocomplete="username" inputmode="email">
-            </div>
+        <form id="formPortalLogin" autocomplete="on">
+          <div class="form-group" style="margin-bottom: 16px;">
+            <label for="portalTxtLoginUser" style="font-weight: 700; font-size: 13.5px; color: #1e293b; display: block; margin-bottom: 6px;">
+              📱 Số Điện Thoại hoặc Email Đăng Nhập:
+            </label>
+            <input type="text" id="portalTxtLoginUser" class="form-control font-bold" placeholder="Nhập số điện thoại (ví dụ: 0818189868) hoặc email..." required autocomplete="username" inputmode="text" style="width: 100%; padding: 12px 14px; font-size: 15px; border-radius: 8px;">
+          </div>
 
-            <div class="form-group" style="margin-bottom: 14px;">
-              <label for="portalTxtPassword" style="font-weight: 700; font-size: 13.5px; color: #1e293b;">Mật Khẩu:</label>
-              <input type="password" id="portalTxtPassword" class="form-control font-bold" placeholder="Nhập mật khẩu..." required autocomplete="current-password">
-            </div>
-
-            <div class="form-group" style="margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
-              <input type="checkbox" id="chkRememberMe" checked style="width: 17px; height: 17px; cursor: pointer; accent-color: #0f766e;">
-              <label for="chkRememberMe" style="font-size: 13px; color: #475569; font-weight: 600; cursor: pointer; user-select: none;">
-                Ghi nhớ phiên đăng nhập trên thiết bị này (không cần đăng nhập lại)
+          <div class="form-group" style="margin-bottom: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <label for="portalTxtLoginPass" style="font-weight: 700; font-size: 13.5px; color: #1e293b;">
+                🔒 Mật Khẩu:
               </label>
+              <button type="button" id="btnToggleShowPass" style="background: none; border: none; font-size: 12.5px; color: #0284c7; cursor: pointer; font-weight: 700;">
+                👁️ Hiện mật khẩu
+              </button>
             </div>
-
-            <button type="submit" class="login-btn-submit" id="btnPortalLoginEmail">
-              🚀 Đăng Nhập Vào Hệ Thống
-            </button>
-          </form>
-        </div>
-
-        <!-- PANE 2: PHONE OTP SMS -->
-        <div id="portalPanePhone" class="portal-pane">
-          <p style="font-size: 13px; color: #475569; margin-bottom: 12px;">
-            Nhập số điện thoại của bạn để nhận mã OTP SMS:
-          </p>
-
-          <div class="form-group">
-            <label for="portalTxtPhone" style="font-weight: 700; font-size: 13.5px; color: #1e293b;">Số điện thoại:</label>
-            <div style="display: flex; gap: 8px;">
-              <input type="tel" id="portalTxtPhone" class="form-control font-bold" placeholder="Nhập số điện thoại..." style="flex: 1;" inputmode="tel" autocomplete="tel">
-              <button type="button" class="btn btn-primary" id="btnPortalSendOTP" style="white-space: nowrap;">📩 Gửi OTP</button>
-            </div>
+            <input type="password" id="portalTxtLoginPass" class="form-control font-bold" placeholder="Nhập mật khẩu..." required autocomplete="current-password" style="width: 100%; padding: 12px 14px; font-size: 15px; border-radius: 8px;">
           </div>
 
-          <div id="portal-recaptcha-container"></div>
-
-          <div id="portalBoxOtpInput" class="form-group" style="display: none; margin-top: 15px; background: #f0fdf4; padding: 12px; border-radius: 8px; border: 1.5px solid #86efac;">
-            <label for="portalTxtOtpCode" style="color: #15803d; font-weight: 700;">Nhập mã OTP 6 số:</label>
-            <input type="text" id="portalTxtOtpCode" class="form-control font-bold" placeholder="Nhập 6 số OTP..." maxlength="6" inputmode="numeric" autocomplete="one-time-code" style="font-size: 18px; letter-spacing: 4px; text-align: center;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
-              <small style="color: #64748b; font-size: 12px;">Hiệu lực trong: <strong id="portalTimerSec">60</strong>s</small>
-              <button type="button" id="btnPortalResendOTP" style="background:none; border:none; color:#0284c7; cursor:pointer; font-size:12px; font-weight:700;" disabled>Gửi lại</button>
-            </div>
+          <div class="form-group" style="margin-bottom: 20px; display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" id="chkRememberMe" checked style="width: 18px; height: 18px; cursor: pointer; accent-color: #0f766e;">
+            <label for="chkRememberMe" style="font-size: 13px; color: #334155; font-weight: 600; cursor: pointer; user-select: none;">
+              Ghi nhớ đăng nhập trên thiết bị này (không cần đăng nhập lại)
+            </label>
           </div>
 
-          <button type="button" class="login-btn-submit" id="btnPortalLoginPhone" style="margin-top: 15px;">
-            🔐 Xác Nhận Đăng Nhập OTP
+          <button type="submit" class="login-btn-submit" id="btnPortalSubmitLogin" style="padding: 13px; font-size: 15px;">
+            🚀 Đăng Nhập Vào Hệ Thống
           </button>
-        </div>
-
-        <!-- PANE 3: FAST PIN -->
-        <div id="portalPanePin" class="portal-pane">
-          <p style="font-size: 13px; color: #475569; margin-bottom: 12px;">
-            Đăng nhập bằng Số điện thoại & Mã PIN dự phòng:
-          </p>
-          <div class="form-group" style="margin-bottom: 10px;">
-            <label for="portalPinPhone" style="font-weight: 700; font-size: 13.5px; color: #1e293b;">Số điện thoại:</label>
-            <input type="tel" id="portalPinPhone" class="form-control" placeholder="Nhập số điện thoại..." inputmode="tel">
-          </div>
-          <div class="form-group" style="margin-bottom: 15px;">
-            <label for="portalPinCode" style="font-weight: 700; font-size: 13.5px; color: #1e293b;">Mã PIN:</label>
-            <input type="password" id="portalPinCode" class="form-control" placeholder="Nhập mã PIN..." maxlength="6" inputmode="numeric">
-          </div>
-
-          <button type="button" class="login-btn-submit" id="btnPortalLoginPin">
-            🔑 Đăng Nhập Bằng Mã PIN
-          </button>
-        </div>
-
+        </form>
       </div>
     </div>
   </div>
@@ -714,84 +662,33 @@
   <div id="modalRoleAuth" class="modal-overlay">
     <div class="modal-card modal-auth-card">
       <div class="modal-header">
-        <h3 id="modalRoleTitle">🔐 Đăng Nhập Hệ Thống & Đổi Quyền</h3>
+        <h3 id="modalRoleTitle">🔐 Đăng Nhập Tài Khoản Khác / Đổi Quyền</h3>
         <button class="btn-close-modal" id="btnCloseRoleModal">×</button>
       </div>
-      
-      <!-- AUTH TABS -->
-      <div class="auth-modal-tabs">
-        <button type="button" class="auth-tab-btn active" id="authTabBtnEmail">📧 Email / SĐT & Mật Khẩu</button>
-        <button type="button" class="auth-tab-btn" id="authTabBtnPhone">📲 OTP SMS</button>
-        <button type="button" class="auth-tab-btn" id="authTabBtnPin">🔑 Mã PIN</button>
-      </div>
 
-      <div class="modal-body">
-        
-        <!-- PANE 1: EMAIL & PASSWORD -->
-        <div id="authPaneEmail" class="auth-pane active">
-          <div class="form-group" style="margin-bottom: 12px;">
-            <label for="txtAuthEmail">Tài khoản (Email hoặc SĐT):</label>
-            <input type="text" id="txtAuthEmail" class="form-control font-bold" placeholder="Nhập email hoặc số điện thoại..." autocomplete="username">
-          </div>
-
-          <div class="form-group" style="margin-bottom: 12px;">
-            <label for="txtAuthPassword">Mật khẩu:</label>
-            <input type="password" id="txtAuthPassword" class="form-control font-bold" placeholder="Nhập mật khẩu..." autocomplete="current-password">
-          </div>
+      <div class="modal-body" style="padding: 20px;">
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label for="txtAuthEmail" style="font-weight: 700; color: #1e293b; display: block; margin-bottom: 5px;">
+            📱 Số Điện Thoại hoặc Email:
+          </label>
+          <input type="text" id="txtAuthEmail" class="form-control font-bold" placeholder="Nhập số điện thoại hoặc email..." autocomplete="username" style="width: 100%;">
         </div>
 
-        <!-- PANE 2: GOOGLE FIREBASE PHONE SMS OTP -->
-        <div id="authPanePhone" class="auth-pane">
-          <p style="font-size: 13px; color: #475569; margin-bottom: 12px;">
-            Nhập số điện thoại của bạn để nhận mã xác thực OTP 6 số qua tin nhắn SMS:
-          </p>
-
-          <div class="form-group" id="groupInputPhone">
-            <label for="txtAuthPhone">Số điện thoại:</label>
-            <div style="display: flex; gap: 8px;">
-              <input type="tel" id="txtAuthPhone" class="form-control font-bold" placeholder="Ví dụ: 0901234567..." style="flex: 1; font-size: 14px;" inputmode="tel">
-              <button type="button" class="btn btn-primary" id="btnSendPhoneOTP" style="white-space: nowrap;">📩 Gửi Mã OTP</button>
-            </div>
-          </div>
-
-          <!-- Invisible reCAPTCHA container -->
-          <div id="recaptcha-container"></div>
-
-          <!-- OTP Input Step (Hidden until OTP is sent) -->
-          <div id="boxOtpInput" class="form-group" style="display: none; margin-top: 15px; background: #f0fdf4; padding: 12px; border-radius: 8px; border: 1.5px solid #86efac;">
-            <label for="txtOtpCode" style="color: #15803d; font-weight: 700;">Nhập mã OTP 6 số:</label>
-            <input type="text" id="txtOtpCode" class="form-control font-bold" placeholder="Nhập 6 số OTP..." maxlength="6" inputmode="numeric" style="font-size: 18px; letter-spacing: 4px; text-align: center;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
-              <small id="lblOtpTimer" style="color: #64748b; font-size: 12px;">Mã có hiệu lực trong: <strong id="timerSec">60</strong>s</small>
-              <button type="button" id="btnResendOTP" style="background:none; border:none; color:#0284c7; cursor:pointer; font-size:12px; font-weight:700;" disabled>Gửi lại OTP</button>
-            </div>
-          </div>
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label for="txtAuthPassword" style="font-weight: 700; color: #1e293b; display: block; margin-bottom: 5px;">
+            🔒 Mật Khẩu:
+          </label>
+          <input type="password" id="txtAuthPassword" class="form-control font-bold" placeholder="Nhập mật khẩu..." autocomplete="current-password" style="width: 100%;">
         </div>
-
-        <!-- PANE 3: FAST PIN LOGIN (FALLBACK) -->
-        <div id="authPanePin" class="auth-pane">
-          <p style="font-size: 13px; color: #475569; margin-bottom: 12px;">
-            Đăng nhập bằng Số điện thoại & Mã PIN:
-          </p>
-          <div class="form-group">
-            <label for="txtPinPhone">Số điện thoại:</label>
-            <input type="tel" id="txtPinPhone" class="form-control" placeholder="Nhập số điện thoại..." inputmode="tel">
-          </div>
-          <div class="form-group" style="margin-top: 10px;">
-            <label for="txtManagerPin">Mã PIN:</label>
-            <input type="password" id="txtManagerPin" class="form-control" placeholder="Nhập mã PIN..." maxlength="6" inputmode="numeric">
-          </div>
-        </div>
-
       </div>
 
       <div class="modal-footer">
         <button class="btn btn-secondary" id="btnCancelRoleModal">Đóng</button>
-        <button class="btn btn-primary" id="btnConfirmAuth">Xác Nhận Đăng Nhập</button>
+        <button class="btn btn-primary" id="btnConfirmAuth">🚀 Xác Nhận Đăng Nhập</button>
       </div>
     </div>
   </div>
 
-  <script src="app.js?v=20260925_2210"></script>
+  <script src="app.js?v=20260925_2330"></script>
 </body>
 </html>

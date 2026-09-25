@@ -1930,14 +1930,10 @@ function handleLogout() {
     appState.currentUserRole = "worker";
 
     // Clear login input values for next clean login
-    const emailInput = document.getElementById("portalTxtEmail");
-    const passInput = document.getElementById("portalTxtPassword");
-    const phoneInput = document.getElementById("portalTxtPhone");
-    const pinInput = document.getElementById("portalPinCode");
-    if (emailInput) emailInput.value = "";
+    const userInput = document.getElementById("portalTxtLoginUser");
+    const passInput = document.getElementById("portalTxtLoginPass");
+    if (userInput) userInput.value = "";
     if (passInput) passInput.value = "";
-    if (phoneInput) phoneInput.value = "";
-    if (pinInput) pinInput.value = "";
 
     const portal = document.getElementById("loginPortalScreen");
     const mainApp = document.getElementById("appMainWrapper");
@@ -1954,7 +1950,7 @@ function handleLogout() {
 
 // BIND DEDICATED LOGIN PORTAL EVENTS
 function bindPortalEvents() {
-  // 1. Role Choice Cards in Portal (Visual indicator only, no auto-filling credentials)
+  // 1. Role Choice Cards in Portal (Visual indicator only)
   const cardAdmin = document.getElementById("cardRoleAdmin");
   const cardManager = document.getElementById("cardRoleManager");
   const cardWorker = document.getElementById("cardRoleWorker");
@@ -1977,93 +1973,49 @@ function bindPortalEvents() {
   if (cardManager) cardManager.addEventListener("click", () => selectPortalRole("manager"));
   if (cardWorker) cardWorker.addEventListener("click", () => selectPortalRole("worker"));
 
-  // 2. Portal Method Tabs
-  const pTabEmail = document.getElementById("portalTabBtnEmail");
-  const pTabPhone = document.getElementById("portalTabBtnPhone");
-  const pTabPin = document.getElementById("portalTabBtnPin");
-  const pPaneEmail = document.getElementById("portalPaneEmail");
-  const pPanePhone = document.getElementById("portalPanePhone");
-  const pPanePin = document.getElementById("portalPanePin");
-
-  function switchPortalTab(tBtn, pPane) {
-    [pTabEmail, pTabPhone, pTabPin].forEach(t => t && t.classList.remove("active"));
-    [pPaneEmail, pPanePhone, pPanePin].forEach(p => p && p.classList.remove("active"));
-    if (tBtn) tBtn.classList.add("active");
-    if (pPane) pPane.classList.add("active");
-  }
-
-  if (pTabEmail) pTabEmail.addEventListener("click", () => switchPortalTab(pTabEmail, pPaneEmail));
-  if (pTabPhone) pTabPhone.addEventListener("click", () => switchPortalTab(pTabPhone, pPanePhone));
-  if (pTabPin) pTabPin.addEventListener("click", () => switchPortalTab(pTabPin, pPanePin));
-
-  // 3. Fast Preset Login Buttons for 3 Roles
-  const btnFastAdmin = document.getElementById("btnFastLoginAdmin");
-  if (btnFastAdmin) {
-    btnFastAdmin.addEventListener("click", () => {
-      onLoginSuccess({
-        id: "usr-admin-1",
-        email: "admin@ddlongan.com",
-        phone: "0900000000",
-        full_name: "Sếp Tổng Quản Trị (Admin)",
-        role: "admin"
-      }, "admin");
+  // 2. Toggle Show / Hide Password
+  const btnTogglePass = document.getElementById("btnToggleShowPass");
+  const passInput = document.getElementById("portalTxtLoginPass");
+  if (btnTogglePass && passInput) {
+    btnTogglePass.addEventListener("click", () => {
+      if (passInput.type === "password") {
+        passInput.type = "text";
+        btnTogglePass.innerText = "🙈 Ẩn mật khẩu";
+      } else {
+        passInput.type = "password";
+        btnTogglePass.innerText = "👁️ Hiện mật khẩu";
+      }
     });
   }
 
-  const btnFastManager = document.getElementById("btnFastLoginManager");
-  if (btnFastManager) {
-    btnFastManager.addEventListener("click", () => {
-      onLoginSuccess({
-        id: "usr-mgr-1",
-        email: "manager@ddlongan.com",
-        phone: "0977777777",
-        full_name: "Tổ Trưởng Chuyền 1 (Manager)",
-        role: "manager"
-      }, "manager");
-    });
-  }
-
-  const btnFastWorker = document.getElementById("btnFastLoginWorker");
-  if (btnFastWorker) {
-    btnFastWorker.addEventListener("click", () => {
-      onLoginSuccess({
-        id: "usr-wrk-1",
-        email: "worker@ddlongan.com",
-        phone: "0911111111",
-        full_name: "Công Nhân Kiểm Kê",
-        role: "worker"
-      }, "worker");
-    });
-  }
-
-  // 4. Form Submit & Button Click Email Portal
-  async function submitPortalEmail(e) {
+  // 3. Direct Login Submit (Số điện thoại / Email + Mật Khẩu)
+  async function submitDirectLogin(e) {
     if (e && e.preventDefault) e.preventDefault();
-    const email = document.getElementById("portalTxtEmail")?.value.trim();
-    const password = document.getElementById("portalTxtPassword")?.value.trim();
+    const userOrPhone = document.getElementById("portalTxtLoginUser")?.value.trim();
+    const password = document.getElementById("portalTxtLoginPass")?.value.trim();
 
-    if (!email || !password) {
-      alert("Vui lòng nhập đầy đủ Email và Mật khẩu.");
+    if (!userOrPhone || !password) {
+      alert("❌ Vui lòng nhập đầy đủ Số điện thoại/Email và Mật khẩu.");
       return;
     }
 
-    const btnSub = document.getElementById("btnPortalLoginEmail");
+    const btnSub = document.getElementById("btnPortalSubmitLogin");
     if (btnSub) {
       btnSub.disabled = true;
-      btnSub.innerText = "⏳ Đang xác thực...";
+      btnSub.innerText = "⏳ Đang xác thực tài khoản...";
     }
 
     try {
       const res = await fetch("/api/auth/email-login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email: userOrPhone, password })
       });
       const data = await res.json();
       if (data.success && data.user) {
         onLoginSuccess(data.user, data.user.role);
       } else {
-        alert("❌ " + (data.error || "Email hoặc Mật khẩu không chính xác!"));
+        alert("❌ " + (data.error || "Số điện thoại / Email hoặc Mật khẩu không chính xác!"));
       }
     } catch (err) {
       alert("Lỗi kết nối máy chủ: " + err.message);
@@ -2075,180 +2027,9 @@ function bindPortalEvents() {
     }
   }
 
-  const formPortalEmail = document.getElementById("formPortalEmail");
-  if (formPortalEmail) {
-    formPortalEmail.addEventListener("submit", submitPortalEmail);
-  }
-
-  const btnPortalLoginEmail = document.getElementById("btnPortalLoginEmail");
-  if (btnPortalLoginEmail) {
-    btnPortalLoginEmail.addEventListener("click", submitPortalEmail);
-  }
-
-  // 5. Portal Phone OTP Login (Google Firebase Real SMS)
-  const btnPortalSendOTP = document.getElementById("btnPortalSendOTP");
-  if (btnPortalSendOTP) {
-    btnPortalSendOTP.addEventListener("click", async () => {
-      const rawPhone = document.getElementById("portalTxtPhone")?.value.trim();
-      if (!rawPhone || rawPhone.length < 9) {
-        alert("❌ Vui lòng nhập đúng định dạng số điện thoại (ví dụ: 0818189868 hoặc 0901234567).");
-        return;
-      }
-
-      const intlPhone = formatPhoneToIntl(rawPhone);
-      btnPortalSendOTP.disabled = true;
-      btnPortalSendOTP.innerText = "⏳ Đang gửi SMS...";
-
-      try {
-        if (!firebaseAuth) {
-          throw new Error("Google Firebase Auth chưa sẵn sàng. Vui lòng tải lại trang.");
-        }
-
-        if (!portalRecaptchaVerifier) {
-          portalRecaptchaVerifier = new firebase.auth.RecaptchaVerifier('portal-recaptcha-container', {
-            size: 'invisible',
-            callback: () => {}
-          });
-        }
-
-        portalConfirmationResult = await firebaseAuth.signInWithPhoneNumber(intlPhone, portalRecaptchaVerifier);
-
-        const boxOtp = document.getElementById("portalBoxOtpInput");
-        if (boxOtp) boxOtp.style.display = "block";
-        const txtOtp = document.getElementById("portalTxtOtpCode");
-        if (txtOtp) {
-          txtOtp.value = "";
-          txtOtp.focus();
-        }
-        startPortalOtpCountdown();
-        showToast(`📩 Đã gửi tin nhắn SMS chứa mã OTP về số ${rawPhone}! Vui lòng kiểm tra hộp thư tin nhắn SMS.`);
-      } catch (err) {
-        console.error("Firebase SMS send error:", err);
-        if (portalRecaptchaVerifier) {
-          try {
-            portalRecaptchaVerifier.render().then(widgetId => {
-              if (window.grecaptcha) grecaptcha.reset(widgetId);
-            });
-          } catch(e) {}
-        }
-        
-        let msg = err.message;
-        if (err.code === 'auth/invalid-phone-number') {
-          msg = "Số điện thoại không đúng định dạng quốc tế.";
-        } else if (err.code === 'auth/too-many-requests') {
-          msg = "Bạn đã gửi yêu cầu quá nhiều lần. Vui lòng chờ 2 phút trước khi gửi lại.";
-        } else if (err.code === 'auth/unauthorized-domain') {
-          msg = "Tên miền chưa được xác thực trong Firebase Console. (Vào Firebase Console -> Authentication -> Settings -> Authorized domains và thêm: " + window.location.hostname + ")";
-        }
-        alert("❌ Lỗi gửi tin nhắn SMS: " + msg);
-      } finally {
-        btnPortalSendOTP.disabled = false;
-        btnPortalSendOTP.innerText = "📩 Gửi OTP";
-      }
-    });
-  }
-
-  const btnPortalResendOTP = document.getElementById("btnPortalResendOTP");
-  if (btnPortalResendOTP) {
-    btnPortalResendOTP.addEventListener("click", () => {
-      if (btnPortalSendOTP) btnPortalSendOTP.click();
-    });
-  }
-
-  const btnPortalLoginPhone = document.getElementById("btnPortalLoginPhone");
-  if (btnPortalLoginPhone) {
-    btnPortalLoginPhone.addEventListener("click", async () => {
-      const rawPhone = document.getElementById("portalTxtPhone")?.value.trim();
-      const otpCode = document.getElementById("portalTxtOtpCode")?.value.trim();
-
-      if (!rawPhone) {
-        alert("❌ Vui lòng nhập số điện thoại trước.");
-        return;
-      }
-
-      const boxOtp = document.getElementById("portalBoxOtpInput");
-      if (!boxOtp || boxOtp.style.display === "none") {
-        alert("⚠️ Bạn chưa gửi mã OTP. Vui lòng bấm nút '📩 Gửi OTP' để nhận tin nhắn SMS chứa mã xác nhận!");
-        return;
-      }
-
-      if (!otpCode || otpCode.length !== 6) {
-        alert("❌ Vui lòng nhập đầy đủ 6 chữ số OTP từ tin nhắn SMS trên điện thoại!");
-        return;
-      }
-
-      if (!portalConfirmationResult) {
-        alert("❌ Phiên gửi OTP chưa hoàn tất. Vui lòng bấm 'Gửi lại' OTP.");
-        return;
-      }
-
-      btnPortalLoginPhone.disabled = true;
-      btnPortalLoginPhone.innerText = "⏳ Đang xác thực OTP SMS...";
-
-      try {
-        // Confirm OTP with Google Firebase
-        const userCredential = await portalConfirmationResult.confirm(otpCode);
-        const fbUser = userCredential.user;
-        console.log("Firebase SMS Verified successfully:", fbUser.phoneNumber);
-
-        // Sync with D1 Database backend
-        const res = await fetch("/api/auth/phone-login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            phone: rawPhone,
-            otp_verified: true,
-            firebase_uid: fbUser.uid
-          })
-        });
-
-        const data = await res.json();
-        if (data.success && data.user) {
-          onLoginSuccess(data.user, data.user.role);
-        } else {
-          alert("❌ " + (data.error || "Không thể đồng bộ thông tin tài khoản."));
-        }
-      } catch (err) {
-        console.error("Firebase OTP Verification error:", err);
-        let msg = err.message;
-        if (err.code === 'auth/invalid-verification-code') {
-          msg = "Mã OTP 6 số nhập vào không chính xác! Vui lòng kiểm tra lại tin nhắn SMS.";
-        } else if (err.code === 'auth/code-expired') {
-          msg = "Mã OTP đã hết hạn. Vui lòng bấm gửi lại mã mới.";
-        }
-        alert("❌ Xác thực OTP thất bại: " + msg);
-      } finally {
-        btnPortalLoginPhone.disabled = false;
-        btnPortalLoginPhone.innerText = "🔐 Xác Nhận Đăng Nhập OTP";
-      }
-    });
-  }
-
-  const btnPortalLoginPin = document.getElementById("btnPortalLoginPin");
-  if (btnPortalLoginPin) {
-    btnPortalLoginPin.addEventListener("click", async () => {
-      const phone = document.getElementById("portalPinPhone")?.value.trim() || "0900000000";
-      const pin = document.getElementById("portalPinCode")?.value.trim();
-      if (!pin) {
-        alert("Vui lòng nhập mã PIN.");
-        return;
-      }
-      try {
-        const res = await fetch("/api/auth/phone-login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ phone, pin, otp_verified: false })
-        });
-        const data = await res.json();
-        if (data.success && data.user) {
-          onLoginSuccess(data.user, data.user.role);
-        } else {
-          alert("❌ " + (data.error || "Mã PIN không chính xác!"));
-        }
-      } catch (err) {
-        alert("Lỗi: " + err.message);
-      }
-    });
+  const formLogin = document.getElementById("formPortalLogin");
+  if (formLogin) {
+    formLogin.addEventListener("submit", submitDirectLogin);
   }
 
   // Logout button in Main App Bar

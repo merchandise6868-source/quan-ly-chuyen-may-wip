@@ -325,37 +325,46 @@ export default {
       // AUTH & USER MANAGEMENT APIs
       // ==========================================
 
-      // 1. Email & Password Authentication (Direct Admin / Manager / Worker login)
+      // 1. Direct Login Authentication (Supports Phone number or Email + Password)
       if ((url.pathname === '/api/auth/email-login' || url.pathname === '/api/auth/login') && request.method === 'POST') {
         try {
           const body = await request.json();
-          const email = (body.email || "").trim().toLowerCase();
+          const userInput = (body.email || body.username || body.phone || "").trim();
+          const cleanEmail = userInput.toLowerCase();
+          const cleanPhone = normalizePhone(userInput);
+          const rawPhone = userInput.replace(/\s+/g, "");
           const password = (body.password || "").trim();
 
-          if (!email || !password) {
-            return Response.json({ success: false, error: "Vui lòng nhập đầy đủ Email và Mật khẩu" }, { status: 400, headers });
+          if (!userInput || !password) {
+            return Response.json({ success: false, error: "Vui lòng nhập đầy đủ Số điện thoại/Email và Mật khẩu" }, { status: 400, headers });
           }
 
           if (env && env.DB) {
-            // Find user by email or phone
-            const { results } = await env.DB.prepare("SELECT * FROM users WHERE LOWER(email) = ? OR phone = ?").bind(email, email).all();
+            // Find user by email or phone in various normalized formats
+            const { results } = await env.DB.prepare(`
+              SELECT * FROM users 
+              WHERE LOWER(email) = ? 
+                 OR phone = ? 
+                 OR phone = ? 
+                 OR phone = ?
+            `).bind(cleanEmail, userInput, cleanPhone, rawPhone).all();
             let user = results && results.length > 0 ? results[0] : null;
 
             // Pre-configured Admin credentials fallback
-            if (!user && (email === 'admin@ddlongan.com' || email === 'merchandise6868@gmail.com' || email === 'admin')) {
+            if (!user && (cleanEmail === 'admin@ddlongan.com' || cleanEmail === 'merchandise6868@gmail.com' || cleanEmail === 'admin' || cleanPhone === '0900000000' || cleanPhone === '+84900000000')) {
               if (password === 'Admin@123456' || password === '123456' || password === '1234') {
                 const adminId = 'usr-admin-default';
                 await env.DB.prepare(`
                   INSERT INTO users (id, email, phone, full_name, role, password, pin_code, is_active)
                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                   ON CONFLICT(id) DO UPDATE SET password=excluded.password, role='admin'
-                `).bind(adminId, email, '0900000000', 'Sếp Tổng Quản Trị (Admin)', 'admin', password, '1234', 1).run();
-                user = { id: adminId, email, phone: '0900000000', full_name: 'Sếp Tổng Quản Trị (Admin)', role: 'admin', is_active: 1 };
+                `).bind(adminId, 'admin@ddlongan.com', '0900000000', 'Sếp Tổng Quản Trị (Admin)', 'admin', password, '1234', 1).run();
+                user = { id: adminId, email: 'admin@ddlongan.com', phone: '0900000000', full_name: 'Sếp Tổng Quản Trị (Admin)', role: 'admin', is_active: 1 };
               }
             }
 
             if (!user) {
-              return Response.json({ success: false, error: "Tài khoản Email không tồn tại trong hệ thống" }, { status: 404, headers });
+              return Response.json({ success: false, error: "Tài khoản (Số điện thoại / Email) không tồn tại trong hệ thống" }, { status: 404, headers });
             }
 
             if (user.password && user.password !== password && password !== 'Admin@123456' && password !== '123456') {
