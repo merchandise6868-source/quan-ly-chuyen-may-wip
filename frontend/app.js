@@ -53,10 +53,25 @@ function initFirebaseAuth() {
 document.addEventListener("DOMContentLoaded", () => {
   initDate();
   initFirebaseAuth();
-  applyUserRole(appState.currentUserRole, appState.currentUser);
   bindEvents();
+  bindPortalEvents();
+  checkLoginPortalState();
   fetchMetadata();
 });
+
+function checkLoginPortalState() {
+  const portal = document.getElementById("loginPortalScreen");
+  const mainApp = document.getElementById("appMainWrapper");
+
+  if (appState.currentUser && appState.currentUserRole) {
+    if (portal) portal.style.display = "none";
+    if (mainApp) mainApp.style.display = "block";
+    applyUserRole(appState.currentUserRole, appState.currentUser);
+  } else {
+    if (portal) portal.style.display = "flex";
+    if (mainApp) mainApp.style.display = "none";
+  }
+}
 
 function initDate() {
   const dateEl = document.getElementById("reportDate");
@@ -1794,6 +1809,251 @@ function exportToExcel() {
 // ========================================================
 // ROLE & FIREBASE AUTHENTICATION FUNCTIONS
 // ========================================================
+function onLoginSuccess(user, role) {
+  appState.currentUserRole = role || user.role || "worker";
+  appState.currentUser = user;
+  localStorage.setItem("dd_wip_role", appState.currentUserRole);
+  localStorage.setItem("dd_user_info", JSON.stringify(user));
+
+  const portal = document.getElementById("loginPortalScreen");
+  const mainApp = document.getElementById("appMainWrapper");
+  if (portal) portal.style.display = "none";
+  if (mainApp) mainApp.style.display = "block";
+
+  applyUserRole(appState.currentUserRole, appState.currentUser);
+  closeRoleModal();
+
+  const roleLabel = role === 'admin' ? '👑 Sếp Tổng (Toàn quyền 4 Tab)' : (role === 'manager' ? '⭐ Quản Lý (Xem toàn bộ tiến độ)' : '👤 Công Nhân (2 Tab kiểm kê)');
+  showToast(`🎉 Đăng nhập thành công: ${user.full_name || user.email || user.phone}\nQuyền: ${roleLabel}`);
+
+  if (role === 'admin') {
+    fetchUsers();
+  }
+}
+
+function handleLogout() {
+  if (confirm("Bạn có chắc chắn muốn đăng xuất khỏi hệ thống?")) {
+    localStorage.removeItem("dd_user_info");
+    localStorage.removeItem("dd_wip_role");
+    appState.currentUser = null;
+    appState.currentUserRole = "worker";
+
+    const portal = document.getElementById("loginPortalScreen");
+    const mainApp = document.getElementById("appMainWrapper");
+    if (portal) portal.style.display = "flex";
+    if (mainApp) mainApp.style.display = "none";
+
+    showToast("👋 Đã đăng xuất khỏi hệ thống!");
+  }
+}
+
+// BIND DEDICATED LOGIN PORTAL EVENTS
+function bindPortalEvents() {
+  // 1. Role Choice Cards in Portal
+  const cardAdmin = document.getElementById("cardRoleAdmin");
+  const cardManager = document.getElementById("cardRoleManager");
+  const cardWorker = document.getElementById("cardRoleWorker");
+
+  function selectPortalRole(role) {
+    [cardAdmin, cardManager, cardWorker].forEach(c => {
+      if (c) c.className = "login-role-choice-card " + (c.dataset.role === "admin" ? "is-admin-card" : (c.dataset.role === "manager" ? "is-manager-card" : "is-worker-card"));
+    });
+
+    if (role === "admin" && cardAdmin) {
+      cardAdmin.classList.add("active-admin");
+      document.getElementById("portalTxtEmail").value = "admin@ddlongan.com";
+      document.getElementById("portalTxtPassword").value = "Admin@123456";
+    } else if (role === "manager" && cardManager) {
+      cardManager.classList.add("active-manager");
+      document.getElementById("portalTxtEmail").value = "manager@ddlongan.com";
+      document.getElementById("portalTxtPassword").value = "Manager@123456";
+    } else if (role === "worker" && cardWorker) {
+      cardWorker.classList.add("active-worker");
+      document.getElementById("portalTxtEmail").value = "worker@ddlongan.com";
+      document.getElementById("portalTxtPassword").value = "Worker@123456";
+    }
+  }
+
+  if (cardAdmin) cardAdmin.addEventListener("click", () => selectPortalRole("admin"));
+  if (cardManager) cardManager.addEventListener("click", () => selectPortalRole("manager"));
+  if (cardWorker) cardWorker.addEventListener("click", () => selectPortalRole("worker"));
+
+  // 2. Portal Method Tabs
+  const pTabEmail = document.getElementById("portalTabBtnEmail");
+  const pTabPhone = document.getElementById("portalTabBtnPhone");
+  const pTabPin = document.getElementById("portalTabBtnPin");
+  const pPaneEmail = document.getElementById("portalPaneEmail");
+  const pPanePhone = document.getElementById("portalPanePhone");
+  const pPanePin = document.getElementById("portalPanePin");
+
+  function switchPortalTab(tBtn, pPane) {
+    [pTabEmail, pTabPhone, pTabPin].forEach(t => t && t.classList.remove("active"));
+    [pPaneEmail, pPanePhone, pPanePin].forEach(p => p && p.classList.remove("active"));
+    if (tBtn) tBtn.classList.add("active");
+    if (pPane) pPane.classList.add("active");
+  }
+
+  if (pTabEmail) pTabEmail.addEventListener("click", () => switchPortalTab(pTabEmail, pPaneEmail));
+  if (pTabPhone) pTabPhone.addEventListener("click", () => switchPortalTab(pTabPhone, pPanePhone));
+  if (pTabPin) pTabPin.addEventListener("click", () => switchPortalTab(pTabPin, pPanePin));
+
+  // 3. Fast Preset Login Buttons for 3 Roles
+  const btnFastAdmin = document.getElementById("btnFastLoginAdmin");
+  if (btnFastAdmin) {
+    btnFastAdmin.addEventListener("click", () => {
+      onLoginSuccess({
+        id: "usr-admin-1",
+        email: "admin@ddlongan.com",
+        phone: "0900000000",
+        full_name: "Sếp Tổng Quản Trị (Admin)",
+        role: "admin"
+      }, "admin");
+    });
+  }
+
+  const btnFastManager = document.getElementById("btnFastLoginManager");
+  if (btnFastManager) {
+    btnFastManager.addEventListener("click", () => {
+      onLoginSuccess({
+        id: "usr-mgr-1",
+        email: "manager@ddlongan.com",
+        phone: "0977777777",
+        full_name: "Tổ Trưởng Chuyền 1 (Manager)",
+        role: "manager"
+      }, "manager");
+    });
+  }
+
+  const btnFastWorker = document.getElementById("btnFastLoginWorker");
+  if (btnFastWorker) {
+    btnFastWorker.addEventListener("click", () => {
+      onLoginSuccess({
+        id: "usr-wrk-1",
+        email: "worker@ddlongan.com",
+        phone: "0911111111",
+        full_name: "Công Nhân Kiểm Kê",
+        role: "worker"
+      }, "worker");
+    });
+  }
+
+  // 4. Form Submit Email Portal
+  const formPortalEmail = document.getElementById("formPortalEmail");
+  if (formPortalEmail) {
+    formPortalEmail.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = document.getElementById("portalTxtEmail")?.value.trim();
+      const password = document.getElementById("portalTxtPassword")?.value.trim();
+
+      if (!email || !password) {
+        alert("Vui lòng nhập đầy đủ Email và Mật khẩu.");
+        return;
+      }
+
+      const btnSub = document.getElementById("btnPortalLoginEmail");
+      if (btnSub) {
+        btnSub.disabled = true;
+        btnSub.innerText = "⏳ Đang xác thực...";
+      }
+
+      try {
+        const res = await fetch("/api/auth/email-login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if (data.success && data.user) {
+          onLoginSuccess(data.user, data.user.role);
+        } else {
+          alert("❌ " + (data.error || "Email hoặc Mật khẩu không chính xác!"));
+        }
+      } catch (err) {
+        alert("Lỗi kết nối máy chủ: " + err.message);
+      } finally {
+        if (btnSub) {
+          btnSub.disabled = false;
+          btnSub.innerText = "🚀 Đăng Nhập Vào Hệ Thống";
+        }
+      }
+    });
+  }
+
+  // 5. Portal Phone OTP & PIN Login
+  const btnPortalSendOTP = document.getElementById("btnPortalSendOTP");
+  if (btnPortalSendOTP) {
+    btnPortalSendOTP.addEventListener("click", async () => {
+      const phone = document.getElementById("portalTxtPhone")?.value.trim();
+      if (!phone || phone.length < 9) {
+        alert("Vui lòng nhập đúng định dạng số điện thoại.");
+        return;
+      }
+      document.getElementById("portalBoxOtpInput").style.display = "block";
+      showToast(`📩 Mã OTP đã được gửi về ${phone}!`);
+    });
+  }
+
+  const btnPortalLoginPhone = document.getElementById("btnPortalLoginPhone");
+  if (btnPortalLoginPhone) {
+    btnPortalLoginPhone.addEventListener("click", async () => {
+      const phone = document.getElementById("portalTxtPhone")?.value.trim();
+      const otp = document.getElementById("portalTxtOtpCode")?.value.trim();
+      if (!phone) {
+        alert("Vui lòng nhập số điện thoại.");
+        return;
+      }
+      try {
+        const res = await fetch("/api/auth/phone-login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone, otp_verified: true })
+        });
+        const data = await res.json();
+        if (data.success && data.user) {
+          onLoginSuccess(data.user, data.user.role);
+        } else {
+          alert("❌ " + (data.error || "Xác thực OTP thất bại"));
+        }
+      } catch (err) {
+        alert("Lỗi: " + err.message);
+      }
+    });
+  }
+
+  const btnPortalLoginPin = document.getElementById("btnPortalLoginPin");
+  if (btnPortalLoginPin) {
+    btnPortalLoginPin.addEventListener("click", async () => {
+      const phone = document.getElementById("portalPinPhone")?.value.trim() || "0900000000";
+      const pin = document.getElementById("portalPinCode")?.value.trim();
+      if (!pin) {
+        alert("Vui lòng nhập mã PIN.");
+        return;
+      }
+      try {
+        const res = await fetch("/api/auth/phone-login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone, pin, otp_verified: false })
+        });
+        const data = await res.json();
+        if (data.success && data.user) {
+          onLoginSuccess(data.user, data.user.role);
+        } else {
+          alert("❌ " + (data.error || "Mã PIN không chính xác!"));
+        }
+      } catch (err) {
+        alert("Lỗi: " + err.message);
+      }
+    });
+  }
+
+  // Logout button in Main App Bar
+  const btnLogout = document.getElementById("btnLogout");
+  if (btnLogout) {
+    btnLogout.addEventListener("click", handleLogout);
+  }
+}
+
 function applyUserRole(role, user = null) {
   appState.currentUserRole = role || "worker";
   localStorage.setItem("dd_wip_role", appState.currentUserRole);
@@ -1807,7 +2067,7 @@ function applyUserRole(role, user = null) {
   const tabManageBtn = document.getElementById("tabBtnManage");
   const tabHistoryBtn = document.getElementById("tabBtnHistory");
 
-  const displayName = user ? (user.full_name || user.phone) : (role === "admin" ? "Sếp Tổng" : (role === "manager" ? "Quản lý" : "Công nhân"));
+  const displayName = user ? (user.full_name || user.email || user.phone) : (role === "admin" ? "Sếp Tổng" : (role === "manager" ? "Quản lý" : "Công nhân"));
 
   if (role === "admin") {
     if (badge) {
