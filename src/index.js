@@ -158,13 +158,13 @@ let d1Initialized = false;
 async function initD1Tables(db) {
   if (d1Initialized || !db) return;
   try {
-    await db.exec(`
-      CREATE TABLE IF NOT EXISTS customers (
+    const tableStatements = [
+      `CREATE TABLE IF NOT EXISTS customers (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         code TEXT NOT NULL
-      );
-      CREATE TABLE IF NOT EXISTS po_orders (
+      )`,
+      `CREATE TABLE IF NOT EXISTS po_orders (
         id TEXT PRIMARY KEY,
         customer_id TEXT NOT NULL,
         style_code TEXT NOT NULL,
@@ -173,15 +173,15 @@ async function initD1Tables(db) {
         po_plan INTEGER NOT NULL DEFAULT 0,
         default_batches TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      );
-      CREATE TABLE IF NOT EXISTS daily_reports (
+      )`,
+      `CREATE TABLE IF NOT EXISTS daily_reports (
         id TEXT PRIMARY KEY,
         po_id TEXT NOT NULL,
         report_date TEXT NOT NULL,
         status TEXT DEFAULT 'DRAFT',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      );
-      CREATE TABLE IF NOT EXISTS report_batches (
+      )`,
+      `CREATE TABLE IF NOT EXISTS report_batches (
         id TEXT PRIMARY KEY,
         report_id TEXT NOT NULL,
         po_id TEXT NOT NULL,
@@ -202,8 +202,8 @@ async function initD1Tables(db) {
         note_warehouse TEXT,
         shortage_reason_type TEXT,
         shortage_note TEXT
-      );
-      CREATE TABLE IF NOT EXISTS dept_logs (
+      )`,
+      `CREATE TABLE IF NOT EXISTS dept_logs (
         id TEXT PRIMARY KEY,
         po_id TEXT NOT NULL,
         batch_name TEXT NOT NULL,
@@ -213,8 +213,8 @@ async function initD1Tables(db) {
         nhap_kho INTEGER DEFAULT 0,
         xuat_kho INTEGER DEFAULT 0,
         row_order INTEGER DEFAULT 0
-      );
-      CREATE TABLE IF NOT EXISTS flow_logs (
+      )`,
+      `CREATE TABLE IF NOT EXISTS flow_logs (
         id TEXT PRIMARY KEY,
         po_id TEXT NOT NULL,
         trans_date TEXT NOT NULL,
@@ -225,8 +225,8 @@ async function initD1Tables(db) {
         daily_out_warehouse INTEGER DEFAULT 0,
         daily_delivered INTEGER DEFAULT 0,
         voucher_note TEXT
-      );
-      CREATE TABLE IF NOT EXISTS users (
+      )`,
+      `CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
         phone TEXT UNIQUE NOT NULL,
         full_name TEXT NOT NULL,
@@ -235,30 +235,46 @@ async function initD1Tables(db) {
         is_active INTEGER DEFAULT 1,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
+      )`
+    ];
 
-    // Check if customers empty, then seed
-    const { results: existingCust } = await db.prepare("SELECT COUNT(*) as count FROM customers").all();
-    if (existingCust && existingCust[0] && existingCust[0].count === 0) {
-      for (const c of INITIAL_DB.customers) {
-        await db.prepare("INSERT INTO customers (id, name, code) VALUES (?, ?, ?)").bind(c.id, c.name, c.code).run();
-      }
-      for (const o of INITIAL_DB.orders) {
-        await db.prepare("INSERT INTO po_orders (id, customer_id, style_code, po_number, line_name, po_plan, default_batches) VALUES (?, ?, ?, ?, ?, ?, ?)")
-          .bind(o.id, o.customer_id, o.style_code, o.po_number, o.line_name, o.po_plan, JSON.stringify(o.default_batches))
-          .run();
+    for (const sql of tableStatements) {
+      try {
+        await db.prepare(sql).run();
+      } catch (tableErr) {
+        console.warn("Table create notice:", tableErr.message);
       }
     }
 
-    // Check if users empty, then seed initial admin
-    const { results: existingUsers } = await db.prepare("SELECT COUNT(*) as count FROM users").all();
-    if (existingUsers && existingUsers[0] && existingUsers[0].count === 0) {
-      for (const u of INITIAL_DB.users) {
-        await db.prepare("INSERT INTO users (id, phone, full_name, role, pin_code, is_active) VALUES (?, ?, ?, ?, ?, ?)")
-          .bind(u.id, u.phone, u.full_name, u.role, u.pin_code, u.is_active)
-          .run();
+    // Check if customers empty, then seed
+    try {
+      const { results: existingCust } = await db.prepare("SELECT COUNT(*) as count FROM customers").all();
+      if (existingCust && existingCust[0] && existingCust[0].count === 0) {
+        for (const c of INITIAL_DB.customers) {
+          await db.prepare("INSERT INTO customers (id, name, code) VALUES (?, ?, ?)").bind(c.id, c.name, c.code).run();
+        }
+        for (const o of INITIAL_DB.orders) {
+          await db.prepare("INSERT INTO po_orders (id, customer_id, style_code, po_number, line_name, po_plan, default_batches) VALUES (?, ?, ?, ?, ?, ?, ?)")
+            .bind(o.id, o.customer_id, o.style_code, o.po_number, o.line_name, o.po_plan, JSON.stringify(o.default_batches))
+            .run();
+        }
       }
+    } catch (seedErr) {
+      console.warn("Cust seed notice:", seedErr.message);
+    }
+
+    // Check if users empty, then seed initial admin
+    try {
+      const { results: existingUsers } = await db.prepare("SELECT COUNT(*) as count FROM users").all();
+      if (existingUsers && existingUsers[0] && existingUsers[0].count === 0) {
+        for (const u of INITIAL_DB.users) {
+          await db.prepare("INSERT INTO users (id, phone, full_name, role, pin_code, is_active) VALUES (?, ?, ?, ?, ?, ?)")
+            .bind(u.id, u.phone, u.full_name, u.role, u.pin_code, u.is_active)
+            .run();
+        }
+      }
+    } catch (userSeedErr) {
+      console.warn("User seed notice:", userSeedErr.message);
     }
 
     d1Initialized = true;
