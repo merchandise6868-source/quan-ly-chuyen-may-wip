@@ -199,36 +199,43 @@ function bindEvents() {
     btnExportHist.addEventListener("click", exportHistoryToExcel);
   }
 
-  // Top Header Filters
-  document.getElementById("selectCustomer").addEventListener("change", (e) => {
-    appState.currentCustomer = e.target.value;
-    filterOrdersByCustomer();
-  });
+  // Header Selects & Filters
+  const selCust = document.getElementById("selectCustomer");
+  if (selCust) {
+    selCust.addEventListener("change", (e) => {
+      appState.currentCustomer = e.target.value;
+      filterOrdersByCustomer();
+    });
+  }
 
-  document.getElementById("selectPO").addEventListener("change", (e) => {
-    const poId = e.target.value;
-    appState.currentPO = appState.orders.find(o => o.id === poId);
-    loadReport();
-    loadDeptLogs();
-    if (document.getElementById("subtab-history") && document.getElementById("subtab-history").classList.contains("active")) {
-      fetchReportHistory();
-    }
-  });
+  const selPO = document.getElementById("selectPO");
+  if (selPO) {
+    selPO.addEventListener("change", (e) => {
+      const poId = e.target.value;
+      appState.currentPO = appState.orders.find(o => o.id === poId);
+      loadReport();
+      loadDeptLogs();
+      if (document.getElementById("subtab-history") && document.getElementById("subtab-history").classList.contains("active")) {
+        fetchReportHistory();
+      }
+    });
+  }
 
   // Date Change & Navigation
-  document.getElementById("reportDate").addEventListener("change", (e) => {
-    appState.currentDate = e.target.value;
-    loadReport();
-    loadDeptLogs();
-  });
+  const repDate = document.getElementById("reportDate");
+  if (repDate) {
+    repDate.addEventListener("change", (e) => {
+      appState.currentDate = e.target.value;
+      loadReport();
+      loadDeptLogs();
+    });
+  }
 
-  document.getElementById("btnPrevDay").addEventListener("click", () => {
-    changeDateByDays(-1);
-  });
+  const btnPrev = document.getElementById("btnPrevDay");
+  if (btnPrev) btnPrev.addEventListener("click", () => changeDateByDays(-1));
 
-  document.getElementById("btnNextDay").addEventListener("click", () => {
-    changeDateByDays(1);
-  });
+  const btnNext = document.getElementById("btnNextDay");
+  if (btnNext) btnNext.addEventListener("click", () => changeDateByDays(1));
 
   // Tab switching
   document.querySelectorAll(".tab-btn").forEach(btn => {
@@ -236,7 +243,8 @@ function bindEvents() {
       document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
       document.querySelectorAll(".tab-pane").forEach(p => p.classList.remove("active"));
       btn.classList.add("active");
-      document.getElementById(btn.dataset.tab).classList.add("active");
+      const targetPane = document.getElementById(btn.dataset.tab);
+      if (targetPane) targetPane.classList.add("active");
       if (btn.dataset.tab === "tab-manage") {
         renderManageTab();
       } else if (btn.dataset.tab === "tab-flow-log") {
@@ -247,11 +255,20 @@ function bindEvents() {
     });
   });
 
-  document.getElementById("btnAddBatch").addEventListener("click", handleAddBatch);
-  document.getElementById("btnRefresh").addEventListener("click", loadReport);
-  document.getElementById("btnSaveDraft").addEventListener("click", () => saveReport("DRAFT"));
-  document.getElementById("btnSubmitReport").addEventListener("click", () => saveReport("SUBMITTED"));
-  document.getElementById("btnExportExcel").addEventListener("click", exportToExcel);
+  const btnAddB = document.getElementById("btnAddBatch");
+  if (btnAddB) btnAddB.addEventListener("click", handleAddBatch);
+
+  const btnRef = document.getElementById("btnRefresh");
+  if (btnRef) btnRef.addEventListener("click", loadReport);
+
+  const btnSaveD = document.getElementById("btnSaveDraft");
+  if (btnSaveD) btnSaveD.addEventListener("click", () => saveReport("DRAFT"));
+
+  const btnSubRep = document.getElementById("btnSubmitReport");
+  if (btnSubRep) btnSubRep.addEventListener("click", () => saveReport("SUBMITTED"));
+
+  const btnExpEx = document.getElementById("btnExportExcel");
+  if (btnExpEx) btnExpEx.addEventListener("click", exportToExcel);
 
   // Tab 2 Actions
   const btnSaveDept = document.getElementById("btnSaveDeptLogs");
@@ -264,11 +281,17 @@ function bindEvents() {
   if (btnExportDept) btnExportDept.addEventListener("click", exportDeptToExcel);
 
   // Tab 3 Forms
-  document.getElementById("formAddCustomer").addEventListener("submit", handleAddCustomer);
-  document.getElementById("btnCancelEditCust").addEventListener("click", resetCustomerForm);
+  const formAddC = document.getElementById("formAddCustomer");
+  if (formAddC) formAddC.addEventListener("submit", handleAddCustomer);
 
-  document.getElementById("formAddPO").addEventListener("submit", handleAddPO);
-  document.getElementById("btnCancelEditPO").addEventListener("click", resetPOForm);
+  const btnCancelCust = document.getElementById("btnCancelEditCust");
+  if (btnCancelCust) btnCancelCust.addEventListener("click", resetCustomerForm);
+
+  const formAddP = document.getElementById("formAddPO");
+  if (formAddP) formAddP.addEventListener("submit", handleAddPO);
+
+  const btnCancelPO = document.getElementById("btnCancelEditPO");
+  if (btnCancelPO) btnCancelPO.addEventListener("click", resetPOForm);
 
   // Dynamic Batch Count in PO Form
   const batchCountSel = document.getElementById("poBatchCountSelect");
@@ -315,14 +338,18 @@ function bindEvents() {
     btnSaveFlow.addEventListener("click", handleSaveFlowLog);
   }
 
-  // Numpad Modal
-  document.getElementById("btnCloseNumpad").addEventListener("click", hideNumpad);
-  document.getElementById("btnNumpadConfirm").addEventListener("click", confirmNumpad);
+  // Numpad Modal (Safely guarded)
+  const btnCloseNum = document.getElementById("btnCloseNumpad");
+  if (btnCloseNum && typeof hideNumpad === "function") btnCloseNum.addEventListener("click", hideNumpad);
+
+  const btnConfNum = document.getElementById("btnNumpadConfirm");
+  if (btnConfNum && typeof confirmNumpad === "function") btnConfNum.addEventListener("click", confirmNumpad);
   
   document.querySelectorAll(".num-key").forEach(key => {
     key.addEventListener("click", (e) => {
       const val = e.target.innerText;
       const display = document.getElementById("numpadDisplay");
+      if (!display) return;
       if (val === "C") {
         display.innerText = "0";
       } else if (val === "←" || e.target.classList.contains("num-back")) {
@@ -1817,8 +1844,12 @@ function onLoginSuccess(user, role) {
 
   const portal = document.getElementById("loginPortalScreen");
   const mainApp = document.getElementById("appMainWrapper");
-  if (portal) portal.style.display = "none";
-  if (mainApp) mainApp.style.display = "block";
+  if (portal) {
+    portal.style.setProperty("display", "none", "important");
+  }
+  if (mainApp) {
+    mainApp.style.setProperty("display", "block", "important");
+  }
 
   applyUserRole(appState.currentUserRole, appState.currentUser);
   closeRoleModal();
@@ -1826,6 +1857,7 @@ function onLoginSuccess(user, role) {
   const roleLabel = role === 'admin' ? '👑 Sếp Tổng (Toàn quyền 4 Tab)' : (role === 'manager' ? '⭐ Quản Lý (Xem toàn bộ tiến độ)' : '👤 Công Nhân (2 Tab kiểm kê)');
   showToast(`🎉 Đăng nhập thành công: ${user.full_name || user.email || user.phone}\nQuyền: ${roleLabel}`);
 
+  fetchMetadata();
   if (role === 'admin') {
     fetchUsers();
   }
@@ -1840,8 +1872,12 @@ function handleLogout() {
 
     const portal = document.getElementById("loginPortalScreen");
     const mainApp = document.getElementById("appMainWrapper");
-    if (portal) portal.style.display = "flex";
-    if (mainApp) mainApp.style.display = "none";
+    if (portal) {
+      portal.style.setProperty("display", "flex", "important");
+    }
+    if (mainApp) {
+      mainApp.style.setProperty("display", "none", "important");
+    }
 
     showToast("👋 Đã đăng xuất khỏi hệ thống!");
   }
@@ -1937,46 +1973,53 @@ function bindPortalEvents() {
     });
   }
 
-  // 4. Form Submit Email Portal
+  // 4. Form Submit & Button Click Email Portal
+  async function submitPortalEmail(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    const email = document.getElementById("portalTxtEmail")?.value.trim();
+    const password = document.getElementById("portalTxtPassword")?.value.trim();
+
+    if (!email || !password) {
+      alert("Vui lòng nhập đầy đủ Email và Mật khẩu.");
+      return;
+    }
+
+    const btnSub = document.getElementById("btnPortalLoginEmail");
+    if (btnSub) {
+      btnSub.disabled = true;
+      btnSub.innerText = "⏳ Đang xác thực...";
+    }
+
+    try {
+      const res = await fetch("/api/auth/email-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if (data.success && data.user) {
+        onLoginSuccess(data.user, data.user.role);
+      } else {
+        alert("❌ " + (data.error || "Email hoặc Mật khẩu không chính xác!"));
+      }
+    } catch (err) {
+      alert("Lỗi kết nối máy chủ: " + err.message);
+    } finally {
+      if (btnSub) {
+        btnSub.disabled = false;
+        btnSub.innerText = "🚀 Đăng Nhập Vào Hệ Thống";
+      }
+    }
+  }
+
   const formPortalEmail = document.getElementById("formPortalEmail");
   if (formPortalEmail) {
-    formPortalEmail.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const email = document.getElementById("portalTxtEmail")?.value.trim();
-      const password = document.getElementById("portalTxtPassword")?.value.trim();
+    formPortalEmail.addEventListener("submit", submitPortalEmail);
+  }
 
-      if (!email || !password) {
-        alert("Vui lòng nhập đầy đủ Email và Mật khẩu.");
-        return;
-      }
-
-      const btnSub = document.getElementById("btnPortalLoginEmail");
-      if (btnSub) {
-        btnSub.disabled = true;
-        btnSub.innerText = "⏳ Đang xác thực...";
-      }
-
-      try {
-        const res = await fetch("/api/auth/email-login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password })
-        });
-        const data = await res.json();
-        if (data.success && data.user) {
-          onLoginSuccess(data.user, data.user.role);
-        } else {
-          alert("❌ " + (data.error || "Email hoặc Mật khẩu không chính xác!"));
-        }
-      } catch (err) {
-        alert("Lỗi kết nối máy chủ: " + err.message);
-      } finally {
-        if (btnSub) {
-          btnSub.disabled = false;
-          btnSub.innerText = "🚀 Đăng Nhập Vào Hệ Thống";
-        }
-      }
-    });
+  const btnPortalLoginEmail = document.getElementById("btnPortalLoginEmail");
+  if (btnPortalLoginEmail) {
+    btnPortalLoginEmail.addEventListener("click", submitPortalEmail);
   }
 
   // 5. Portal Phone OTP & PIN Login
