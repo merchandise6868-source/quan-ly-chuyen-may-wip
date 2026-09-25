@@ -133,10 +133,25 @@ const INITIAL_DB = {
       ]
     }
   },
-  flow_logs: []
+  flow_logs: [],
+  users: [
+    { id: "usr-admin-1", phone: "0900000000", full_name: "Sếp Tổng Quản Lý", role: "admin", pin_code: "1234", is_active: 1 },
+    { id: "usr-mgr-1", phone: "0988888888", full_name: "Tổ Trưởng Chuyền 1", role: "manager", pin_code: "1234", is_active: 1 },
+    { id: "usr-wrk-1", phone: "0911111111", full_name: "Công Nhân Kiểm Kê", role: "worker", pin_code: "1234", is_active: 1 }
+  ]
 };
 
 let memoryDB = JSON.parse(JSON.stringify(INITIAL_DB));
+
+// Helper: Normalize phone numbers (e.g. +84901234567 -> 0901234567 or vice versa)
+function normalizePhone(p) {
+  if (!p) return "";
+  let clean = p.replace(/\s+/g, "").replace(/-/g, "");
+  if (clean.startsWith("+84")) {
+    clean = "0" + clean.substring(3);
+  }
+  return clean;
+}
 
 // Helper: Auto-initialize D1 Database tables and seed initial data
 let d1Initialized = false;
@@ -211,6 +226,16 @@ async function initD1Tables(db) {
         daily_delivered INTEGER DEFAULT 0,
         voucher_note TEXT
       );
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        phone TEXT UNIQUE NOT NULL,
+        full_name TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'worker',
+        pin_code TEXT DEFAULT '1234',
+        is_active INTEGER DEFAULT 1,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
     `);
 
     // Check if customers empty, then seed
@@ -225,6 +250,17 @@ async function initD1Tables(db) {
           .run();
       }
     }
+
+    // Check if users empty, then seed initial admin
+    const { results: existingUsers } = await db.prepare("SELECT COUNT(*) as count FROM users").all();
+    if (existingUsers && existingUsers[0] && existingUsers[0].count === 0) {
+      for (const u of INITIAL_DB.users) {
+        await db.prepare("INSERT INTO users (id, phone, full_name, role, pin_code, is_active) VALUES (?, ?, ?, ?, ?, ?)")
+          .bind(u.id, u.phone, u.full_name, u.role, u.pin_code, u.is_active)
+          .run();
+      }
+    }
+
     d1Initialized = true;
   } catch (err) {
     console.error("D1 Init Error:", err);
@@ -254,8 +290,184 @@ export default {
 
     // Router for API endpoints
     if (url.pathname.startsWith('/api/')) {
-      
-      // 1. Get Initial Metadata (Customers & Orders)
+
+      // ==========================================
+      // AUTH & USER MANAGEMENT APIs
+      // ==========================================
+
+      // 1. Phone / OTP / PIN Authentication
+      if (url.pathname === '/api/auth/phone-login' && request.method === 'POST') {
+        try {
+          const body = await request.json();
+          const rawPhone = body.phone || "";
+          const phone = normalizePhone(rawPhone);
+          const pin = (body.pin || "").trim();
+          const fullName = body.full_name || "Nhân Viên";
+          const isOtpVerified = body.otp_verified === true;
+
+          if (!phone) {
+            return Response.json({ success: false, error: "Số điện thoại không được để trống" }, { status: 400, headers });
+          }
+
+          if (env && env.DB) {
+            // Find user in D1
+            const { results } = await env.DB.prepare("SELECT * FROM users WHERE phone = ?").bind(phone).all();
+            let user = results && results.length > 0 ? results[0] : null;
+
+            if (!user) {
+              // If this is the very first user, make them admin
+              const { results: allUsers } = await env.DB.prepare("SELECT COUNT(*) as count FROM users").all();
+              const isFirst = allUsers && allUsers[0] && allUsers[0].count === 0;
+              const role = isFirst ? 'admin' : (body.role || 'worker');
+
+              const newId = 'usr-' + Date.now();
+              await env.DB.prepare("INSERT INTO users (id, phone, full_name, role, pin_code, is_active) VALUES (?, ?, ?, ?, ?, ?)")
+                .bind(newId, phone, fullName, role, pin || '1234', 1)
+                .run();
+
+              user = { id: newId, phone, full_name: fullName, role, is_active: 1 };
+            } else {
+              // If logging in with PIN, verify PIN
+              if (!isOtpVerified && pin && user.pin_code && user.pin_code !== pin) {
+                return Response.json({ success: false, error: "Mã PIN không chính xác" }, { status: 401, headers });
+              }
+            }
+
+            return Response.json({
+              success: true,
+              user: {
+                id: user.id,
+                phone: user.phone,
+                full_name: user.full_name,
+                role: user.role,
+                is_active: user.is_active
+              }
+            }, { headers });
+          }
+
+          // Memory fallback
+          let user = memoryDB.users.find(u => normalizePhone(u.phone) === phone);
+          if (!user) {
+            const role = memoryDB.users.length === 0 ? 'admin' : (body.role || 'worker');
+            user = {
+              id: 'usr-' + Date.now(),
+              phone,
+              full_name: fullName,
+              role,
+              pin_code: pin || '1234',
+              is_active: 1
+            };
+            memoryDB.users.push(user);
+          } else {
+            if (!isOtpVerified && pin && user.pin_code && user.pin_code !== pin) {
+              return Response.json({ success: false, error: "Mã PIN không chính xác" }, { status: 401, headers });
+            }
+          }
+
+          return Response.json({
+            success: true,
+            user: {
+              id: user.id,
+              phone: user.phone,
+              full_name: user.full_name,
+              role: user.role,
+              is_active: user.is_active
+            }
+          }, { headers });
+        } catch (err) {
+          return Response.json({ success: false, error: err.message }, { status: 400, headers });
+        }
+      }
+
+      // 2. Admin: Get List of All Users
+      if (url.pathname === '/api/admin/users' && request.method === 'GET') {
+        if (env && env.DB) {
+          try {
+            const { results: users } = await env.DB.prepare("SELECT id, phone, full_name, role, pin_code, is_active, created_at FROM users ORDER BY role ASC, created_at DESC").all();
+            return Response.json({ success: true, users: users || [] }, { headers });
+          } catch (err) {
+            return Response.json({ success: false, error: err.message }, { status: 500, headers });
+          }
+        }
+        return Response.json({ success: true, users: memoryDB.users || [] }, { headers });
+      }
+
+      // 3. Admin: Add / Update User & Permissions
+      if (url.pathname === '/api/admin/users' && request.method === 'POST') {
+        try {
+          const body = await request.json();
+          const { id, phone, full_name, role, pin_code, is_active } = body;
+          const cleanPhone = normalizePhone(phone);
+          const userId = id || ('usr-' + Date.now());
+
+          if (env && env.DB) {
+            await env.DB.prepare(`
+              INSERT INTO users (id, phone, full_name, role, pin_code, is_active)
+              VALUES (?, ?, ?, ?, ?, ?)
+              ON CONFLICT(id) DO UPDATE SET
+                phone=excluded.phone,
+                full_name=excluded.full_name,
+                role=excluded.role,
+                pin_code=excluded.pin_code,
+                is_active=excluded.is_active,
+                updated_at=CURRENT_TIMESTAMP
+            `).bind(userId, cleanPhone, full_name || 'Nhân Viên', role || 'worker', pin_code || '1234', is_active !== undefined ? is_active : 1).run();
+
+            const { results: users } = await env.DB.prepare("SELECT id, phone, full_name, role, pin_code, is_active, created_at FROM users ORDER BY role ASC, created_at DESC").all();
+            return Response.json({ success: true, users }, { headers });
+          }
+
+          if (id) {
+            const idx = memoryDB.users.findIndex(u => u.id === id);
+            if (idx >= 0) {
+              memoryDB.users[idx] = {
+                ...memoryDB.users[idx],
+                phone: cleanPhone,
+                full_name: full_name || memoryDB.users[idx].full_name,
+                role: role || memoryDB.users[idx].role,
+                pin_code: pin_code || memoryDB.users[idx].pin_code,
+                is_active: is_active !== undefined ? is_active : memoryDB.users[idx].is_active
+              };
+            }
+          } else {
+            memoryDB.users.push({
+              id: userId,
+              phone: cleanPhone,
+              full_name: full_name || 'Nhân Viên',
+              role: role || 'worker',
+              pin_code: pin_code || '1234',
+              is_active: 1,
+              created_at: new Date().toISOString()
+            });
+          }
+          return Response.json({ success: true, users: memoryDB.users }, { headers });
+        } catch (err) {
+          return Response.json({ success: false, error: err.message }, { status: 400, headers });
+        }
+      }
+
+      // 4. Admin: Delete User
+      if (url.pathname === '/api/admin/users' && request.method === 'DELETE') {
+        try {
+          const userId = url.searchParams.get('id');
+          if (env && env.DB) {
+            await env.DB.prepare("DELETE FROM users WHERE id = ?").bind(userId).run();
+            const { results: users } = await env.DB.prepare("SELECT id, phone, full_name, role, pin_code, is_active, created_at FROM users ORDER BY role ASC, created_at DESC").all();
+            return Response.json({ success: true, users }, { headers });
+          }
+
+          memoryDB.users = memoryDB.users.filter(u => u.id !== userId);
+          return Response.json({ success: true, users: memoryDB.users }, { headers });
+        } catch (err) {
+          return Response.json({ success: false, error: err.message }, { status: 400, headers });
+        }
+      }
+
+      // ==========================================
+      // METADATA & DATA APIs
+      // ==========================================
+
+      // Get Initial Metadata
       if (url.pathname === '/api/metadata' && request.method === 'GET') {
         if (env && env.DB) {
           try {
@@ -284,7 +496,7 @@ export default {
         }, { headers });
       }
 
-      // 2. Add / Update Customer
+      // Add / Update Customer
       if (url.pathname === '/api/customers' && request.method === 'POST') {
         try {
           const body = await request.json();
@@ -311,7 +523,7 @@ export default {
         }
       }
 
-      // 3. Delete Customer
+      // Delete Customer
       if (url.pathname === '/api/customers' && request.method === 'DELETE') {
         try {
           const custId = url.searchParams.get('id');
@@ -330,7 +542,7 @@ export default {
         }
       }
 
-      // 4. Add / Update PO Order with Detailed Batches
+      // Add / Update PO Order with Detailed Batches
       if (url.pathname === '/api/orders' && request.method === 'POST') {
         try {
           const body = await request.json();
@@ -393,7 +605,7 @@ export default {
         }
       }
 
-      // 5. Delete PO Order
+      // Delete PO Order
       if (url.pathname === '/api/orders' && request.method === 'DELETE') {
         try {
           const orderId = url.searchParams.get('id');
@@ -417,7 +629,7 @@ export default {
         }
       }
 
-      // 6. Get Report by PO & Date
+      // Get Report by PO & Date
       if (url.pathname === '/api/report' && request.method === 'GET') {
         const poId = url.searchParams.get('po_id') || 'po-050';
         const date = url.searchParams.get('date') || new Date().toISOString().split('T')[0];
@@ -526,7 +738,7 @@ export default {
         return Response.json({ success: true, report, cumExportsByBatch }, { headers });
       }
 
-      // 7. Save Report
+      // Save Report
       if (url.pathname === '/api/report' && request.method === 'POST') {
         try {
           const body = await request.json();
@@ -575,7 +787,7 @@ export default {
         }
       }
 
-      // 8. Get Report History (Thống Kê Lô Tất Cả Các Ngày)
+      // Get Report History (Thống Kê Lô Tất Cả Các Ngày)
       if (url.pathname === '/api/report-history' && request.method === 'GET') {
         const poId = url.searchParams.get('po_id') || 'po-050';
 
@@ -610,7 +822,7 @@ export default {
         return Response.json({ success: true, history }, { headers });
       }
 
-      // 9. Get Dept Logs (Tab 2 - Báo Theo Dõi Sản Lượng Các Bộ Phận)
+      // Get Dept Logs (Tab 3 - Báo Theo Dõi Sản Lượng Các Bộ Phận)
       if (url.pathname === '/api/dept-logs' && request.method === 'GET') {
         const poId = url.searchParams.get('po_id') || 'po-050';
 
@@ -642,7 +854,7 @@ export default {
         return Response.json({ success: true, logs }, { headers });
       }
 
-      // 10. Save Dept Logs (Tab 2)
+      // Save Dept Logs (Tab 3)
       if (url.pathname === '/api/dept-logs' && request.method === 'POST') {
         try {
           const body = await request.json();
@@ -677,14 +889,14 @@ export default {
         }
       }
 
-      // 11. Get Flow Logs
+      // Get Flow Logs
       if (url.pathname === '/api/flow-logs' && request.method === 'GET') {
         const poId = url.searchParams.get('po_id') || 'po-050';
         const logs = memoryDB.flow_logs.filter(l => l.po_id === poId);
         return Response.json({ success: true, logs }, { headers });
       }
 
-      // 12. Add Flow Log
+      // Add Flow Log
       if (url.pathname === '/api/flow-logs' && request.method === 'POST') {
         try {
           const body = await request.json();

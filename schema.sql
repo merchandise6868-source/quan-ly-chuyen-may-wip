@@ -76,3 +76,15 @@ CREATE TABLE IF NOT EXISTS flow_logs (
     daily_delivered INTEGER DEFAULT 0,
     voucher_note TEXT
 );
+
+-- Bảng Quản Lý Người Dùng & Phân Quyền Đăng Nhập (Users)
+CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    phone TEXT UNIQUE NOT NULL,           -- Định dạng chuẩn: +84901234567 hoặc 0901234567
+    full_name TEXT NOT NULL,              -- Họ và tên
+    role TEXT NOT NULL DEFAULT 'worker',  -- 'admin' (Sếp Tổng), 'manager' (Quản lý), 'worker' (Công nhân)
+    pin_code TEXT DEFAULT '1234',         -- Mã PIN dự phòng
+    is_active INTEGER DEFAULT 1,          -- 1: Hoạt động, 0: Đã khóa
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);

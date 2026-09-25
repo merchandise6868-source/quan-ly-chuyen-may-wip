@@ -9,13 +9,17 @@
   <meta name="theme-color" content="#0f172a">
   <!-- cdn for sheetjs (xlsx) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <!-- Google Firebase SDK (Compat Version for Vanilla JS) -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
 </head>
 <body>
 
   <!-- TOAST NOTIFICATION -->
   <div id="toastNotification" class="toast-popup">✅ Đã lưu dữ liệu thành công!</div>
 
-  <!-- TOP APP BAR WITH FILTERS & USER ROLE -->
+  <!-- TOP APP BAR WITH FILTERS & USER AUTHENTICATION -->
   <header class="top-app-bar">
     <div class="app-title">
       <span class="icon">🧵</span>
@@ -39,10 +43,10 @@
         </select>
       </div>
       <div class="control-item role-control-box">
-        <label>VAI TRÒ / QUYỀN:</label>
+        <label>TÀI KHOẢN / QUYỀN:</label>
         <div class="role-badge-group">
           <span class="role-badge is-worker" id="currentRoleBadge">👤 Công nhân</span>
-          <button class="btn-role-switch" id="btnSwitchRole" title="Chuyển đổi quyền xem Sếp / Công nhân">🔑 Đổi quyền</button>
+          <button class="btn-role-switch" id="btnSwitchRole" title="Đăng nhập SĐT + OTP hoặc đổi quyền">🔑 Đăng Nhập / Đổi Quyền</button>
         </div>
       </div>
     </div>
@@ -60,7 +64,7 @@
       📜 3. Báo Cáo Theo Dõi Sản Lượng (Flow Log)
     </button>
     <button class="tab-btn manager-only-tab" id="tabBtnManage" data-tab="tab-manage">
-      ⚙️ 4. Quản Lý Khách Hàng & Đơn Hàng Lô
+      ⚙️ 4. Quản Lý Khách Hàng, Đơn Hàng & Tài Khoản
     </button>
     <div class="status-tag" id="reportStatusTag">TRẠNG THÁI: BẢN NHÁP</div>
   </nav>
@@ -314,7 +318,7 @@
 
     </section>
 
-    <!-- TAB 4: QUẢN LÝ KHÁCH HÀNG & PO CHI TIẾT (DÀNH CHO SẾP) -->
+    <!-- TAB 4: QUẢN LÝ KHÁCH HÀNG, PO & TÀI KHOẢN PHÂN QUYỀN (DÀNH CHO SẾP) -->
     <section id="tab-manage" class="tab-pane">
 
       <!-- STATS KPI BANNER FOR ALL COMPANIES -->
@@ -332,8 +336,8 @@
           <span class="stat-value" id="statTotalPlan">5.123 đôi</span>
         </div>
         <div class="stat-card">
-          <span class="stat-label">🏷️ Tổng Số Lô Hàng Đang Chạy</span>
-          <span class="stat-value" id="statTotalBatches">7 Lô</span>
+          <span class="stat-label">👥 Tổng Tài Khoản Hệ Thống</span>
+          <span class="stat-value" id="statTotalUsers">3</span>
         </div>
       </div>
       
@@ -473,49 +477,137 @@
           </div>
         </div>
 
+        <!-- CARD 3: QUẢN LÝ & PHÂN QUYỀN TÀI KHOẢN NGƯỜI DÙNG (DÀNH CHO SẾP) -->
+        <div class="manage-card" style="grid-column: 1 / -1;">
+          <div class="manage-card-header" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: #ffffff;">
+            <h3>👑 3. Danh Sách & Phân Quyền Người Dùng (Số Điện Thoại / Sếp / Công Nhân)</h3>
+          </div>
+          <div class="manage-card-body">
+            <form id="formAddUser" class="form-grid">
+              <input type="hidden" id="editUserId" value="">
+
+              <div class="form-row" style="display:flex; gap:10px;">
+                <div class="form-group" style="flex:1;">
+                  <label>Số Điện Thoại (Đăng nhập OTP / PIN):</label>
+                  <input type="text" id="userPhone" class="form-control font-bold" placeholder="Ví dụ: 0901234567..." required>
+                </div>
+                <div class="form-group" style="flex:1;">
+                  <label>Họ và Tên Nhân Viên / Quản Lý:</label>
+                  <input type="text" id="userFullName" class="form-control" placeholder="Ví dụ: Nguyễn Văn A..." required>
+                </div>
+              </div>
+
+              <div class="form-row" style="display:flex; gap:10px;">
+                <div class="form-group" style="flex:1;">
+                  <label>Vai Trò / Quyền Hạn:</label>
+                  <select id="userRoleSelect" class="form-control font-bold">
+                    <option value="admin">👑 Admin (Sếp Tổng - Toàn quyền)</option>
+                    <option value="manager">⭐ Manager (Quản lý - Xem tất cả các tab)</option>
+                    <option value="worker" selected>👤 Worker (Công nhân - Chỉ nhập 2 Tab)</option>
+                  </select>
+                </div>
+                <div class="form-group" style="flex:1;">
+                  <label>Mã PIN Dự Phòng (4 số):</label>
+                  <input type="text" id="userPinCode" class="form-control font-bold" value="1234" maxlength="6" required>
+                </div>
+              </div>
+
+              <div style="display:flex; gap:8px; margin-top: 10px;">
+                <button type="submit" class="btn btn-primary" id="btnSubmitUser">💾 Lưu Tài Khoản & Phân Quyền</button>
+                <button type="button" class="btn btn-secondary" id="btnCancelEditUser" style="display:none;">Hủy Sửa</button>
+              </div>
+            </form>
+
+            <div class="table-responsive" style="margin-top: 15px;">
+              <table class="flow-log-table" id="tableUsers">
+                <thead>
+                  <tr>
+                    <th>Số Điện Thoại</th>
+                    <th>Họ và Tên</th>
+                    <th>Vai Trò</th>
+                    <th>Mã PIN</th>
+                    <th>Trạng Thái</th>
+                    <th>Thao Tác</th>
+                  </tr>
+                </thead>
+                <tbody id="tbodyUsers">
+                  <!-- Dynamically populated users -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
       </div>
 
     </section>
 
   </main>
 
-  <!-- ROLE AUTHENTICATION MODAL -->
+  <!-- FIREBASE PHONE AUTH & ROLE MODAL -->
   <div id="modalRoleAuth" class="modal-overlay">
     <div class="modal-card modal-auth-card">
       <div class="modal-header">
-        <h3 id="modalRoleTitle">🔑 Đăng Nhập Quyền Quản Lý (Sếp)</h3>
+        <h3 id="modalRoleTitle">📱 Đăng Nhập Xác Thực Số Điện Thoại</h3>
         <button class="btn-close-modal" id="btnCloseRoleModal">×</button>
       </div>
+      
+      <!-- AUTH TABS -->
+      <div class="auth-modal-tabs">
+        <button type="button" class="auth-tab-btn active" id="authTabBtnPhone">📲 Đăng Nhập OTP SMS</button>
+        <button type="button" class="auth-tab-btn" id="authTabBtnPin">🔑 Mã PIN Dự Phòng</button>
+      </div>
+
       <div class="modal-body">
-        <p style="font-size: 13.5px; color: #475569; margin-bottom: 12px;">
-          Vui lòng chọn vai trò làm việc:
-        </p>
-        <div class="role-switch-options">
-          <label class="role-option-card">
-            <input type="radio" name="authRoleOption" value="worker" id="optRoleWorker">
-            <div class="role-option-info">
-              <strong>👤 Công Nhân</strong>
-              <small>Chỉ xem & điền số liệu kiểm kê và sản lượng (Tab 1 & Tab 3)</small>
+        
+        <!-- PANE 1: GOOGLE FIREBASE PHONE SMS OTP -->
+        <div id="authPanePhone" class="auth-pane active">
+          <p style="font-size: 13px; color: #475569; margin-bottom: 12px;">
+            Nhập số điện thoại của bạn để nhận mã xác thực OTP 6 số qua tin nhắn SMS:
+          </p>
+
+          <div class="form-group" id="groupInputPhone">
+            <label for="txtAuthPhone">Số điện thoại:</label>
+            <div style="display: flex; gap: 8px;">
+              <input type="tel" id="txtAuthPhone" class="form-control font-bold" placeholder="Ví dụ: 0901234567..." style="flex: 1; font-size: 14px;">
+              <button type="button" class="btn btn-primary" id="btnSendPhoneOTP" style="white-space: nowrap;">📩 Gửi Mã OTP</button>
             </div>
-          </label>
-          <label class="role-option-card">
-            <input type="radio" name="authRoleOption" value="manager" id="optRoleManager" checked>
-            <div class="role-option-info">
-              <strong>👑 Quản Lý / Sếp</strong>
-              <small>Toàn quyền xem tất cả các Tab, thống kê lịch sử và cấu hình PO / Lô</small>
+          </div>
+
+          <!-- Invisible reCAPTCHA container -->
+          <div id="recaptcha-container"></div>
+
+          <!-- OTP Input Step (Hidden until OTP is sent) -->
+          <div id="boxOtpInput" class="form-group" style="display: none; margin-top: 15px; background: #f0fdf4; padding: 12px; border-radius: 8px; border: 1.5px solid #86efac;">
+            <label for="txtOtpCode" style="color: #15803d; font-weight: 700;">Nhập mã OTP (6 số đã gửi về điện thoại):</label>
+            <input type="text" id="txtOtpCode" class="form-control font-bold" placeholder="Nhập 6 số OTP..." maxlength="6" style="font-size: 18px; letter-spacing: 4px; text-align: center;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+              <small id="lblOtpTimer" style="color: #64748b; font-size: 12px;">Mã có hiệu lực trong: <strong id="timerSec">60</strong>s</small>
+              <button type="button" id="btnResendOTP" style="background:none; border:none; color:#0284c7; cursor:pointer; font-size:12px; font-weight:700;" disabled>Gửi lại OTP</button>
             </div>
-          </label>
+          </div>
         </div>
 
-        <div id="boxManagerPin" class="form-group" style="margin-top: 12px;">
-          <label for="txtManagerPin">Mã PIN xác thực Sếp (Mặc định: 1234):</label>
-          <input type="password" id="txtManagerPin" class="form-control" placeholder="Nhập mã PIN..." value="1234">
-          <small style="color: #64748b; font-size: 11px;">Gợi ý: Mã PIN mặc định là <strong>1234</strong></small>
+        <!-- PANE 2: FAST PIN LOGIN (FALLBACK) -->
+        <div id="authPanePin" class="auth-pane">
+          <p style="font-size: 13px; color: #475569; margin-bottom: 12px;">
+            Đăng nhập nhanh bằng Số điện thoại & Mã PIN quản trị dự phòng:
+          </p>
+          <div class="form-group">
+            <label for="txtPinPhone">Số điện thoại:</label>
+            <input type="tel" id="txtPinPhone" class="form-control" placeholder="Ví dụ: 0901234567..." value="0900000000">
+          </div>
+          <div class="form-group" style="margin-top: 10px;">
+            <label for="txtManagerPin">Mã PIN (Mặc định: 1234):</label>
+            <input type="password" id="txtManagerPin" class="form-control" placeholder="Nhập mã PIN..." value="1234">
+          </div>
         </div>
+
       </div>
+
       <div class="modal-footer">
-        <button class="btn btn-secondary" id="btnCancelRoleModal">Hủy</button>
-        <button class="btn btn-primary" id="btnConfirmRole">Xác Nhận Đổi Quyền</button>
+        <button class="btn btn-secondary" id="btnCancelRoleModal">Đóng</button>
+        <button class="btn btn-primary" id="btnConfirmAuth">Xác Nhận Đăng Nhập</button>
       </div>
     </div>
   </div>
