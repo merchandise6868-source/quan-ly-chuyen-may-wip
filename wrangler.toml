@@ -7,11 +7,11 @@ compatibility_flags = ["nodejs_compat"]
 directory = "frontend"
 binding = "ASSETS"
 
-# Cấu hình D1 Database (nếu sử dụng trên Cloudflare)
-# [[d1_databases]]
-# binding = "DB"
-# database_name = "wip_tracking_db"
-# database_id = "xxxx-xxxx-xxxx-xxxx"
+# Cấu hình Cloudflare D1 Database SQLite
+[[d1_databases]]
+binding = "DB"
+database_name = "wip_tracking_db"
+database_id = "8d60b1a2-14f7-4411-ab8c-e8231b8c4ad2"
 
 [vars]
 APP_NAME = "Hệ Thống Quản Lý Tiến Độ Chuyền May"

@@ -1575,3 +1575,208 @@ input[type=number] {
   border: 1.5px solid #fca5a5;
   box-shadow: 0 1px 3px rgba(220, 38, 38, 0.15);
 }
+
+/* ========================================================
+   ROLE SELECTOR & PERMISSION UI
+   ======================================================== */
+.role-control-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.role-badge-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.role-badge.is-worker {
+  background-color: #0284c7;
+  color: #ffffff;
+  border: 1px solid #38bdf8;
+}
+
+.role-badge.is-manager {
+  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+  color: #ffffff;
+  border: 1px solid #fcd34d;
+  box-shadow: 0 2px 8px rgba(217, 119, 6, 0.3);
+}
+
+.btn-role-switch {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-role-switch:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.manager-only-tab.hidden {
+  display: none !important;
+}
+
+/* ========================================================
+   SUB-TABS IN TAB 1 (KIỂM KÊ THEO NGÀY VS LỊCH SỬ CÁC NGÀY)
+   ======================================================== */
+.sub-tab-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  border-bottom: 2px solid #e2e8f0;
+  padding-bottom: 6px;
+}
+
+.sub-tab-btn {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  padding: 8px 18px;
+  border-radius: 8px 8px 0 0;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sub-tab-btn:hover {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+.sub-tab-btn.active {
+  background: #0f766e;
+  color: #ffffff;
+  border-color: #0f766e;
+  box-shadow: 0 3px 10px rgba(15, 118, 110, 0.25);
+}
+
+.subtab-pane {
+  display: none;
+}
+
+.subtab-pane.active {
+  display: block;
+}
+
+/* ========================================================
+   HISTORY ALL-DATES TABLE STYLING
+   ======================================================== */
+.history-table-wrapper {
+  margin-top: 15px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+  max-height: 620px;
+  overflow: auto;
+}
+
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  text-align: center;
+}
+
+.history-table th {
+  background: #1e293b;
+  color: #ffffff;
+  padding: 10px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid #334155;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.history-table td {
+  padding: 8px 6px;
+  border: 1px solid #e2e8f0;
+  vertical-align: middle;
+}
+
+.history-table tbody tr:hover {
+  background-color: #f8fafc;
+}
+
+.history-tfoot {
+  position: sticky;
+  bottom: 0;
+  background: #f1f5f9;
+  z-index: 9;
+}
+
+.tr-hist-summary td {
+  border-top: 2px solid #0f172a;
+  padding: 10px 6px;
+  font-weight: 800;
+  font-size: 13px;
+  background-color: #f1f5f9;
+}
+
+/* AUTH PIN MODAL */
+.modal-auth-card {
+  max-width: 440px;
+}
+
+.role-switch-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.role-option-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: #ffffff;
+}
+
+.role-option-card:hover {
+  border-color: #0f766e;
+  background: #f0fdf4;
+}
+
+.role-option-card input[type="radio"] {
+  margin-top: 3px;
+  accent-color: #0f766e;
+}
+
+.role-option-info strong {
+  display: block;
+  font-size: 14px;
+  color: #0f172a;
+}
+
+.role-option-info small {
+  display: block;
+  font-size: 11.5px;
+  color: #64748b;
+  margin-top: 2px;
+}
+

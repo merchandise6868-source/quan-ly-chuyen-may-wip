@@ -1,5 +1,6 @@
 // STATE MANAGEMENT
 let appState = {
+  currentUserRole: localStorage.getItem("dd_wip_role") || "worker", // "worker" | "manager"
   customers: [],
   orders: [],
   currentCustomer: null,
@@ -13,12 +14,14 @@ let appState = {
   },
   cumExportsByBatch: {},
   flowLogs: [],
+  historyLogs: [],
   activeInputEl: null
 };
 
 // INITIALIZATION
 document.addEventListener("DOMContentLoaded", () => {
   initDate();
+  applyUserRole(appState.currentUserRole);
   bindEvents();
   fetchMetadata();
 });
@@ -43,6 +46,65 @@ function showToast(msg = "✅ Đã lưu dữ liệu thành công!") {
 
 // BIND DOM EVENTS
 function bindEvents() {
+  // Role switcher events
+  const btnSwitchRole = document.getElementById("btnSwitchRole");
+  if (btnSwitchRole) btnSwitchRole.addEventListener("click", openRoleModal);
+
+  const btnCloseRoleModal = document.getElementById("btnCloseRoleModal");
+  if (btnCloseRoleModal) btnCloseRoleModal.addEventListener("click", closeRoleModal);
+
+  const btnCancelRoleModal = document.getElementById("btnCancelRoleModal");
+  if (btnCancelRoleModal) btnCancelRoleModal.addEventListener("click", closeRoleModal);
+
+  const btnConfirmRole = document.getElementById("btnConfirmRole");
+  if (btnConfirmRole) btnConfirmRole.addEventListener("click", confirmRoleSwitch);
+
+  const optRoleWorker = document.getElementById("optRoleWorker");
+  const optRoleManager = document.getElementById("optRoleManager");
+  const boxPin = document.getElementById("boxManagerPin");
+  if (optRoleWorker && optRoleManager && boxPin) {
+    optRoleWorker.addEventListener("change", () => {
+      boxPin.style.display = "none";
+    });
+    optRoleManager.addEventListener("change", () => {
+      boxPin.style.display = "block";
+    });
+  }
+
+  // Sub-tabs in Tab 1
+  const subDaily = document.getElementById("subtabBtnDaily");
+  const subHistory = document.getElementById("subtabBtnHistory");
+  if (subDaily && subHistory) {
+    subDaily.addEventListener("click", () => {
+      subDaily.classList.add("active");
+      subHistory.classList.remove("active");
+      document.getElementById("subtab-daily").classList.add("active");
+      document.getElementById("subtab-history").classList.remove("active");
+    });
+    subHistory.addEventListener("click", () => {
+      subHistory.classList.add("active");
+      subDaily.classList.remove("active");
+      document.getElementById("subtab-history").classList.add("active");
+      document.getElementById("subtab-daily").classList.remove("active");
+      fetchReportHistory();
+    });
+  }
+
+  const histBatchFilter = document.getElementById("historyBatchFilter");
+  if (histBatchFilter) {
+    histBatchFilter.addEventListener("change", renderHistoryTable);
+  }
+
+  const btnRefreshHist = document.getElementById("btnRefreshHistory");
+  if (btnRefreshHist) {
+    btnRefreshHist.addEventListener("click", fetchReportHistory);
+  }
+
+  const btnExportHist = document.getElementById("btnExportHistoryExcel");
+  if (btnExportHist) {
+    btnExportHist.addEventListener("click", exportHistoryToExcel);
+  }
+
   // Top Header Filters
   document.getElementById("selectCustomer").addEventListener("change", (e) => {
     appState.currentCustomer = e.target.value;
@@ -54,6 +116,9 @@ function bindEvents() {
     appState.currentPO = appState.orders.find(o => o.id === poId);
     loadReport();
     loadDeptLogs();
+    if (document.getElementById("subtab-history") && document.getElementById("subtab-history").classList.contains("active")) {
+      fetchReportHistory();
+    }
   });
 
   // Date Change & Navigation
@@ -1641,3 +1706,289 @@ function exportToExcel() {
   XLSX.utils.book_append_sheet(wb, ws1, "Bao_Cao_Doi_Chieu");
   XLSX.writeFile(wb, `Bao_Cao_Doi_Chieu_${appState.currentPO ? appState.currentPO.po_number : 'PO'}_${appState.currentDate}.xlsx`);
 }
+
+// ========================================================
+// ROLE MANAGEMENT & PERMISSION FUNCTIONS
+// ========================================================
+function applyUserRole(role) {
+  appState.currentUserRole = role;
+  localStorage.setItem("dd_wip_role", role);
+
+  const badge = document.getElementById("currentRoleBadge");
+  const tabManageBtn = document.getElementById("tabBtnManage");
+
+  if (role === "manager") {
+    if (badge) {
+      badge.className = "role-badge is-manager";
+      badge.innerHTML = "👑 Quản lý (Sếp)";
+    }
+    if (tabManageBtn) {
+      tabManageBtn.classList.remove("hidden");
+    }
+  } else {
+    if (badge) {
+      badge.className = "role-badge is-worker";
+      badge.innerHTML = "👤 Công nhân";
+    }
+    if (tabManageBtn) {
+      tabManageBtn.classList.add("hidden");
+    }
+    // If user is currently on Tab 3, automatically switch back to Tab 1
+    const activeTab = document.querySelector(".tab-btn.active");
+    if (activeTab && activeTab.dataset.tab === "tab-manage") {
+      const wipTab = document.querySelector('.tab-btn[data-tab="tab-wip"]');
+      if (wipTab) wipTab.click();
+    }
+  }
+}
+
+function openRoleModal() {
+  const modal = document.getElementById("modalRoleAuth");
+  if (!modal) return;
+  
+  const optWorker = document.getElementById("optRoleWorker");
+  const optManager = document.getElementById("optRoleManager");
+  const boxPin = document.getElementById("boxManagerPin");
+  const txtPin = document.getElementById("txtManagerPin");
+
+  if (appState.currentUserRole === "manager") {
+    if (optManager) optManager.checked = true;
+    if (boxPin) boxPin.style.display = "block";
+  } else {
+    if (optWorker) optWorker.checked = true;
+    if (boxPin) boxPin.style.display = "none";
+  }
+  if (txtPin) txtPin.value = "1234";
+
+  modal.classList.add("show");
+}
+
+function closeRoleModal() {
+  const modal = document.getElementById("modalRoleAuth");
+  if (modal) modal.classList.remove("show");
+}
+
+function confirmRoleSwitch() {
+  const selectedRole = document.querySelector('input[name="authRoleOption"]:checked')?.value || "worker";
+  
+  if (selectedRole === "manager") {
+    const pin = document.getElementById("txtManagerPin")?.value.trim();
+    if (pin !== "1234" && pin !== "8888" && pin !== "admin") {
+      alert("❌ Mã PIN không chính xác! Vui lòng nhập đúng mã PIN dành cho Quản lý (Mặc định: 1234).");
+      return;
+    }
+  }
+
+  applyUserRole(selectedRole);
+  closeRoleModal();
+  showToast(`✅ Đã chuyển sang vai trò: ${selectedRole === 'manager' ? '👑 Quản lý (Sếp)' : '👤 Công nhân'}`);
+}
+
+// ========================================================
+// SUB-TAB 1.2: THỐNG KÊ LỊCH SỬ TẤT CẢ CÁC NGÀY CỦA LÔ
+// ========================================================
+async function fetchReportHistory() {
+  if (!appState.currentPO) return;
+  const histPoNum = document.getElementById("histPoNum");
+  if (histPoNum) histPoNum.innerText = `${appState.currentPO.po_number} - ${appState.currentPO.style_code}`;
+
+  try {
+    const res = await fetch(`/api/report-history?po_id=${appState.currentPO.id}`);
+    const data = await res.json();
+    if (data.success) {
+      appState.historyLogs = data.history || [];
+      populateHistoryBatchFilter();
+      renderHistoryTable();
+    }
+  } catch (err) {
+    console.error("Lỗi khi tải lịch sử kiểm kê:", err);
+  }
+}
+
+function populateHistoryBatchFilter() {
+  const select = document.getElementById("historyBatchFilter");
+  if (!select) return;
+  const currentVal = select.value;
+  
+  const batchNames = Array.from(new Set(appState.historyLogs.map(r => r.batch_name).filter(Boolean)));
+  select.innerHTML = `<option value="ALL">-- Tất Cả Các Lô --</option>`;
+  batchNames.forEach(name => {
+    const opt = document.createElement("option");
+    opt.value = name;
+    opt.innerText = name;
+    select.appendChild(opt);
+  });
+  if (batchNames.includes(currentVal)) {
+    select.value = currentVal;
+  }
+}
+
+function renderHistoryTable() {
+  const tbody = document.getElementById("historyTbody");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+
+  const filterBatch = document.getElementById("historyBatchFilter")?.value || "ALL";
+  const filtered = filterBatch === "ALL" 
+    ? appState.historyLogs 
+    : appState.historyLogs.filter(r => r.batch_name === filterBatch);
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="14" style="text-align:center; padding: 25px; color: #94a3b8;">Chưa có dữ liệu kiểm kê lịch sử cho đơn hàng này. Hãy thực hiện lưu báo cáo theo ngày ở Tab 1.1 để theo dõi.</td></tr>`;
+    resetHistorySummary();
+    return;
+  }
+
+  let sumNhap = 0, sumXuat = 0, sumMay = 0, sumQC = 0, sumPhoi = 0, sumDG = 0, sumKho = 0;
+  let sumTonThucTe = 0, sumTonLyThuyet = 0, sumChenhLech = 0;
+
+  filtered.forEach(r => {
+    const into = Number(r.into_sewing || r.batch_plan) || 0;
+    const delivered = Number(r.delivered || r.daily_out) || 0;
+    const wipSewing = Number(r.wip_sewing) || 0;
+    const wipQC = Number(r.wip_qc) || 0;
+    const wipPairing = Number(r.wip_pairing) || 0;
+    const wipPacking = Number(r.wip_packing) || 0;
+    const wipWarehouse = Number(r.wip_warehouse) || 0;
+
+    const actualWip = wipSewing + wipQC + wipPairing + wipPacking + wipWarehouse;
+    const tonLyThuyet = into - delivered;
+    const shortage = tonLyThuyet - actualWip;
+
+    sumNhap += into;
+    sumXuat += delivered;
+    sumMay += wipSewing;
+    sumQC += wipQC;
+    sumPhoi += wipPairing;
+    sumDG += wipPacking;
+    sumKho += wipWarehouse;
+    sumTonThucTe += actualWip;
+    sumTonLyThuyet += tonLyThuyet;
+    sumChenhLech += shortage;
+
+    const tr = document.createElement("tr");
+    const statusHtml = shortage === 0 
+      ? `<span class="dept-status-badge is-ok">Khớp (OK)</span>` 
+      : (shortage > 0 
+          ? `<span class="dept-status-badge is-not-ok">Thiếu ${shortage}</span>` 
+          : `<span class="dept-status-badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a;">Thừa +${Math.abs(shortage)}</span>`);
+
+    tr.innerHTML = `
+      <td style="font-weight: 700; color: #1e293b;">${r.report_date || ''}</td>
+      <td style="font-weight: 700; color: #0284c7;">${r.batch_name || ''}</td>
+      <td>${into.toLocaleString('vi-VN')}</td>
+      <td>${delivered.toLocaleString('vi-VN')}</td>
+      <td>${wipSewing.toLocaleString('vi-VN')}</td>
+      <td>${wipQC.toLocaleString('vi-VN')}</td>
+      <td>${wipPairing.toLocaleString('vi-VN')}</td>
+      <td>${wipPacking.toLocaleString('vi-VN')}</td>
+      <td>${wipWarehouse.toLocaleString('vi-VN')}</td>
+      <td style="font-weight: 700; color: #d97706;">${actualWip.toLocaleString('vi-VN')}</td>
+      <td style="font-weight: 700; color: #2563eb;">${tonLyThuyet.toLocaleString('vi-VN')}</td>
+      <td style="font-weight: 700; color: ${shortage === 0 ? '#16a34a' : (shortage > 0 ? '#dc2626' : '#d97706')};">${shortage > 0 ? '-' : (shortage < 0 ? '+' : '')}${Math.abs(shortage).toLocaleString('vi-VN')}</td>
+      <td>${statusHtml}</td>
+      <td style="font-size: 11.5px; color: #475569; text-align: left;">${r.shortage_reason_type ? `[${r.shortage_reason_type}] ` : ''}${r.shortage_note || ''}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  // Update Summary Footer
+  const elSumNhap = document.getElementById("histSumNhap");
+  if (elSumNhap) elSumNhap.innerText = sumNhap.toLocaleString("vi-VN");
+
+  const elSumXuat = document.getElementById("histSumXuat");
+  if (elSumXuat) elSumXuat.innerText = sumXuat.toLocaleString("vi-VN");
+
+  const elSumMay = document.getElementById("histSumMay");
+  if (elSumMay) elSumMay.innerText = sumMay.toLocaleString("vi-VN");
+
+  const elSumQC = document.getElementById("histSumQC");
+  if (elSumQC) elSumQC.innerText = sumQC.toLocaleString("vi-VN");
+
+  const elSumPhoi = document.getElementById("histSumPhoi");
+  if (elSumPhoi) elSumPhoi.innerText = sumPhoi.toLocaleString("vi-VN");
+
+  const elSumDG = document.getElementById("histSumDG");
+  if (elSumDG) elSumDG.innerText = sumDG.toLocaleString("vi-VN");
+
+  const elSumKho = document.getElementById("histSumKho");
+  if (elSumKho) elSumKho.innerText = sumKho.toLocaleString("vi-VN");
+
+  const elSumTT = document.getElementById("histSumTonThucTe");
+  if (elSumTT) elSumTT.innerText = sumTonThucTe.toLocaleString("vi-VN");
+
+  const elSumLT = document.getElementById("histSumTonLyThuyet");
+  if (elSumLT) elSumLT.innerText = sumTonLyThuyet.toLocaleString("vi-VN");
+
+  const elSumCL = document.getElementById("histSumChenhLech");
+  if (elSumCL) elSumCL.innerText = `${sumChenhLech > 0 ? '-' : (sumChenhLech < 0 ? '+' : '')}${Math.abs(sumChenhLech).toLocaleString("vi-VN")}`;
+  
+  const elHistStatus = document.getElementById("histStatus");
+  if (elHistStatus) {
+    elHistStatus.innerHTML = sumChenhLech === 0 
+      ? `<span class="dept-status-badge is-ok">OK</span>`
+      : `<span class="dept-status-badge is-not-ok">Lệch</span>`;
+  }
+}
+
+function resetHistorySummary() {
+  ["histSumNhap", "histSumXuat", "histSumMay", "histSumQC", "histSumPhoi", "histSumDG", "histSumKho", "histSumTonThucTe", "histSumTonLyThuyet", "histSumChenhLech"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerText = "0";
+  });
+  const elStatus = document.getElementById("histStatus");
+  if (elStatus) elStatus.innerText = "--";
+}
+
+function exportHistoryToExcel() {
+  const wb = XLSX.utils.book_new();
+  const po = appState.currentPO;
+  const poNum = po ? po.po_number : "PO";
+
+  const rows = [
+    ["THỐNG KÊ LỊCH SỬ TIẾN ĐỘ CÁC LÔ THEO TẤT CẢ CÁC NGÀY"],
+    ["Đơn hàng / Style:", po ? po.style_code : "", "PO Number:", poNum, "Tổng kế hoạch:", po ? po.po_plan : 0],
+    [],
+    ["Ngày Báo Cáo", "Lô Hàng", "Nhập (Vào Chuyền)", "Xuất (Giao KH)", "KK May", "KK QC", "KK Phối Đôi", "KK Đóng Gói", "KK Kho TP", "Tổng Tồn Thực Tế", "Tồn Lý Thuyết", "Chênh Lệch", "Lý Do / Ghi Chú"]
+  ];
+
+  const filterBatch = document.getElementById("historyBatchFilter")?.value || "ALL";
+  const filtered = filterBatch === "ALL" 
+    ? appState.historyLogs 
+    : appState.historyLogs.filter(r => r.batch_name === filterBatch);
+
+  filtered.forEach(r => {
+    const into = Number(r.into_sewing || r.batch_plan) || 0;
+    const delivered = Number(r.delivered || r.daily_out) || 0;
+    const wipSewing = Number(r.wip_sewing) || 0;
+    const wipQC = Number(r.wip_qc) || 0;
+    const wipPairing = Number(r.wip_pairing) || 0;
+    const wipPacking = Number(r.wip_packing) || 0;
+    const wipWarehouse = Number(r.wip_warehouse) || 0;
+
+    const actualWip = wipSewing + wipQC + wipPairing + wipPacking + wipWarehouse;
+    const tonLyThuyet = into - delivered;
+    const shortage = tonLyThuyet - actualWip;
+
+    rows.push([
+      r.report_date || "",
+      r.batch_name || "",
+      into,
+      delivered,
+      wipSewing,
+      wipQC,
+      wipPairing,
+      wipPacking,
+      wipWarehouse,
+      actualWip,
+      tonLyThuyet,
+      shortage,
+      `${r.shortage_reason_type ? `[${r.shortage_reason_type}] ` : ''}${r.shortage_note || ''}`
+    ]);
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  XLSX.utils.book_append_sheet(wb, ws, "Lich_Su_Kiem_Ke_Lo");
+  XLSX.writeFile(wb, `Lich_Su_Kiem_Ke_Lo_${poNum}.xlsx`);
+}
+

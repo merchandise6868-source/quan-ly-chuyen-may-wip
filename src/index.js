@@ -1,4 +1,4 @@
-// Memory database initial seed
+// Memory database initial seed (fallback for local dev without D1)
 const INITIAL_DB = {
   customers: [
     { id: "cust-1", code: "D&D", name: "D&D Long An" },
@@ -16,7 +16,7 @@ const INITIAL_DB = {
       default_batches: [
         { id: "b1", batch_name: "Lô 1", batch_plan: 1230, into_sewing: 1230 },
         { id: "b2", batch_name: "Lô 2", batch_plan: 267, into_sewing: 267 },
-        { id: "b3", batch_name: "Lô 3", batch_plan: 126, into_sewing: 126 }
+        { id: "b3", batch_name: "Số đuôi", batch_plan: 126, into_sewing: 126 }
       ]
     },
     {
@@ -100,52 +100,14 @@ const INITIAL_DB = {
           batch_name: "Lô 1",
           batch_plan: 1230,
           into_sewing: 1230,
-          wip_sewing: 0,
-          wip_qc: 0,
-          wip_pairing: 0,
-          wip_packing: 111,
-          wip_warehouse: 120,
-          daily_out: 350,
-          note_sewing: "",
-          note_qc: "",
-          note_pairing: "",
-          note_packing: "Hoàn thiện 111",
-          note_warehouse: "Kho nội bộ",
-          shortage_reason_type: "Khác",
-          shortage_note: "Thiếu phôi hỏng"
-        },
-        {
-          id: "b2",
-          batch_name: "Lô 2",
-          batch_plan: 267,
-          into_sewing: 267,
-          wip_sewing: 0,
-          wip_qc: 0,
-          wip_pairing: 100,
+          wip_sewing: 150,
+          wip_qc: 50,
+          wip_pairing: 200,
           wip_packing: 100,
-          wip_warehouse: 50,
-          daily_out: 0,
+          wip_warehouse: 0,
+          daily_out: 200,
           note_sewing: "",
           note_qc: "",
-          note_pairing: "Thảo",
-          note_packing: "Lan",
-          note_warehouse: "Kho TP",
-          shortage_reason_type: "Hàng phế",
-          shortage_note: "17 đôi dập bù"
-        },
-        {
-          id: "b3",
-          batch_name: "Lô 3",
-          batch_plan: 126,
-          into_sewing: 126,
-          wip_sewing: 80,
-          wip_qc: 46,
-          wip_pairing: 0,
-          wip_packing: 0,
-          wip_warehouse: 0,
-          daily_out: 0,
-          note_sewing: "Line 1",
-          note_qc: "QC 1",
           note_pairing: "",
           note_packing: "",
           note_warehouse: "",
@@ -158,65 +120,167 @@ const INITIAL_DB = {
   dept_logs: {
     "po-050": {
       "Lô 1": [
-        { date: "19-Sep", nhap_phoi: 600, giao_dg: "", nhap_kho: "", xuat_kho: "" },
-        { date: "20-Sep", nhap_phoi: 630, giao_dg: 300, nhap_kho: 200, xuat_kho: 200 },
-        { date: "21-Sep", nhap_phoi: "", giao_dg: 350, nhap_kho: 300, xuat_kho: 300 },
-        { date: "22-Sep", nhap_phoi: "", giao_dg: 121, nhap_kho: 148, xuat_kho: 148 },
-        { date: "23-Sep", nhap_phoi: "", giao_dg: "", nhap_kho: 350, xuat_kho: 350 },
+        { date: "22/9", nhap_phoi: 200, giao_dg: 150, nhap_kho: 150, xuat_kho: 0 },
+        { date: "23/9", nhap_phoi: 300, giao_dg: 250, nhap_kho: 200, xuat_kho: 200 },
         { date: "", nhap_phoi: "", giao_dg: "", nhap_kho: "", xuat_kho: "" }
       ],
       "Lô 2": [
-        { date: "22-Sep", nhap_phoi: 267, giao_dg: "", nhap_kho: "", xuat_kho: "" },
-        { date: "23-Sep", nhap_phoi: "", giao_dg: 200, nhap_kho: 50, xuat_kho: "" },
-        { date: "", nhap_phoi: "", giao_dg: "", nhap_kho: "", xuat_kho: "" },
-        { date: "", nhap_phoi: "", giao_dg: "", nhap_kho: "", xuat_kho: "" },
+        { date: "22/9", nhap_phoi: 100, giao_dg: 100, nhap_kho: 50, xuat_kho: 0 },
         { date: "", nhap_phoi: "", giao_dg: "", nhap_kho: "", xuat_kho: "" }
       ],
       "Số đuôi": [
-        { date: "23-Sep", nhap_phoi: 126, giao_dg: "", nhap_kho: "", xuat_kho: "" },
-        { date: "", nhap_phoi: "", giao_dg: "", nhap_kho: "", xuat_kho: "" },
-        { date: "", nhap_phoi: "", giao_dg: "", nhap_kho: "", xuat_kho: "" },
-        { date: "", nhap_phoi: "", giao_dg: "", nhap_kho: "", xuat_kho: "" },
         { date: "", nhap_phoi: "", giao_dg: "", nhap_kho: "", xuat_kho: "" }
       ]
     }
   },
-  flow_logs: [
-    { id: "fl-1", po_id: "po-050", trans_date: "2026-09-19", batch_name: "Lô 1", daily_into_sewing: 600, daily_out_sewing: 300, daily_out_packing: 0, daily_out_warehouse: 0, daily_delivered: 0, voucher_note: "Phiếu giao BTP đợt 1 (Lô 1)" },
-    { id: "fl-2", po_id: "po-050", trans_date: "2026-09-20", batch_name: "Lô 1", daily_into_sewing: 630, daily_out_sewing: 500, daily_out_packing: 300, daily_out_warehouse: 200, daily_delivered: 200, voucher_note: "Phiếu giao BTP đợt 2 (đủ 1.230 đôi Lô 1), giao khách đợt 1" },
-    { id: "fl-3", po_id: "po-050", trans_date: "2026-09-21", batch_name: "Lô 1", daily_into_sewing: 0, daily_out_sewing: 250, daily_out_packing: 350, daily_out_warehouse: 300, daily_delivered: 300, voucher_note: "Giao khách đợt 2 (300 đôi)" },
-    { id: "fl-4", po_id: "po-050", trans_date: "2026-09-22", batch_name: "Lô 1", daily_into_sewing: 0, daily_out_sewing: 0, daily_out_packing: 121, daily_out_warehouse: 148, daily_delivered: 148, voucher_note: "Chốt 22/09: LK Giao khách 648, tồn WIP 581, thiếu 1" },
-    { id: "fl-5", po_id: "po-050", trans_date: "2026-09-22", batch_name: "Lô 2", daily_into_sewing: 267, daily_out_sewing: 0, daily_out_packing: 0, daily_out_warehouse: 0, daily_delivered: 0, voucher_note: "Chốt 22/09: Nhập đủ BTP Lô 2 (267 đôi), đang may 250, thiếu 17" },
-    { id: "fl-6", po_id: "po-050", trans_date: "2026-09-23", batch_name: "Lô 1", daily_into_sewing: 0, daily_out_sewing: 0, daily_out_packing: 0, daily_out_warehouse: 350, daily_delivered: 350, voucher_note: "Chốt 23/09: Xuất thêm 350 đôi kho TP giao khách (LK: 998 đôi)" },
-    { id: "fl-7", po_id: "po-050", trans_date: "2026-09-23", batch_name: "Lô 2", daily_into_sewing: 0, daily_out_sewing: 250, daily_out_packing: 200, daily_out_warehouse: 50, daily_delivered: 0, voucher_note: "Chốt 23/09: May xong 250 đôi -> Phối 100, ĐG 100, Kho 50" },
-    { id: "fl-8", po_id: "po-050", trans_date: "2026-09-23", batch_name: "Lô 3", daily_into_sewing: 126, daily_out_sewing: 80, daily_out_packing: 0, daily_out_warehouse: 0, daily_delivered: 0, voucher_note: "Chốt 23/09: Chuẩn bị giao 126 đôi nợ -> mở Lô 3, may xong 80 đôi" }
-  ]
+  flow_logs: []
 };
 
 let memoryDB = JSON.parse(JSON.stringify(INITIAL_DB));
+
+// Helper: Auto-initialize D1 Database tables and seed initial data
+let d1Initialized = false;
+async function initD1Tables(db) {
+  if (d1Initialized || !db) return;
+  try {
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS customers (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        code TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS po_orders (
+        id TEXT PRIMARY KEY,
+        customer_id TEXT NOT NULL,
+        style_code TEXT NOT NULL,
+        po_number TEXT NOT NULL,
+        line_name TEXT NOT NULL,
+        po_plan INTEGER NOT NULL DEFAULT 0,
+        default_batches TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS daily_reports (
+        id TEXT PRIMARY KEY,
+        po_id TEXT NOT NULL,
+        report_date TEXT NOT NULL,
+        status TEXT DEFAULT 'DRAFT',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS report_batches (
+        id TEXT PRIMARY KEY,
+        report_id TEXT NOT NULL,
+        po_id TEXT NOT NULL,
+        report_date TEXT NOT NULL,
+        batch_name TEXT NOT NULL,
+        batch_plan INTEGER NOT NULL DEFAULT 0,
+        into_sewing INTEGER NOT NULL DEFAULT 0,
+        delivered INTEGER NOT NULL DEFAULT 0,
+        wip_sewing INTEGER NOT NULL DEFAULT 0,
+        wip_qc INTEGER NOT NULL DEFAULT 0,
+        wip_pairing INTEGER NOT NULL DEFAULT 0,
+        wip_packing INTEGER NOT NULL DEFAULT 0,
+        wip_warehouse INTEGER NOT NULL DEFAULT 0,
+        note_sewing TEXT,
+        note_qc TEXT,
+        note_pairing TEXT,
+        note_packing TEXT,
+        note_warehouse TEXT,
+        shortage_reason_type TEXT,
+        shortage_note TEXT
+      );
+      CREATE TABLE IF NOT EXISTS dept_logs (
+        id TEXT PRIMARY KEY,
+        po_id TEXT NOT NULL,
+        batch_name TEXT NOT NULL,
+        log_date TEXT,
+        nhap_phoi INTEGER DEFAULT 0,
+        giao_dg INTEGER DEFAULT 0,
+        nhap_kho INTEGER DEFAULT 0,
+        xuat_kho INTEGER DEFAULT 0,
+        row_order INTEGER DEFAULT 0
+      );
+      CREATE TABLE IF NOT EXISTS flow_logs (
+        id TEXT PRIMARY KEY,
+        po_id TEXT NOT NULL,
+        trans_date TEXT NOT NULL,
+        batch_name TEXT NOT NULL,
+        daily_into_sewing INTEGER DEFAULT 0,
+        daily_out_sewing INTEGER DEFAULT 0,
+        daily_out_packing INTEGER DEFAULT 0,
+        daily_out_warehouse INTEGER DEFAULT 0,
+        daily_delivered INTEGER DEFAULT 0,
+        voucher_note TEXT
+      );
+    `);
+
+    // Check if customers empty, then seed
+    const { results: existingCust } = await db.prepare("SELECT COUNT(*) as count FROM customers").all();
+    if (existingCust && existingCust[0] && existingCust[0].count === 0) {
+      for (const c of INITIAL_DB.customers) {
+        await db.prepare("INSERT INTO customers (id, name, code) VALUES (?, ?, ?)").bind(c.id, c.name, c.code).run();
+      }
+      for (const o of INITIAL_DB.orders) {
+        await db.prepare("INSERT INTO po_orders (id, customer_id, style_code, po_number, line_name, po_plan, default_batches) VALUES (?, ?, ?, ?, ?, ?, ?)")
+          .bind(o.id, o.customer_id, o.style_code, o.po_number, o.line_name, o.po_plan, JSON.stringify(o.default_batches))
+          .run();
+      }
+    }
+    d1Initialized = true;
+  } catch (err) {
+    console.error("D1 Init Error:", err);
+  }
+}
 
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
+    // CORS Headers
+    const headers = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Content-Type': 'application/json; charset=utf-8'
+    };
+
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { headers });
+    }
+
+    // Auto init D1 tables if available
+    if (env && env.DB) {
+      await initD1Tables(env.DB);
+    }
+
+    // Router for API endpoints
     if (url.pathname.startsWith('/api/')) {
-      const headers = {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type'
-      };
-
-      if (request.method === 'OPTIONS') {
-        return new Response(null, { headers });
-      }
-
-      // 1. Get metadata
+      
+      // 1. Get Initial Metadata (Customers & Orders)
       if (url.pathname === '/api/metadata' && request.method === 'GET') {
+        if (env && env.DB) {
+          try {
+            const { results: customers } = await env.DB.prepare("SELECT * FROM customers ORDER BY name ASC").all();
+            const { results: ordersRaw } = await env.DB.prepare("SELECT * FROM po_orders ORDER BY created_at DESC").all();
+            const orders = (ordersRaw || []).map(o => ({
+              ...o,
+              default_batches: typeof o.default_batches === 'string' ? JSON.parse(o.default_batches || '[]') : (o.default_batches || [])
+            }));
+            return Response.json({
+              success: true,
+              customers: customers || [],
+              orders: orders || [],
+              current_date: new Date().toISOString().split('T')[0]
+            }, { headers });
+          } catch (err) {
+            console.error("D1 Metadata Query Error:", err);
+          }
+        }
+
         return Response.json({
           success: true,
           customers: memoryDB.customers,
-          orders: memoryDB.orders
+          orders: memoryDB.orders,
+          current_date: new Date().toISOString().split('T')[0]
         }, { headers });
       }
 
@@ -225,16 +289,21 @@ export default {
         try {
           const body = await request.json();
           const { id, name, code } = body;
+
+          if (env && env.DB) {
+            const custId = id || ('cust-' + Date.now());
+            await env.DB.prepare("INSERT OR REPLACE INTO customers (id, name, code) VALUES (?, ?, ?)")
+              .bind(custId, name, code)
+              .run();
+            const { results: customers } = await env.DB.prepare("SELECT * FROM customers ORDER BY name ASC").all();
+            return Response.json({ success: true, customers }, { headers });
+          }
+
           if (id) {
             const idx = memoryDB.customers.findIndex(c => c.id === id);
             if (idx >= 0) memoryDB.customers[idx] = { id, name, code };
           } else {
-            const newCust = {
-              id: 'cust-' + Date.now(),
-              name: name || 'Khách Hàng Mới',
-              code: code || ('KH-' + Math.floor(Math.random()*1000))
-            };
-            memoryDB.customers.push(newCust);
+            memoryDB.customers.push({ id: 'cust-' + Date.now(), name, code });
           }
           return Response.json({ success: true, customers: memoryDB.customers }, { headers });
         } catch (err) {
@@ -246,6 +315,13 @@ export default {
       if (url.pathname === '/api/customers' && request.method === 'DELETE') {
         try {
           const custId = url.searchParams.get('id');
+          if (env && env.DB) {
+            await env.DB.prepare("DELETE FROM customers WHERE id = ?").bind(custId).run();
+            await env.DB.prepare("DELETE FROM po_orders WHERE customer_id = ?").bind(custId).run();
+            const { results: customers } = await env.DB.prepare("SELECT * FROM customers ORDER BY name ASC").all();
+            return Response.json({ success: true, customers }, { headers });
+          }
+
           memoryDB.customers = memoryDB.customers.filter(c => c.id !== custId);
           memoryDB.orders = memoryDB.orders.filter(o => o.customer_id !== custId);
           return Response.json({ success: true, customers: memoryDB.customers }, { headers });
@@ -270,6 +346,20 @@ export default {
             });
           }
 
+          const orderId = id || ('po-' + Date.now());
+
+          if (env && env.DB) {
+            await env.DB.prepare("INSERT OR REPLACE INTO po_orders (id, customer_id, style_code, po_number, line_name, po_plan, default_batches) VALUES (?, ?, ?, ?, ?, ?, ?)")
+              .bind(orderId, customer_id, style_code || 'Mã Style', po_number || 'PO-001', line_name || 'Chuyền 1', Number(po_plan) || 0, JSON.stringify(parsedBatches))
+              .run();
+            const { results: ordersRaw } = await env.DB.prepare("SELECT * FROM po_orders ORDER BY created_at DESC").all();
+            const orders = (ordersRaw || []).map(o => ({
+              ...o,
+              default_batches: typeof o.default_batches === 'string' ? JSON.parse(o.default_batches || '[]') : (o.default_batches || [])
+            }));
+            return Response.json({ success: true, orders }, { headers });
+          }
+
           if (id) {
             const idx = memoryDB.orders.findIndex(o => o.id === id);
             if (idx >= 0) {
@@ -285,7 +375,7 @@ export default {
             }
           } else {
             const newOrder = {
-              id: 'po-' + Date.now(),
+              id: orderId,
               customer_id,
               style_code: style_code || 'Mã Style Mới',
               po_number: po_number || 'PO-001',
@@ -307,6 +397,19 @@ export default {
       if (url.pathname === '/api/orders' && request.method === 'DELETE') {
         try {
           const orderId = url.searchParams.get('id');
+          if (env && env.DB) {
+            await env.DB.prepare("DELETE FROM po_orders WHERE id = ?").bind(orderId).run();
+            await env.DB.prepare("DELETE FROM daily_reports WHERE po_id = ?").bind(orderId).run();
+            await env.DB.prepare("DELETE FROM report_batches WHERE po_id = ?").bind(orderId).run();
+            await env.DB.prepare("DELETE FROM dept_logs WHERE po_id = ?").bind(orderId).run();
+            const { results: ordersRaw } = await env.DB.prepare("SELECT * FROM po_orders ORDER BY created_at DESC").all();
+            const orders = (ordersRaw || []).map(o => ({
+              ...o,
+              default_batches: typeof o.default_batches === 'string' ? JSON.parse(o.default_batches || '[]') : (o.default_batches || [])
+            }));
+            return Response.json({ success: true, orders }, { headers });
+          }
+
           memoryDB.orders = memoryDB.orders.filter(o => o.id !== orderId);
           return Response.json({ success: true, orders: memoryDB.orders }, { headers });
         } catch (err) {
@@ -317,11 +420,70 @@ export default {
       // 6. Get Report by PO & Date
       if (url.pathname === '/api/report' && request.method === 'GET') {
         const poId = url.searchParams.get('po_id') || 'po-050';
-        const date = url.searchParams.get('date') || '2026-09-23';
+        const date = url.searchParams.get('date') || new Date().toISOString().split('T')[0];
         const key = `${poId}_${date}`;
 
+        if (env && env.DB) {
+          try {
+            const { results: repRows } = await env.DB.prepare("SELECT * FROM daily_reports WHERE id = ?").bind(key).all();
+            let report = null;
+            if (repRows && repRows.length > 0) {
+              const { results: batchRows } = await env.DB.prepare("SELECT * FROM report_batches WHERE report_id = ? ORDER BY batch_name ASC").bind(key).all();
+              report = {
+                po_id: poId,
+                report_date: date,
+                status: repRows[0].status || "DRAFT",
+                batches: batchRows || []
+              };
+            }
+
+            if (!report) {
+              const { results: ordRows } = await env.DB.prepare("SELECT * FROM po_orders WHERE id = ?").bind(poId).all();
+              const order = ordRows && ordRows[0] ? {
+                ...ordRows[0],
+                default_batches: typeof ordRows[0].default_batches === 'string' ? JSON.parse(ordRows[0].default_batches || '[]') : []
+              } : null;
+
+              const batches = order && order.default_batches ? order.default_batches.map((b, i) => ({
+                id: 'b-' + (i+1),
+                batch_name: b.batch_name,
+                batch_plan: b.batch_plan,
+                into_sewing: b.into_sewing,
+                wip_sewing: 0,
+                wip_qc: 0,
+                wip_pairing: 0,
+                wip_packing: 0,
+                wip_warehouse: 0,
+                daily_out: 0,
+                note_sewing: "",
+                note_qc: "",
+                note_pairing: "",
+                note_packing: "",
+                note_warehouse: "",
+                shortage_reason_type: "",
+                shortage_note: ""
+              })) : [];
+
+              report = { po_id: poId, report_date: date, status: "DRAFT", batches };
+            }
+
+            // Cumulative export calculation
+            const { results: allBatchExports } = await env.DB.prepare(
+              "SELECT batch_name, SUM(daily_out) as total_out FROM report_batches WHERE po_id = ? AND report_date <= ? GROUP BY batch_name"
+            ).bind(poId, date).all();
+
+            const cumExportsByBatch = {};
+            (allBatchExports || []).forEach(r => {
+              cumExportsByBatch[r.batch_name] = Number(r.total_out) || 0;
+            });
+
+            return Response.json({ success: true, report, cumExportsByBatch }, { headers });
+          } catch (err) {
+            console.error("D1 Report Query Error:", err);
+          }
+        }
+
         let report = memoryDB.reports[key];
-        
         if (!report) {
           const order = memoryDB.orders.find(o => o.id === poId);
           const batches = order && order.default_batches ? order.default_batches.map((b, i) => ({
@@ -344,21 +506,11 @@ export default {
             shortage_note: ""
           })) : [];
 
-          report = {
-            po_id: poId,
-            report_date: date,
-            status: "DRAFT",
-            batches
-          };
+          report = { po_id: poId, report_date: date, status: "DRAFT", batches };
         }
 
-        // Calculate cumulative export for each batch on or before this date
-        const allKeys = Object.keys(memoryDB.reports)
-          .filter(k => k.startsWith(poId + '_'))
-          .sort();
-
+        const allKeys = Object.keys(memoryDB.reports).filter(k => k.startsWith(poId + '_')).sort();
         const cumExportsByBatch = {};
-
         allKeys.forEach(k => {
           const repDate = k.replace(poId + '_', '');
           if (repDate <= date) {
@@ -371,12 +523,7 @@ export default {
           }
         });
 
-        return Response.json({
-          success: true,
-          report,
-          cumExportsByBatch,
-          allHistoryKeys: allKeys
-        }, { headers });
+        return Response.json({ success: true, report, cumExportsByBatch }, { headers });
       }
 
       // 7. Save Report
@@ -385,6 +532,35 @@ export default {
           const body = await request.json();
           const { po_id, report_date, status, batches } = body;
           const key = `${po_id}_${report_date}`;
+
+          if (env && env.DB) {
+            await env.DB.prepare("INSERT OR REPLACE INTO daily_reports (id, po_id, report_date, status) VALUES (?, ?, ?, ?)")
+              .bind(key, po_id, report_date, status || 'DRAFT')
+              .run();
+
+            // Clear old batch records for this report
+            await env.DB.prepare("DELETE FROM report_batches WHERE report_id = ?").bind(key).run();
+
+            // Insert batches
+            for (const b of (batches || [])) {
+              const bId = b.id || ('rb-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5));
+              await env.DB.prepare(`
+                INSERT INTO report_batches (
+                  id, report_id, po_id, report_date, batch_name, batch_plan, into_sewing, delivered,
+                  wip_sewing, wip_qc, wip_pairing, wip_packing, wip_warehouse,
+                  note_sewing, note_qc, note_pairing, note_packing, note_warehouse,
+                  shortage_reason_type, shortage_note
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              `).bind(
+                bId, key, po_id, report_date, b.batch_name, Number(b.batch_plan) || 0, Number(b.into_sewing) || 0, Number(b.daily_out || b.delivered) || 0,
+                Number(b.wip_sewing) || 0, Number(b.wip_qc) || 0, Number(b.wip_pairing) || 0, Number(b.wip_packing) || 0, Number(b.wip_warehouse) || 0,
+                b.note_sewing || '', b.note_qc || '', b.note_pairing || '', b.note_packing || '', b.note_warehouse || '',
+                b.shortage_reason_type || '', b.shortage_note || ''
+              ).run();
+            }
+
+            return Response.json({ success: true, message: "Đã lưu báo cáo thành công vào D1 Database" }, { headers });
+          }
 
           memoryDB.reports[key] = {
             po_id,
@@ -399,18 +575,100 @@ export default {
         }
       }
 
-      // 8. Get Dept Logs (Tab 2 - Báo Theo Dõi Sản Lượng Các Bộ Phận)
+      // 8. Get Report History (Thống Kê Lô Tất Cả Các Ngày)
+      if (url.pathname === '/api/report-history' && request.method === 'GET') {
+        const poId = url.searchParams.get('po_id') || 'po-050';
+
+        if (env && env.DB) {
+          try {
+            const { results: history } = await env.DB.prepare(
+              "SELECT * FROM report_batches WHERE po_id = ? ORDER BY report_date ASC, batch_name ASC"
+            ).bind(poId).all();
+            return Response.json({ success: true, history: history || [] }, { headers });
+          } catch (err) {
+            console.error("D1 History Query Error:", err);
+          }
+        }
+
+        const history = [];
+        Object.keys(memoryDB.reports)
+          .filter(k => k.startsWith(poId + '_'))
+          .sort()
+          .forEach(k => {
+            const rep = memoryDB.reports[k];
+            if (rep && rep.batches) {
+              rep.batches.forEach(b => {
+                history.push({
+                  report_date: rep.report_date,
+                  status: rep.status,
+                  ...b
+                });
+              });
+            }
+          });
+
+        return Response.json({ success: true, history }, { headers });
+      }
+
+      // 9. Get Dept Logs (Tab 2 - Báo Theo Dõi Sản Lượng Các Bộ Phận)
       if (url.pathname === '/api/dept-logs' && request.method === 'GET') {
         const poId = url.searchParams.get('po_id') || 'po-050';
+
+        if (env && env.DB) {
+          try {
+            const { results: logsRows } = await env.DB.prepare(
+              "SELECT * FROM dept_logs WHERE po_id = ? ORDER BY batch_name ASC, row_order ASC"
+            ).bind(poId).all();
+
+            const logs = {};
+            (logsRows || []).forEach(r => {
+              if (!logs[r.batch_name]) logs[r.batch_name] = [];
+              logs[r.batch_name].push({
+                date: r.log_date || "",
+                nhap_phoi: r.nhap_phoi,
+                giao_dg: r.giao_dg,
+                nhap_kho: r.nhap_kho,
+                xuat_kho: r.xuat_kho
+              });
+            });
+
+            return Response.json({ success: true, logs }, { headers });
+          } catch (err) {
+            console.error("D1 Dept Logs Query Error:", err);
+          }
+        }
+
         const logs = memoryDB.dept_logs ? (memoryDB.dept_logs[poId] || {}) : {};
         return Response.json({ success: true, logs }, { headers });
       }
 
-      // 9. Save Dept Logs (Tab 2)
+      // 10. Save Dept Logs (Tab 2)
       if (url.pathname === '/api/dept-logs' && request.method === 'POST') {
         try {
           const body = await request.json();
           const { po_id, logs } = body;
+
+          if (env && env.DB) {
+            await env.DB.prepare("DELETE FROM dept_logs WHERE po_id = ?").bind(po_id).run();
+
+            for (const bName of Object.keys(logs || {})) {
+              const bRows = logs[bName] || [];
+              for (let i = 0; i < bRows.length; i++) {
+                const r = bRows[i];
+                const rowId = `dl-${po_id}-${bName}-${i}-${Date.now()}`;
+                await env.DB.prepare(`
+                  INSERT INTO dept_logs (id, po_id, batch_name, log_date, nhap_phoi, giao_dg, nhap_kho, xuat_kho, row_order)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `).bind(
+                  rowId, po_id, bName, r.date || '',
+                  Number(r.nhap_phoi) || 0, Number(r.giao_dg) || 0, Number(r.nhap_kho) || 0, Number(r.xuat_kho) || 0, i
+                ).run();
+              }
+            }
+
+            return Response.json({ success: true, message: "Đã lưu sản lượng các bộ phận vào D1 Database" }, { headers });
+          }
+
           if (!memoryDB.dept_logs) memoryDB.dept_logs = {};
           memoryDB.dept_logs[po_id] = logs;
           return Response.json({ success: true, message: "Đã lưu sản lượng các bộ phận thành công" }, { headers });
@@ -419,14 +677,14 @@ export default {
         }
       }
 
-      // 10. Get Flow Logs
+      // 11. Get Flow Logs
       if (url.pathname === '/api/flow-logs' && request.method === 'GET') {
         const poId = url.searchParams.get('po_id') || 'po-050';
         const logs = memoryDB.flow_logs.filter(l => l.po_id === poId);
         return Response.json({ success: true, logs }, { headers });
       }
 
-      // 11. Add Flow Log
+      // 12. Add Flow Log
       if (url.pathname === '/api/flow-logs' && request.method === 'POST') {
         try {
           const body = await request.json();

@@ -15,7 +15,7 @@
   <!-- TOAST NOTIFICATION -->
   <div id="toastNotification" class="toast-popup">✅ Đã lưu dữ liệu thành công!</div>
 
-  <!-- TOP APP BAR WITH FILTERS (HÌNH 3) -->
+  <!-- TOP APP BAR WITH FILTERS & USER ROLE -->
   <header class="top-app-bar">
     <div class="app-title">
       <span class="icon">🧵</span>
@@ -38,6 +38,13 @@
           <!-- Dynamically populated -->
         </select>
       </div>
+      <div class="control-item role-control-box">
+        <label>VAI TRÒ / QUYỀN:</label>
+        <div class="role-badge-group">
+          <span class="role-badge is-worker" id="currentRoleBadge">👤 Công nhân</span>
+          <button class="btn-role-switch" id="btnSwitchRole" title="Chuyển đổi quyền xem Sếp / Công nhân">🔑 Đổi quyền</button>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -47,9 +54,9 @@
       📊 1. Báo Cáo Đối Chiếu Nhập Xuất Tồn
     </button>
     <button class="tab-btn" data-tab="tab-flow-log">
-      📜 2. Nhật Ký Giao Dịch Hằng Ngày (Flow Log)
+      📜 2. Báo Cáo Theo Dõi Sản Lượng (Flow Log)
     </button>
-    <button class="tab-btn" data-tab="tab-manage">
+    <button class="tab-btn manager-only-tab" id="tabBtnManage" data-tab="tab-manage">
       ⚙️ 3. Quản Lý Khách Hàng & Đơn Hàng Lô
     </button>
     <div class="status-tag" id="reportStatusTag">TRẠNG THÁI: BẢN NHÁP</div>
@@ -61,91 +68,182 @@
     <!-- TAB 1: BÁO CÁO ĐỐI CHIẾU NHẬP XUẤT TỒN -->
     <section id="tab-wip" class="tab-pane active">
       
-      <!-- TOOLBAR NÚT TÁC VỤ -->
-      <div class="action-toolbar">
-        <div class="btn-group-left">
-          <button class="btn btn-primary" id="btnAddBatch">
-            ➕ Thêm Lô Mới
-          </button>
-          <button class="btn btn-outline" id="btnRefresh">
-            🔄 Tải Lại Dữ Liệu
-          </button>
-          <span class="keyboard-hint">💡 Phím tắt: Dùng <strong>Enter</strong> để lưu, <strong>4 Phím Mũi Tên (◀ ▲ ▼ ▶)</strong> để chuyển ô, <strong>Ctrl+V</strong> để dán từ Excel</span>
+      <!-- SUB-TAB BAR FOR TAB 1 -->
+      <div class="sub-tab-bar">
+        <button class="sub-tab-btn active" id="subtabBtnDaily" data-subtab="subtab-daily">
+          📅 1.1. Kiểm Kê Theo Ngày
+        </button>
+        <button class="sub-tab-btn" id="subtabBtnHistory" data-subtab="subtab-history">
+          📈 1.2. Thống Kê Lô Theo Tất Cả Các Ngày
+        </button>
+      </div>
+
+      <!-- SUB-TAB 1.1: KIỂM KÊ THEO NGÀY (HIỆN TẠI) -->
+      <div id="subtab-daily" class="subtab-pane active">
+        <!-- TOOLBAR NÚT TÁC VỤ -->
+        <div class="action-toolbar">
+          <div class="btn-group-left">
+            <button class="btn btn-primary" id="btnAddBatch">
+              ➕ Thêm Lô Mới
+            </button>
+            <button class="btn btn-outline" id="btnRefresh">
+              🔄 Tải Lại Dữ Liệu
+            </button>
+            <span class="keyboard-hint">💡 Phím tắt: Dùng <strong>Enter</strong> để lưu, <strong>4 Phím Mũi Tên (◀ ▲ ▼ ▶)</strong> để chuyển ô, <strong>Ctrl+V</strong> để dán từ Excel</span>
+          </div>
+          <div class="btn-group-right">
+            <button class="btn btn-secondary" id="btnSaveDraft">
+              💾 Lưu Nháp
+            </button>
+            <button class="btn btn-success" id="btnSubmitReport">
+              ✅ Chốt Sổ Cuối Ngày
+            </button>
+            <button class="btn btn-info" id="btnExportExcel">
+              📊 Xuất Excel
+            </button>
+            <button class="btn btn-dark" onclick="window.print()">
+              🖨️ In Báo Cáo
+            </button>
+          </div>
         </div>
-        <div class="btn-group-right">
-          <button class="btn btn-secondary" id="btnSaveDraft">
-            💾 Lưu Nháp
-          </button>
-          <button class="btn btn-success" id="btnSubmitReport">
-            ✅ Chốt Sổ Cuối Ngày
-          </button>
-          <button class="btn btn-info" id="btnExportExcel">
-            📊 Xuất Excel
-          </button>
-          <button class="btn btn-dark" onclick="window.print()">
-            🖨️ In Báo Cáo
-          </button>
+
+        <!-- MAIN EXCEL SHEET CONTAINER -->
+        <div class="excel-sheet-wrapper">
+          
+          <!-- HEADER NẰM NGANG CÙNG DÒNG VỚI BỘ CHỌN NGÀY -->
+          <div class="report-header-banner">
+            <div class="banner-title-group">
+              <h1 class="sheet-title">BÁO CÁO ĐỐI CHIẾU NHẬP XUẤT TỒN</h1>
+              <span class="sheet-subtitle">Theo Dõi Kiểm Kê Dở Dang (WIP) & Cân Đối Hao Hụt Chuyền May</span>
+            </div>
+
+            <div class="banner-date-picker">
+              <label for="reportDate">📅 Ngày Báo Cáo:</label>
+              <div class="date-input-wrapper">
+                <button class="btn-date-nav" id="btnPrevDay" title="Hôm trước">◀</button>
+                <input type="date" id="reportDate" class="report-date-control">
+                <button class="btn-date-nav" id="btnNextDay" title="Hôm sau">▶</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- BẢNG TỔNG HỢP CỐ ĐỊNH PHÍA TRÊN -->
+          <div class="summary-card-wrapper">
+            <table class="excel-summary-table">
+              <tr>
+                <td class="lbl-summary cell-header">Ngày</td>
+                <td class="val-summary cell-val font-semibold" id="summaryDateVal">--</td>
+                <td class="lbl-summary bg-prep-hdr">CHUẨN BỊ còn nợ (đôi)</td>
+                <td class="val-summary bg-prep-val" id="summaryPrepDebt">0</td>
+                <td colspan="2" class="blank-cell"></td>
+              </tr>
+              <tr>
+                <td class="lbl-summary cell-header">PO</td>
+                <td class="val-summary cell-val bold-txt" id="summaryPoNum">--</td>
+                <td colspan="4" class="blank-cell"></td>
+              </tr>
+              <tr>
+                <td class="lbl-summary cell-header">Tổng đơn (đôi)</td>
+                <td class="val-summary cell-val bold-txt" id="summaryPoPlan">0</td>
+                <td class="lbl-summary bg-sum-hdr">TỔNG NHẬN (đôi)</td>
+                <td class="lbl-summary bg-sum-hdr">TỔNG XUẤT CHO KH (đôi)</td>
+                <td class="lbl-summary bg-sum-hdr">TỔNG TỒN THỰC TẾ (đôi)</td>
+                <td class="lbl-summary bg-sum-hdr">TỔNG THIẾU (đôi)</td>
+              </tr>
+              <tr>
+                <td colspan="2" class="blank-cell"></td>
+                <td class="val-summary bg-sum-val" id="summaryTotalReceived">0</td>
+                <td class="val-summary bg-sum-val" id="summaryTotalDelivered">0</td>
+                <td class="val-summary bg-sum-val" id="summaryTotalActualWip">0</td>
+                <td class="val-summary bg-sum-val txt-red" id="summaryTotalShortage">0</td>
+              </tr>
+            </table>
+          </div>
+
+          <!-- DANH SÁCH BẢNG CÁC LÔ HÀNG (RENDER DYNAMICALLY) -->
+          <div id="excelBatchesContainer" class="excel-batches-container">
+            <!-- Dynamic batch tables injected here -->
+          </div>
+
         </div>
       </div>
 
-      <!-- MAIN EXCEL SHEET CONTAINER -->
-      <div class="excel-sheet-wrapper">
-        
-        <!-- HEADER NẰM NGANG CÙNG DÒNG VỚI BỘ CHỌN NGÀY -->
-        <div class="report-header-banner">
-          <div class="banner-title-group">
-            <h1 class="sheet-title">BÁO CÁO ĐỐI CHIẾU NHẬP XUẤT TỒN</h1>
-            <span class="sheet-subtitle">Theo Dõi Kiểm Kê Dở Dang (WIP) & Cân Đối Hao Hụt Chuyền May</span>
+      <!-- SUB-TAB 1.2: THỐNG KÊ LÔ THEO TẤT CẢ CÁC NGÀY -->
+      <div id="subtab-history" class="subtab-pane">
+        <div class="action-toolbar">
+          <div class="btn-group-left">
+            <label for="historyBatchFilter" style="font-weight: 700; font-size: 13px; color: #1e293b;">🔍 Lọc Theo Lô Hàng:</label>
+            <select id="historyBatchFilter" class="form-control" style="font-weight: 600; width: 180px;">
+              <option value="ALL">-- Tất Cả Các Lô --</option>
+            </select>
+            <button class="btn btn-outline" id="btnRefreshHistory">
+              🔄 Tải Lại Dữ Liệu
+            </button>
           </div>
+          <div class="btn-group-right">
+            <button class="btn btn-info" id="btnExportHistoryExcel">
+              📊 Xuất Excel Lịch Sử Lô
+            </button>
+            <button class="btn btn-dark" onclick="window.print()">
+              🖨️ In Thống Kê
+            </button>
+          </div>
+        </div>
 
-          <div class="banner-date-picker">
-            <label for="reportDate">📅 Ngày Báo Cáo:</label>
-            <div class="date-input-wrapper">
-              <button class="btn-date-nav" id="btnPrevDay" title="Hôm trước">◀</button>
-              <input type="date" id="reportDate" class="report-date-control">
-              <button class="btn-date-nav" id="btnNextDay" title="Hôm sau">▶</button>
+        <div class="excel-sheet-wrapper">
+          <div class="report-header-banner">
+            <div class="banner-title-group">
+              <h1 class="sheet-title">THỐNG KÊ LỊCH SỬ TIẾN ĐỘ CÁC LÔ THEO TẤT CẢ CÁC NGÀY</h1>
+              <span class="sheet-subtitle">Tổng hợp biến động kiểm kê, tồn thực tế và tồn lý thuyết qua từng ngày của Đơn hàng</span>
+            </div>
+            <div class="banner-date-picker" style="font-size: 13.5px; font-weight: 700; color: #0f766e;">
+              PO: <span id="histPoNum" style="color: #2563eb; margin-left: 4px;">--</span>
             </div>
           </div>
-        </div>
 
-        <!-- BẢNG TỔNG HỢP CỐ ĐỊNH PHÍA TRÊN -->
-        <div class="summary-card-wrapper">
-          <table class="excel-summary-table">
-            <tr>
-              <td class="lbl-summary cell-header">Ngày</td>
-              <td class="val-summary cell-val font-semibold" id="summaryDateVal">--</td>
-              <td class="lbl-summary bg-prep-hdr">CHUẨN BỊ còn nợ (đôi)</td>
-              <td class="val-summary bg-prep-val" id="summaryPrepDebt">0</td>
-              <td colspan="2" class="blank-cell"></td>
-            </tr>
-            <tr>
-              <td class="lbl-summary cell-header">PO</td>
-              <td class="val-summary cell-val bold-txt" id="summaryPoNum">--</td>
-              <td colspan="4" class="blank-cell"></td>
-            </tr>
-            <tr>
-              <td class="lbl-summary cell-header">Tổng đơn (đôi)</td>
-              <td class="val-summary cell-val bold-txt" id="summaryPoPlan">0</td>
-              <td class="lbl-summary bg-sum-hdr">TỔNG NHẬN (đôi)</td>
-              <td class="lbl-summary bg-sum-hdr">TỔNG XUẤT CHO KH (đôi)</td>
-              <td class="lbl-summary bg-sum-hdr">TỔNG TỒN THỰC TẾ (đôi)</td>
-              <td class="lbl-summary bg-sum-hdr">TỔNG THIẾU (đôi)</td>
-            </tr>
-            <tr>
-              <td colspan="2" class="blank-cell"></td>
-              <td class="val-summary bg-sum-val" id="summaryTotalReceived">0</td>
-              <td class="val-summary bg-sum-val" id="summaryTotalDelivered">0</td>
-              <td class="val-summary bg-sum-val" id="summaryTotalActualWip">0</td>
-              <td class="val-summary bg-sum-val txt-red" id="summaryTotalShortage">0</td>
-            </tr>
-          </table>
+          <div class="table-responsive history-table-wrapper">
+            <table class="history-table" id="tableHistoryAllDates">
+              <thead>
+                <tr>
+                  <th>Ngày Báo Cáo</th>
+                  <th>Lô Hàng</th>
+                  <th>Nhập (Vào chuyền)</th>
+                  <th>Xuất (Đã giao KH)</th>
+                  <th>KK May</th>
+                  <th>KK QC</th>
+                  <th>KK Phối Đôi</th>
+                  <th>KK Đóng Gói</th>
+                  <th>KK Kho TP</th>
+                  <th>Tổng Tồn Thực Tế</th>
+                  <th>Tồn Lý Thuyết</th>
+                  <th>Chênh Lệch / Thiếu</th>
+                  <th>Trạng Thái</th>
+                  <th>Lý Do / Ghi Chú</th>
+                </tr>
+              </thead>
+              <tbody id="historyTbody">
+                <!-- Dynamically populated -->
+              </tbody>
+              <tfoot class="history-tfoot">
+                <tr class="tr-hist-summary">
+                  <td colspan="2"><strong>TỔNG CỘNG</strong></td>
+                  <td id="histSumNhap">0</td>
+                  <td id="histSumXuat">0</td>
+                  <td id="histSumMay">0</td>
+                  <td id="histSumQC">0</td>
+                  <td id="histSumPhoi">0</td>
+                  <td id="histSumDG">0</td>
+                  <td id="histSumKho">0</td>
+                  <td id="histSumTonThucTe" class="txt-amber font-bold">0</td>
+                  <td id="histSumTonLyThuyet" class="txt-blue font-bold">0</td>
+                  <td id="histSumChenhLech" class="txt-red font-bold">0</td>
+                  <td id="histStatus">--</td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
         </div>
-
-        <!-- DANH SÁCH BẢNG CÁC LÔ HÀNG (RENDER DYNAMICALLY) -->
-        <div id="excelBatchesContainer" class="excel-batches-container">
-          <!-- Dynamic batch tables injected here -->
-        </div>
-
       </div>
 
     </section>
@@ -227,7 +325,7 @@
 
     </section>
 
-    <!-- TAB 3: QUẢN LÝ KHÁCH HÀNG & PO CHI TIẾT -->
+    <!-- TAB 3: QUẢN LÝ KHÁCH HÀNG & PO CHI TIẾT (DÀNH CHO SẾP) -->
     <section id="tab-manage" class="tab-pane">
 
       <!-- STATS KPI BANNER FOR ALL COMPANIES -->
@@ -326,47 +424,42 @@
               </div>
 
               <div class="form-group">
-                <label>Kế Hoạch Tổng PO (đôi):</label>
-                <input type="number" id="poPlanTotal" class="form-control" placeholder="Ví dụ: 1623" required>
+                <label>Tổng Kế Hoạch PO (đôi):</label>
+                <input type="number" id="poPlanTotal" class="form-control font-bold" placeholder="Ví dụ: 1623" required>
               </div>
 
-              <!-- THIẾT LẬP SỐ LÔ & KHUNG NHẬP CỐ ĐỊNH TỪNG LÔ + SỐ ĐUÔI -->
-              <div class="form-group batch-config-wrapper">
-                <div class="batch-config-header">
-                  <label class="batch-config-title">🏷️ Thiết Lập Số Lô & Số Lượng Nhập Cố Định:</label>
-                  <div class="batch-count-control">
-                    <label for="poBatchCountSelect">Số Lô Kế Hoạch:</label>
-                    <select id="poBatchCountSelect" class="form-control select-batch-count">
-                      <option value="1">1 Lô + Số đuôi</option>
-                      <option value="2">2 Lô + Số đuôi</option>
-                      <option value="3" selected>3 Lô + Số đuôi</option>
-                      <option value="4">4 Lô + Số đuôi</option>
-                      <option value="5">5 Lô + Số đuôi</option>
-                      <option value="6">6 Lô + Số đuôi</option>
-                      <option value="7">7 Lô + Số đuôi</option>
-                      <option value="8">8 Lô + Số đuôi</option>
-                      <option value="9">9 Lô + Số đuôi</option>
-                      <option value="10">10 Lô + Số đuôi</option>
-                    </select>
-                  </div>
+              <!-- PHẦN CHỌN SỐ LÔ VÀ NHẬP TỪNG LÔ + SỐ ĐUÔI -->
+              <div class="batch-setup-box">
+                <div class="batch-setup-header">
+                  <label for="selectBatchCount" class="font-bold">🏷️ Chọn Số Lượng Lô Cần Chia:</label>
+                  <select id="selectBatchCount" class="form-control select-batch-count">
+                    <option value="1">1 Lô + Số Đuôi</option>
+                    <option value="2" selected>2 Lô + Số Đuôi</option>
+                    <option value="3">3 Lô + Số Đuôi</option>
+                    <option value="4">4 Lô + Số Đuôi</option>
+                    <option value="5">5 Lô + Số Đuôi</option>
+                    <option value="6">6 Lô + Số Đuôi</option>
+                    <option value="7">7 Lô + Số Đuôi</option>
+                    <option value="8">8 Lô + Số Đuôi</option>
+                    <option value="9">9 Lô + Số Đuôi</option>
+                    <option value="10">10 Lô + Số Đuôi</option>
+                  </select>
                 </div>
 
-                <!-- DYNAMIC GRID FOR BATCH 1, 2, ... N AND SỐ ĐUÔI -->
-                <div id="batchInputGrid" class="batch-cards-grid">
+                <!-- DYNAMIC INPUT FIELDS FOR EACH BATCH -->
+                <div id="dynamicBatchInputsContainer" class="dynamic-batch-inputs-grid">
                   <!-- Injected via JavaScript -->
                 </div>
 
-                <!-- SUMMARY CHECKER FOR BATCH QUANTITIES -->
-                <div class="batch-summary-bar">
-                  <span class="batch-sum-info">
-                    Tổng nhập các Lô: <strong id="batchSumDisplay" class="txt-primary">0</strong> / Kế hoạch PO: <strong id="batchPlanDisplay">0</strong> đôi
-                  </span>
-                  <span id="batchDiffDisplay" class="batch-diff-badge match">✅ Đã khớp số lượng</span>
+                <!-- LIVE SUM CHECKER -->
+                <div class="batch-sum-checker">
+                  <span>Tổng các Lô đã chia: <strong id="lblCurrentSumBatches">0</strong> / <span id="lblTargetPoPlan">0</span> đôi</span>
+                  <span id="lblBatchSumStatus" class="badge-checker-ok">Khớp kế hoạch</span>
                 </div>
               </div>
 
-              <div style="display:flex; gap:8px; margin-top:6px;">
-                <button type="submit" class="btn btn-success" id="btnSubmitPO">➕ Thêm Đơn Hàng / PO Mới</button>
+              <div style="display:flex; gap:8px; margin-top: 15px;">
+                <button type="submit" class="btn btn-primary" id="btnSubmitPO">💾 Lưu Đơn Hàng & Cấu Hình Lô</button>
                 <button type="button" class="btn btn-secondary" id="btnCancelEditPO" style="display:none;">Hủy Sửa</button>
               </div>
             </form>
@@ -379,7 +472,7 @@
                     <th>Mã Style</th>
                     <th>Chuyền May</th>
                     <th>Kế Hoạch</th>
-                    <th>Chi Tiết Lô & Số Nhập Cố Định</th>
+                    <th>Chi Tiết Lô & Số Đuôi</th>
                     <th>Thao Tác</th>
                   </tr>
                 </thead>
@@ -397,87 +490,43 @@
 
   </main>
 
-  <!-- MODAL: NUMPAD CHO THIẾT BỊ DI ĐỘNG -->
-  <div class="modal-overlay" id="numpadModal">
-    <div class="modal-numpad">
+  <!-- ROLE AUTHENTICATION MODAL -->
+  <div id="modalRoleAuth" class="modal-overlay">
+    <div class="modal-card modal-auth-card">
       <div class="modal-header">
-        <h4 id="numpadTitle">Bàn Phím Số Cảm Ứng</h4>
-        <button class="btn-close" id="btnCloseNumpad">&times;</button>
-      </div>
-      <div class="numpad-display" id="numpadDisplay">0</div>
-      <div class="numpad-grid">
-        <button class="num-key">7</button>
-        <button class="num-key">8</button>
-        <button class="num-key">9</button>
-        <button class="num-key">4</button>
-        <button class="num-key">5</button>
-        <button class="num-key">6</button>
-        <button class="num-key">1</button>
-        <button class="num-key">2</button>
-        <button class="num-key">3</button>
-        <button class="num-key num-clear">C</button>
-        <button class="num-key">0</button>
-        <button class="num-key num-back">&LeftArrow;</button>
-      </div>
-      <div class="numpad-footer">
-        <button class="btn btn-success btn-block" id="btnNumpadConfirm">XÁC NHẬN SỐ (ENTER)</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- MODAL THÊM GIAO DỊCH FLOW LOG -->
-  <div class="modal-overlay" id="flowLogModal">
-    <div class="modal-box">
-      <div class="modal-header">
-        <h4>Thêm Giao Dịch Sản Lượng Hằng Ngày</h4>
-        <button class="btn-close" id="btnCloseFlowModal">&times;</button>
+        <h3 id="modalRoleTitle">🔑 Đăng Nhập Quyền Quản Lý (Sếp)</h3>
+        <button class="btn-close-modal" id="btnCloseRoleModal">×</button>
       </div>
       <div class="modal-body">
-        <div class="form-group">
-          <label>Ngày Giao Dịch:</label>
-          <input type="date" id="flTransDate" class="form-control">
+        <p style="font-size: 13.5px; color: #475569; margin-bottom: 12px;">
+          Vui lòng chọn vai trò làm việc:
+        </p>
+        <div class="role-switch-options">
+          <label class="role-option-card">
+            <input type="radio" name="authRoleOption" value="worker" id="optRoleWorker">
+            <div class="role-option-info">
+              <strong>👤 Công Nhân</strong>
+              <small>Chỉ xem & điền số liệu kiểm kê và sản lượng (Tab 1 & Tab 2)</small>
+            </div>
+          </label>
+          <label class="role-option-card">
+            <input type="radio" name="authRoleOption" value="manager" id="optRoleManager" checked>
+            <div class="role-option-info">
+              <strong>👑 Quản Lý / Sếp</strong>
+              <small>Toàn quyền xem tất cả các Tab, thống kê lịch sử và cấu hình PO / Lô</small>
+            </div>
+          </label>
         </div>
-        <div class="form-group">
-          <label>Lô Hàng:</label>
-          <select id="flBatchSelect" class="form-control">
-            <option value="Lô 1">Lô 1</option>
-            <option value="Lô 2">Lô 2</option>
-            <option value="Lô 3">Lô 3</option>
-            <option value="Lô 4">Lô 4</option>
-          </select>
-        </div>
-        <div class="form-row" style="display:flex; gap:10px;">
-          <div class="form-group" style="flex:1;">
-            <label>1. Nhập May (BTP Nhận):</label>
-            <input type="number" id="flInSewing" class="form-control" value="0">
-          </div>
-          <div class="form-group" style="flex:1;">
-            <label>2. Xuất May (May xong):</label>
-            <input type="number" id="flOutSewing" class="form-control" value="0">
-          </div>
-        </div>
-        <div class="form-row" style="display:flex; gap:10px;">
-          <div class="form-group" style="flex:1;">
-            <label>3. Xuất Đóng Gói (Nhập Kho TP):</label>
-            <input type="number" id="flOutPacking" class="form-control" value="0">
-          </div>
-          <div class="form-group" style="flex:1;">
-            <label>4. Xuất Kho TP (Xuất Xe):</label>
-            <input type="number" id="flOutWarehouse" class="form-control" value="0">
-          </div>
-        </div>
-        <div class="form-group">
-          <label>5. Giao Khách Hàng (Ký Nhận):</label>
-          <input type="number" id="flDelivered" class="form-control" value="0">
-        </div>
-        <div class="form-group">
-          <label>Ghi Chú Chứng Từ / Mã Phiếu:</label>
-          <input type="text" id="flNote" class="form-control" placeholder="Ví dụ: Phiếu giao BTP đợt 1...">
+
+        <div id="boxManagerPin" class="form-group" style="margin-top: 12px;">
+          <label for="txtManagerPin">Mã PIN xác thực Sếp (Mặc định: 1234):</label>
+          <input type="password" id="txtManagerPin" class="form-control" placeholder="Nhập mã PIN..." value="1234">
+          <small style="color: #64748b; font-size: 11px;">Gợi ý: Mã PIN mặc định là <strong>1234</strong></small>
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" id="btnCancelFlowModal">Hủy</button>
-        <button class="btn btn-primary" id="btnSaveFlowLog">Lưu Giao Dịch</button>
+        <button class="btn btn-secondary" id="btnCancelRoleModal">Hủy</button>
+        <button class="btn btn-primary" id="btnConfirmRole">Xác Nhận Đổi Quyền</button>
       </div>
     </div>
   </div>
