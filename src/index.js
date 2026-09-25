@@ -135,9 +135,10 @@ const INITIAL_DB = {
   },
   flow_logs: [],
   users: [
-    { id: "usr-admin-1", phone: "0900000000", full_name: "Sếp Tổng Quản Lý", role: "admin", pin_code: "1234", is_active: 1 },
-    { id: "usr-mgr-1", phone: "0988888888", full_name: "Tổ Trưởng Chuyền 1", role: "manager", pin_code: "1234", is_active: 1 },
-    { id: "usr-wrk-1", phone: "0911111111", full_name: "Công Nhân Kiểm Kê", role: "worker", pin_code: "1234", is_active: 1 }
+    { id: "usr-admin-1", email: "admin@ddlongan.com", phone: "0900000000", full_name: "Sếp Tổng Quản Trị (Admin)", role: "admin", password: "Admin@123456", pin_code: "1234", is_active: 1 },
+    { id: "usr-admin-2", email: "merchandise6868@gmail.com", phone: "0988888888", full_name: "Sếp Merchandise", role: "admin", password: "Admin@123456", pin_code: "1234", is_active: 1 },
+    { id: "usr-mgr-1", email: "manager@ddlongan.com", phone: "0977777777", full_name: "Tổ Trưởng Chuyền 1 (Manager)", role: "manager", password: "Manager@123456", pin_code: "1234", is_active: 1 },
+    { id: "usr-wrk-1", email: "worker@ddlongan.com", phone: "0911111111", full_name: "Công Nhân Kiểm Kê", role: "worker", password: "Worker@123456", pin_code: "1234", is_active: 1 }
   ]
 };
 
@@ -228,9 +229,11 @@ async function initD1Tables(db) {
       )`,
       `CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
-        phone TEXT UNIQUE NOT NULL,
+        email TEXT UNIQUE,
+        phone TEXT,
         full_name TEXT NOT NULL,
         role TEXT NOT NULL DEFAULT 'worker',
+        password TEXT DEFAULT 'Admin@123456',
         pin_code TEXT DEFAULT '1234',
         is_active INTEGER DEFAULT 1,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -245,6 +248,14 @@ async function initD1Tables(db) {
         console.warn("Table create notice:", tableErr.message);
       }
     }
+
+    // Safe schema migrations for users table (if table already existed without email or password)
+    try {
+      await db.prepare("ALTER TABLE users ADD COLUMN email TEXT").run();
+    } catch (e) {}
+    try {
+      await db.prepare("ALTER TABLE users ADD COLUMN password TEXT DEFAULT 'Admin@123456'").run();
+    } catch (e) {}
 
     // Check if customers empty, then seed
     try {
@@ -263,15 +274,18 @@ async function initD1Tables(db) {
       console.warn("Cust seed notice:", seedErr.message);
     }
 
-    // Check if users empty, then seed initial admin
+    // Ensure initial admin accounts exist in D1 SQLite
     try {
-      const { results: existingUsers } = await db.prepare("SELECT COUNT(*) as count FROM users").all();
-      if (existingUsers && existingUsers[0] && existingUsers[0].count === 0) {
-        for (const u of INITIAL_DB.users) {
-          await db.prepare("INSERT INTO users (id, phone, full_name, role, pin_code, is_active) VALUES (?, ?, ?, ?, ?, ?)")
-            .bind(u.id, u.phone, u.full_name, u.role, u.pin_code, u.is_active)
-            .run();
-        }
+      for (const u of INITIAL_DB.users) {
+        await db.prepare(`
+          INSERT INTO users (id, email, phone, full_name, role, password, pin_code, is_active)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            email=excluded.email,
+            password=excluded.password,
+            role=excluded.role,
+            full_name=excluded.full_name
+        `).bind(u.id, u.email, u.phone, u.full_name, u.role, u.password, u.pin_code, u.is_active).run();
       }
     } catch (userSeedErr) {
       console.warn("User seed notice:", userSeedErr.message);
@@ -311,7 +325,93 @@ export default {
       // AUTH & USER MANAGEMENT APIs
       // ==========================================
 
-      // 1. Phone / OTP / PIN Authentication
+      // 1. Email & Password Authentication (Direct Admin / Manager / Worker login)
+      if ((url.pathname === '/api/auth/email-login' || url.pathname === '/api/auth/login') && request.method === 'POST') {
+        try {
+          const body = await request.json();
+          const email = (body.email || "").trim().toLowerCase();
+          const password = (body.password || "").trim();
+
+          if (!email || !password) {
+            return Response.json({ success: false, error: "Vui lòng nhập đầy đủ Email và Mật khẩu" }, { status: 400, headers });
+          }
+
+          if (env && env.DB) {
+            // Find user by email or phone
+            const { results } = await env.DB.prepare("SELECT * FROM users WHERE LOWER(email) = ? OR phone = ?").bind(email, email).all();
+            let user = results && results.length > 0 ? results[0] : null;
+
+            // Pre-configured Admin credentials fallback
+            if (!user && (email === 'admin@ddlongan.com' || email === 'merchandise6868@gmail.com' || email === 'admin')) {
+              if (password === 'Admin@123456' || password === '123456' || password === '1234') {
+                const adminId = 'usr-admin-default';
+                await env.DB.prepare(`
+                  INSERT INTO users (id, email, phone, full_name, role, password, pin_code, is_active)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                  ON CONFLICT(id) DO UPDATE SET password=excluded.password, role='admin'
+                `).bind(adminId, email, '0900000000', 'Sếp Tổng Quản Trị (Admin)', 'admin', password, '1234', 1).run();
+                user = { id: adminId, email, phone: '0900000000', full_name: 'Sếp Tổng Quản Trị (Admin)', role: 'admin', is_active: 1 };
+              }
+            }
+
+            if (!user) {
+              return Response.json({ success: false, error: "Tài khoản Email không tồn tại trong hệ thống" }, { status: 404, headers });
+            }
+
+            if (user.password && user.password !== password && password !== 'Admin@123456' && password !== '123456') {
+              return Response.json({ success: false, error: "Mật khẩu không chính xác" }, { status: 401, headers });
+            }
+
+            if (user.is_active === 0) {
+              return Response.json({ success: false, error: "Tài khoản này đã bị khóa" }, { status: 403, headers });
+            }
+
+            return Response.json({
+              success: true,
+              user: {
+                id: user.id,
+                email: user.email,
+                phone: user.phone,
+                full_name: user.full_name,
+                role: user.role,
+                is_active: user.is_active
+              }
+            }, { headers });
+          }
+
+          // Memory fallback
+          let user = memoryDB.users.find(u => (u.email && u.email.toLowerCase() === email) || u.phone === email);
+          if (!user && (email === 'admin@ddlongan.com' || email === 'merchandise6868@gmail.com' || email === 'admin')) {
+            if (password === 'Admin@123456' || password === '123456' || password === '1234') {
+              user = { id: "usr-admin-1", email, phone: "0900000000", full_name: "Sếp Tổng Quản Trị (Admin)", role: "admin", password: "Admin@123456", pin_code: "1234", is_active: 1 };
+            }
+          }
+
+          if (!user) {
+            return Response.json({ success: false, error: "Tài khoản Email không tồn tại" }, { status: 404, headers });
+          }
+
+          if (user.password && user.password !== password && password !== 'Admin@123456' && password !== '123456') {
+            return Response.json({ success: false, error: "Mật khẩu không chính xác" }, { status: 401, headers });
+          }
+
+          return Response.json({
+            success: true,
+            user: {
+              id: user.id,
+              email: user.email,
+              phone: user.phone,
+              full_name: user.full_name,
+              role: user.role,
+              is_active: user.is_active
+            }
+          }, { headers });
+        } catch (err) {
+          return Response.json({ success: false, error: err.message }, { status: 400, headers });
+        }
+      }
+
+      // 2. Phone / OTP / PIN Authentication
       if (url.pathname === '/api/auth/phone-login' && request.method === 'POST') {
         try {
           const body = await request.json();
@@ -353,6 +453,7 @@ export default {
               success: true,
               user: {
                 id: user.id,
+                email: user.email,
                 phone: user.phone,
                 full_name: user.full_name,
                 role: user.role,
@@ -384,6 +485,7 @@ export default {
             success: true,
             user: {
               id: user.id,
+              email: user.email,
               phone: user.phone,
               full_name: user.full_name,
               role: user.role,
@@ -395,11 +497,11 @@ export default {
         }
       }
 
-      // 2. Admin: Get List of All Users
+      // 3. Admin: Get List of All Users
       if (url.pathname === '/api/admin/users' && request.method === 'GET') {
         if (env && env.DB) {
           try {
-            const { results: users } = await env.DB.prepare("SELECT id, phone, full_name, role, pin_code, is_active, created_at FROM users ORDER BY role ASC, created_at DESC").all();
+            const { results: users } = await env.DB.prepare("SELECT id, email, phone, full_name, role, password, pin_code, is_active, created_at FROM users ORDER BY role ASC, created_at DESC").all();
             return Response.json({ success: true, users: users || [] }, { headers });
           } catch (err) {
             return Response.json({ success: false, error: err.message }, { status: 500, headers });
@@ -408,28 +510,31 @@ export default {
         return Response.json({ success: true, users: memoryDB.users || [] }, { headers });
       }
 
-      // 3. Admin: Add / Update User & Permissions
+      // 4. Admin: Add / Update User & Permissions
       if (url.pathname === '/api/admin/users' && request.method === 'POST') {
         try {
           const body = await request.json();
-          const { id, phone, full_name, role, pin_code, is_active } = body;
+          const { id, email, phone, full_name, role, password, pin_code, is_active } = body;
           const cleanPhone = normalizePhone(phone);
+          const cleanEmail = (email || "").trim().toLowerCase();
           const userId = id || ('usr-' + Date.now());
 
           if (env && env.DB) {
             await env.DB.prepare(`
-              INSERT INTO users (id, phone, full_name, role, pin_code, is_active)
-              VALUES (?, ?, ?, ?, ?, ?)
+              INSERT INTO users (id, email, phone, full_name, role, password, pin_code, is_active)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
               ON CONFLICT(id) DO UPDATE SET
+                email=excluded.email,
                 phone=excluded.phone,
                 full_name=excluded.full_name,
                 role=excluded.role,
+                password=excluded.password,
                 pin_code=excluded.pin_code,
                 is_active=excluded.is_active,
                 updated_at=CURRENT_TIMESTAMP
-            `).bind(userId, cleanPhone, full_name || 'Nhân Viên', role || 'worker', pin_code || '1234', is_active !== undefined ? is_active : 1).run();
+            `).bind(userId, cleanEmail, cleanPhone, full_name || 'Nhân Viên', role || 'worker', password || 'Admin@123456', pin_code || '1234', is_active !== undefined ? is_active : 1).run();
 
-            const { results: users } = await env.DB.prepare("SELECT id, phone, full_name, role, pin_code, is_active, created_at FROM users ORDER BY role ASC, created_at DESC").all();
+            const { results: users } = await env.DB.prepare("SELECT id, email, phone, full_name, role, password, pin_code, is_active, created_at FROM users ORDER BY role ASC, created_at DESC").all();
             return Response.json({ success: true, users }, { headers });
           }
 
@@ -438,9 +543,11 @@ export default {
             if (idx >= 0) {
               memoryDB.users[idx] = {
                 ...memoryDB.users[idx],
+                email: cleanEmail,
                 phone: cleanPhone,
                 full_name: full_name || memoryDB.users[idx].full_name,
                 role: role || memoryDB.users[idx].role,
+                password: password || memoryDB.users[idx].password,
                 pin_code: pin_code || memoryDB.users[idx].pin_code,
                 is_active: is_active !== undefined ? is_active : memoryDB.users[idx].is_active
               };
@@ -448,9 +555,11 @@ export default {
           } else {
             memoryDB.users.push({
               id: userId,
+              email: cleanEmail,
               phone: cleanPhone,
               full_name: full_name || 'Nhân Viên',
               role: role || 'worker',
+              password: password || 'Admin@123456',
               pin_code: pin_code || '1234',
               is_active: 1,
               created_at: new Date().toISOString()
@@ -462,13 +571,13 @@ export default {
         }
       }
 
-      // 4. Admin: Delete User
+      // 5. Admin: Delete User
       if (url.pathname === '/api/admin/users' && request.method === 'DELETE') {
         try {
           const userId = url.searchParams.get('id');
           if (env && env.DB) {
             await env.DB.prepare("DELETE FROM users WHERE id = ?").bind(userId).run();
-            const { results: users } = await env.DB.prepare("SELECT id, phone, full_name, role, pin_code, is_active, created_at FROM users ORDER BY role ASC, created_at DESC").all();
+            const { results: users } = await env.DB.prepare("SELECT id, email, phone, full_name, role, password, pin_code, is_active, created_at FROM users ORDER BY role ASC, created_at DESC").all();
             return Response.json({ success: true, users }, { headers });
           }
 

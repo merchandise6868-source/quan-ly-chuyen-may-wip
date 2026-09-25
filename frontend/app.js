@@ -88,25 +88,47 @@ function bindEvents() {
   const btnCancelRoleModal = document.getElementById("btnCancelRoleModal");
   if (btnCancelRoleModal) btnCancelRoleModal.addEventListener("click", closeRoleModal);
 
-  // Auth Tabs (Phone OTP vs PIN)
+  // Auth Tabs (Email vs Phone OTP vs PIN)
+  const authTabEmail = document.getElementById("authTabBtnEmail");
   const authTabPhone = document.getElementById("authTabBtnPhone");
   const authTabPin = document.getElementById("authTabBtnPin");
+  const authPaneEmail = document.getElementById("authPaneEmail");
   const authPanePhone = document.getElementById("authPanePhone");
   const authPanePin = document.getElementById("authPanePin");
 
-  if (authTabPhone && authTabPin) {
-    authTabPhone.addEventListener("click", () => {
-      authTabPhone.classList.add("active");
-      authTabPin.classList.remove("active");
-      if (authPanePhone) authPanePhone.classList.add("active");
-      if (authPanePin) authPanePin.classList.remove("active");
-    });
+  function switchAuthTab(activeTab, activePane) {
+    [authTabEmail, authTabPhone, authTabPin].forEach(t => t && t.classList.remove("active"));
+    [authPaneEmail, authPanePhone, authPanePin].forEach(p => p && p.classList.remove("active"));
+    if (activeTab) activeTab.classList.add("active");
+    if (activePane) activePane.classList.add("active");
+  }
 
-    authTabPin.addEventListener("click", () => {
-      authTabPin.classList.add("active");
-      authTabPhone.classList.remove("active");
-      if (authPanePin) authPanePin.classList.add("active");
-      if (authPanePhone) authPanePhone.classList.remove("active");
+  if (authTabEmail) {
+    authTabEmail.addEventListener("click", () => switchAuthTab(authTabEmail, authPaneEmail));
+  }
+  if (authTabPhone) {
+    authTabPhone.addEventListener("click", () => switchAuthTab(authTabPhone, authPanePhone));
+  }
+  if (authTabPin) {
+    authTabPin.addEventListener("click", () => switchAuthTab(authTabPin, authPanePin));
+  }
+
+  // Quick autofill buttons for Admin credentials
+  const btnQuickAdmin = document.getElementById("btnQuickFillAdmin");
+  if (btnQuickAdmin) {
+    btnQuickAdmin.addEventListener("click", () => {
+      document.getElementById("txtAuthEmail").value = "admin@ddlongan.com";
+      document.getElementById("txtAuthPassword").value = "Admin@123456";
+      showToast("⚡ Đã điền thông tin Admin: admin@ddlongan.com");
+    });
+  }
+
+  const btnQuickGmail = document.getElementById("btnQuickFillGmail");
+  if (btnQuickGmail) {
+    btnQuickGmail.addEventListener("click", () => {
+      document.getElementById("txtAuthEmail").value = "merchandise6868@gmail.com";
+      document.getElementById("txtAuthPassword").value = "Admin@123456";
+      showToast("⚡ Đã điền thông tin Admin: merchandise6868@gmail.com");
     });
   }
 
@@ -1937,12 +1959,41 @@ function startOtpCountdown() {
   }, 1000);
 }
 
-// 2. Confirm Authentication (OTP or PIN)
+// 2. Confirm Authentication (Email / OTP / PIN)
 async function handleConfirmAuth() {
+  const isEmailPane = document.getElementById("authPaneEmail")?.classList.contains("active");
   const isPhonePane = document.getElementById("authPanePhone")?.classList.contains("active");
 
-  if (isPhonePane) {
-    // Verify via OTP
+  if (isEmailPane) {
+    // 1. Verify via Email & Password
+    const email = document.getElementById("txtAuthEmail")?.value.trim();
+    const password = document.getElementById("txtAuthPassword")?.value.trim();
+
+    if (!email || !password) {
+      alert("Vui lòng nhập đầy đủ Email và Mật khẩu.");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/auth/email-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password })
+      });
+
+      const data = await res.json();
+      if (data.success && data.user) {
+        applyUserRole(data.user.role, data.user);
+        closeRoleModal();
+        showToast(`🎉 Đăng nhập Admin thành công: ${data.user.full_name || data.user.email} (Quyền: ${data.user.role === 'admin' ? '👑 Sếp Tổng' : (data.user.role === 'manager' ? '⭐ Quản lý' : '👤 Công nhân')})`);
+      } else {
+        alert("❌ " + (data.error || "Email hoặc Mật khẩu không chính xác!"));
+      }
+    } catch (err) {
+      alert("Lỗi đăng nhập: " + err.message);
+    }
+  } else if (isPhonePane) {
+    // 2. Verify via OTP
     const rawPhone = document.getElementById("txtAuthPhone")?.value.trim();
     const otpCode = document.getElementById("txtOtpCode")?.value.trim();
 
@@ -1983,7 +2034,7 @@ async function handleConfirmAuth() {
       alert("❌ Xác thực OTP không thành công: " + err.message);
     }
   } else {
-    // Verify via PIN Code
+    // 3. Verify via PIN Code
     const rawPhone = document.getElementById("txtPinPhone")?.value.trim() || "0900000000";
     const pin = document.getElementById("txtManagerPin")?.value.trim();
 
@@ -2040,7 +2091,7 @@ function renderUsersTable() {
 
   if (!tbody) return;
   if (appState.usersList.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 20px; color: #94a3b8;">Chưa có tài khoản nào. Hãy thêm tài khoản mới ở trên.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 20px; color: #94a3b8;">Chưa có tài khoản nào. Hãy thêm tài khoản mới ở trên.</td></tr>`;
     return;
   }
 
@@ -2054,9 +2105,11 @@ function renderUsersTable() {
 
     return `
       <tr>
-        <td><strong>${u.phone}</strong></td>
+        <td><strong style="color:#0369a1;">${u.email || '--'}</strong></td>
+        <td><strong>${u.phone || '--'}</strong></td>
         <td>${u.full_name || 'Chưa đặt tên'}</td>
         <td>${roleBadge}</td>
+        <td><span style="font-family:monospace; font-weight:700; background:#f8fafc; padding:2px 6px; border-radius:4px;">${u.password || 'Admin@123456'}</span></td>
         <td><span style="font-family:monospace; font-weight:700; background:#f1f5f9; padding:2px 6px; border-radius:4px;">${u.pin_code || '1234'}</span></td>
         <td><span style="color: ${u.is_active ? '#16a34a' : '#dc2626'}; font-weight:700;">${u.is_active ? '● Hoạt động' : '● Đã khóa'}</span></td>
         <td>
@@ -2073,9 +2126,11 @@ function renderUsersTable() {
       const user = appState.usersList.find(u => u.id === id);
       if (!user) return;
       document.getElementById("editUserId").value = user.id;
-      document.getElementById("userPhone").value = user.phone;
+      if (document.getElementById("userEmail")) document.getElementById("userEmail").value = user.email || "";
+      document.getElementById("userPhone").value = user.phone || "";
       document.getElementById("userFullName").value = user.full_name;
       document.getElementById("userRoleSelect").value = user.role;
+      if (document.getElementById("userPassword")) document.getElementById("userPassword").value = user.password || "Admin@123456";
       document.getElementById("userPinCode").value = user.pin_code || "1234";
       document.getElementById("btnSubmitUser").innerText = "💾 Cập Nhật Quyền";
       document.getElementById("btnCancelEditUser").style.display = "inline-block";
@@ -2104,12 +2159,16 @@ function renderUsersTable() {
 function resetUserForm() {
   const elId = document.getElementById("editUserId");
   if (elId) elId.value = "";
+  const elEmail = document.getElementById("userEmail");
+  if (elEmail) elEmail.value = "";
   const elPhone = document.getElementById("userPhone");
   if (elPhone) elPhone.value = "";
   const elName = document.getElementById("userFullName");
   if (elName) elName.value = "";
   const elRole = document.getElementById("userRoleSelect");
   if (elRole) elRole.value = "worker";
+  const elPassword = document.getElementById("userPassword");
+  if (elPassword) elPassword.value = "Admin@123456";
   const elPin = document.getElementById("userPinCode");
   if (elPin) elPin.value = "1234";
   const elSubmit = document.getElementById("btnSubmitUser");
@@ -2121,13 +2180,19 @@ function resetUserForm() {
 async function handleAddUser(e) {
   e.preventDefault();
   const id = document.getElementById("editUserId").value;
-  const phone = document.getElementById("userPhone").value.trim();
-  const fullName = document.getElementById("userFullName").value.trim();
-  const role = document.getElementById("userRoleSelect").value;
-  const pinCode = document.getElementById("userPinCode").value.trim();
+  const email = document.getElementById("userEmail")?.value.trim() || "";
+  const phone = document.getElementById("userPhone")?.value.trim() || "";
+  const fullName = document.getElementById("userFullName")?.value.trim() || "";
+  const role = document.getElementById("userRoleSelect")?.value || "worker";
+  const password = document.getElementById("userPassword")?.value.trim() || "Admin@123456";
+  const pinCode = document.getElementById("userPinCode")?.value.trim() || "1234";
 
-  if (!phone || !fullName) {
-    alert("Vui lòng điền đầy đủ số điện thoại và họ tên.");
+  if (!email && !phone) {
+    alert("Vui lòng nhập Email hoặc Số điện thoại.");
+    return;
+  }
+  if (!fullName) {
+    alert("Vui lòng điền họ và tên.");
     return;
   }
 
@@ -2137,9 +2202,11 @@ async function handleAddUser(e) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         id: id || undefined,
+        email,
         phone,
         full_name: fullName,
         role,
+        password,
         pin_code: pinCode || "1234",
         is_active: 1
       })
