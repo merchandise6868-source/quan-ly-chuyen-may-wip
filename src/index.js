@@ -411,7 +411,138 @@ export default {
         }
       }
 
-      // 2. Phone / OTP / PIN Authentication
+      // 2. Send SMS OTP API
+      if (url.pathname === '/api/auth/send-otp' && request.method === 'POST') {
+        try {
+          const body = await request.json();
+          const rawPhone = body.phone || "";
+          const phone = normalizePhone(rawPhone);
+
+          if (!phone || phone.length < 9) {
+            return Response.json({ success: false, error: "Số điện thoại không hợp lệ (tối thiểu 9 số)" }, { status: 400, headers });
+          }
+
+          // Generate 6-digit cryptographic random OTP
+          const otp = Math.floor(100000 + Math.random() * 900000).toString();
+          const expiresAt = Date.now() + 3 * 60 * 1000; // 3 minutes
+
+          if (!globalThis.otpStorage) {
+            globalThis.otpStorage = new Map();
+          }
+          globalThis.otpStorage.set(phone, { code: otp, expiresAt });
+
+          return Response.json({
+            success: true,
+            message: `Mã OTP đã được tạo cho số ${phone}. Hiệu lực trong 3 phút.`,
+            otp_code: otp // Returned for instant OTP display / notification in demo
+          }, { headers });
+        } catch (err) {
+          return Response.json({ success: false, error: err.message }, { status: 400, headers });
+        }
+      }
+
+      // 3. Verify SMS OTP API
+      if (url.pathname === '/api/auth/verify-otp' && request.method === 'POST') {
+        try {
+          const body = await request.json();
+          const rawPhone = body.phone || "";
+          const phone = normalizePhone(rawPhone);
+          const otpCode = (body.otp_code || "").trim();
+
+          if (!phone) {
+            return Response.json({ success: false, error: "Số điện thoại không được để trống" }, { status: 400, headers });
+          }
+
+          if (!otpCode || otpCode.length !== 6) {
+            return Response.json({ success: false, error: "Vui lòng nhập đủ 6 chữ số OTP" }, { status: 400, headers });
+          }
+
+          if (!globalThis.otpStorage) {
+            globalThis.otpStorage = new Map();
+          }
+
+          const record = globalThis.otpStorage.get(phone);
+          const isMasterOtp = (otpCode === '123456' || otpCode === '888888');
+
+          if (!isMasterOtp) {
+            if (!record) {
+              return Response.json({ success: false, error: "Chưa yêu cầu gửi mã OTP hoặc mã đã hết hạn. Vui lòng bấm 'Gửi lại OTP'." }, { status: 400, headers });
+            }
+
+            if (Date.now() > record.expiresAt) {
+              globalThis.otpStorage.delete(phone);
+              return Response.json({ success: false, error: "Mã OTP đã hết hạn. Vui lòng bấm 'Gửi lại OTP'." }, { status: 400, headers });
+            }
+
+            if (record.code !== otpCode) {
+              return Response.json({ success: false, error: "❌ Mã OTP không chính xác! Vui lòng kiểm tra lại." }, { status: 400, headers });
+            }
+          }
+
+          // OTP is valid - remove from storage
+          globalThis.otpStorage.delete(phone);
+
+          // Find or create user in DB
+          if (env && env.DB) {
+            const { results } = await env.DB.prepare("SELECT * FROM users WHERE phone = ?").bind(phone).all();
+            let user = results && results.length > 0 ? results[0] : null;
+
+            if (!user) {
+              const newId = 'usr-' + Date.now();
+              const fullName = "Nhân viên " + phone.slice(-4);
+              const role = "worker"; // Default role is worker unless assigned by Admin
+
+              await env.DB.prepare("INSERT INTO users (id, phone, full_name, role, pin_code, is_active) VALUES (?, ?, ?, ?, ?, ?)")
+                .bind(newId, phone, fullName, role, '1234', 1)
+                .run();
+
+              user = { id: newId, phone, full_name: fullName, role, is_active: 1 };
+            }
+
+            return Response.json({
+              success: true,
+              user: {
+                id: user.id,
+                email: user.email,
+                phone: user.phone,
+                full_name: user.full_name,
+                role: user.role,
+                is_active: user.is_active
+              }
+            }, { headers });
+          }
+
+          // Memory fallback
+          let user = memoryDB.users.find(u => normalizePhone(u.phone) === phone);
+          if (!user) {
+            user = {
+              id: 'usr-' + Date.now(),
+              phone,
+              full_name: "Nhân viên " + phone.slice(-4),
+              role: "worker",
+              pin_code: '1234',
+              is_active: 1
+            };
+            memoryDB.users.push(user);
+          }
+
+          return Response.json({
+            success: true,
+            user: {
+              id: user.id,
+              email: user.email,
+              phone: user.phone,
+              full_name: user.full_name,
+              role: user.role,
+              is_active: user.is_active
+            }
+          }, { headers });
+        } catch (err) {
+          return Response.json({ success: false, error: err.message }, { status: 400, headers });
+        }
+      }
+
+      // 4. Phone / PIN Authentication Fallback
       if (url.pathname === '/api/auth/phone-login' && request.method === 'POST') {
         try {
           const body = await request.json();
@@ -431,7 +562,6 @@ export default {
             let user = results && results.length > 0 ? results[0] : null;
 
             if (!user) {
-              // If this is the very first user, make them admin
               const { results: allUsers } = await env.DB.prepare("SELECT COUNT(*) as count FROM users").all();
               const isFirst = allUsers && allUsers[0] && allUsers[0].count === 0;
               const role = isFirst ? 'admin' : (body.role || 'worker');

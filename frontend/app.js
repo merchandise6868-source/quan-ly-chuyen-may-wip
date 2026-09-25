@@ -2087,11 +2087,47 @@ function bindPortalEvents() {
     btnPortalSendOTP.addEventListener("click", async () => {
       const phone = document.getElementById("portalTxtPhone")?.value.trim();
       if (!phone || phone.length < 9) {
-        alert("Vui lòng nhập đúng định dạng số điện thoại.");
+        alert("❌ Vui lòng nhập đúng định dạng số điện thoại (tối thiểu 9 số).");
         return;
       }
-      document.getElementById("portalBoxOtpInput").style.display = "block";
-      showToast(`📩 Mã OTP đã được gửi về ${phone}!`);
+
+      btnPortalSendOTP.disabled = true;
+      btnPortalSendOTP.innerText = "⏳ Đang gửi...";
+
+      try {
+        const res = await fetch("/api/auth/send-otp", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone })
+        });
+        const data = await res.json();
+        if (data.success) {
+          const boxOtp = document.getElementById("portalBoxOtpInput");
+          if (boxOtp) boxOtp.style.display = "block";
+          const txtOtp = document.getElementById("portalTxtOtpCode");
+          if (txtOtp) {
+            txtOtp.value = "";
+            txtOtp.focus();
+          }
+          startPortalOtpCountdown();
+          showToast(`📩 ${data.message || 'Mã OTP đã được gửi về số điện thoại!'} [Mã: ${data.otp_code}]`);
+          alert(`📩 Mã OTP đã được gửi về số điện thoại: ${phone}!\n\n🔑 MÃ XÁC NHẬN OTP: ${data.otp_code}\n\n👉 Vui lòng nhập 6 số này vào ô 'Nhập mã OTP 6 số' rồi bấm 'Xác Nhận Đăng Nhập OTP'.`);
+        } else {
+          alert("❌ " + (data.error || "Không thể gửi OTP!"));
+        }
+      } catch (err) {
+        alert("Lỗi kết nối máy chủ khi gửi OTP: " + err.message);
+      } finally {
+        btnPortalSendOTP.disabled = false;
+        btnPortalSendOTP.innerText = "📩 Gửi OTP";
+      }
+    });
+  }
+
+  const btnPortalResendOTP = document.getElementById("btnPortalResendOTP");
+  if (btnPortalResendOTP) {
+    btnPortalResendOTP.addEventListener("click", () => {
+      if (btnPortalSendOTP) btnPortalSendOTP.click();
     });
   }
 
@@ -2100,24 +2136,43 @@ function bindPortalEvents() {
     btnPortalLoginPhone.addEventListener("click", async () => {
       const phone = document.getElementById("portalTxtPhone")?.value.trim();
       const otp = document.getElementById("portalTxtOtpCode")?.value.trim();
+
       if (!phone) {
-        alert("Vui lòng nhập số điện thoại.");
+        alert("❌ Vui lòng nhập số điện thoại trước.");
         return;
       }
+
+      const boxOtp = document.getElementById("portalBoxOtpInput");
+      if (!boxOtp || boxOtp.style.display === "none") {
+        alert("⚠️ Bạn chưa gửi mã OTP. Vui lòng bấm nút '📩 Gửi OTP' trước để nhận mã xác nhận!");
+        return;
+      }
+
+      if (!otp || otp.length !== 6) {
+        alert("❌ Vui lòng nhập đầy đủ 6 chữ số của mã OTP vừa nhận!");
+        return;
+      }
+
+      btnPortalLoginPhone.disabled = true;
+      btnPortalLoginPhone.innerText = "⏳ Đang kiểm tra OTP...";
+
       try {
-        const res = await fetch("/api/auth/phone-login", {
+        const res = await fetch("/api/auth/verify-otp", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ phone, otp_verified: true })
+          body: JSON.stringify({ phone, otp_code: otp })
         });
         const data = await res.json();
         if (data.success && data.user) {
           onLoginSuccess(data.user, data.user.role);
         } else {
-          alert("❌ " + (data.error || "Xác thực OTP thất bại"));
+          alert("❌ " + (data.error || "Mã OTP không chính xác hoặc đã hết hạn! Vui lòng kiểm tra lại."));
         }
       } catch (err) {
-        alert("Lỗi: " + err.message);
+        alert("Lỗi xác thực OTP: " + err.message);
+      } finally {
+        btnPortalLoginPhone.disabled = false;
+        btnPortalLoginPhone.innerText = "🔐 Xác Nhận Đăng Nhập OTP";
       }
     });
   }
@@ -2244,16 +2299,33 @@ function formatPhoneToIntl(phone) {
   return clean;
 }
 
-// 1. Send Phone SMS OTP via Firebase
+let portalOtpTimerInterval = null;
+function startPortalOtpCountdown() {
+  clearInterval(portalOtpTimerInterval);
+  let sec = 60;
+  const timerEl = document.getElementById("portalTimerSec");
+  const btnResend = document.getElementById("btnPortalResendOTP");
+  if (btnResend) btnResend.disabled = true;
+
+  portalOtpTimerInterval = setInterval(() => {
+    sec--;
+    if (timerEl) timerEl.innerText = sec;
+    if (sec <= 0) {
+      clearInterval(portalOtpTimerInterval);
+      if (btnResend) btnResend.disabled = false;
+    }
+  }, 1000);
+}
+
+// 1. Send Phone SMS OTP via Server
 async function handleSendPhoneOTP() {
   const phoneInp = document.getElementById("txtAuthPhone");
   const rawPhone = phoneInp ? phoneInp.value.trim() : "";
   if (!rawPhone || rawPhone.length < 9) {
-    alert("Vui lòng nhập đúng định dạng số điện thoại (ví dụ: 0901234567).");
+    alert("❌ Vui lòng nhập đúng định dạng số điện thoại (tối thiểu 9 số).");
     return;
   }
 
-  const intlPhone = formatPhoneToIntl(rawPhone);
   const btnSend = document.getElementById("btnSendPhoneOTP");
   if (btnSend) {
     btnSend.disabled = true;
@@ -2261,51 +2333,28 @@ async function handleSendPhoneOTP() {
   }
 
   try {
-    // Check if Firebase Auth is initialized
-    if (firebaseAuth) {
-      if (!recaptchaVerifier) {
-        recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
-          size: 'invisible',
-          callback: () => {}
-        });
+    const res = await fetch("/api/auth/send-otp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone: rawPhone })
+    });
+    const data = await res.json();
+    if (data.success) {
+      const boxOtp = document.getElementById("boxOtpInput");
+      if (boxOtp) boxOtp.style.display = "block";
+      const txtOtp = document.getElementById("txtOtpCode");
+      if (txtOtp) {
+        txtOtp.value = "";
+        txtOtp.focus();
       }
-
-      confirmationResult = await firebaseAuth.signInWithPhoneNumber(intlPhone, recaptchaVerifier);
-      showToast(`📩 Đã gửi mã OTP SMS về ${rawPhone}!`);
+      startOtpCountdown();
+      showToast(`📩 ${data.message || 'Mã OTP đã được gửi về SĐT!'} [Mã: ${data.otp_code}]`);
+      alert(`📩 Mã OTP xác nhận: ${data.otp_code}\n\n👉 Vui lòng nhập 6 số này vào ô 'Nhập mã OTP' để xác nhận.`);
     } else {
-      // Fallback demo simulation
-      console.log("Firebase Auth simulation mode for phone:", intlPhone);
-      confirmationResult = {
-        confirm: async (code) => {
-          if (code && code.length === 6) return { user: { phoneNumber: intlPhone } };
-          throw new Error("Mã OTP không hợp lệ!");
-        }
-      };
-      showToast(`📩 [Demo] Mã OTP 6 số đã được gửi về ${rawPhone}!`);
+      alert("❌ " + (data.error || "Không thể gửi OTP!"));
     }
-
-    const boxOtp = document.getElementById("boxOtpInput");
-    if (boxOtp) boxOtp.style.display = "block";
-    const txtOtp = document.getElementById("txtOtpCode");
-    if (txtOtp) {
-      txtOtp.value = "";
-      txtOtp.focus();
-    }
-
-    startOtpCountdown();
   } catch (err) {
-    console.error("Firebase SMS Send Error:", err);
-    // In case of recaptcha or domain warning, fallback to test OTP
-    confirmationResult = {
-      confirm: async (code) => {
-        if (code && code.length === 6) return { user: { phoneNumber: intlPhone } };
-        throw new Error("Mã OTP không hợp lệ");
-      }
-    };
-    const boxOtp = document.getElementById("boxOtpInput");
-    if (boxOtp) boxOtp.style.display = "block";
-    showToast(`📩 Mã OTP đã sẵn sàng! Nhập 6 số bất kỳ để xác nhận.`);
-    startOtpCountdown();
+    alert("Lỗi gửi OTP: " + err.message);
   } finally {
     if (btnSend) {
       btnSend.disabled = false;
@@ -2342,7 +2391,7 @@ async function handleConfirmAuth() {
     const password = document.getElementById("txtAuthPassword")?.value.trim();
 
     if (!email || !password) {
-      alert("Vui lòng nhập đầy đủ Email và Mật khẩu.");
+      alert("Vui lòng nhập đầy đủ Email/SĐT và Mật khẩu.");
       return;
     }
 
@@ -2357,7 +2406,7 @@ async function handleConfirmAuth() {
       if (data.success && data.user) {
         applyUserRole(data.user.role, data.user);
         closeRoleModal();
-        showToast(`🎉 Đăng nhập Admin thành công: ${data.user.full_name || data.user.email} (Quyền: ${data.user.role === 'admin' ? '👑 Sếp Tổng' : (data.user.role === 'manager' ? '⭐ Quản lý' : '👤 Công nhân')})`);
+        showToast(`🎉 Đăng nhập thành công: ${data.user.full_name || data.user.email} (Quyền: ${data.user.role === 'admin' ? '👑 Sếp Tổng' : (data.user.role === 'manager' ? '⭐ Quản lý' : '👤 Công nhân')})`);
       } else {
         alert("❌ " + (data.error || "Email hoặc Mật khẩu không chính xác!"));
       }
@@ -2370,27 +2419,26 @@ async function handleConfirmAuth() {
     const otpCode = document.getElementById("txtOtpCode")?.value.trim();
 
     if (!rawPhone) {
-      alert("Vui lòng nhập số điện thoại.");
+      alert("❌ Vui lòng nhập số điện thoại.");
+      return;
+    }
+    const boxOtp = document.getElementById("boxOtpInput");
+    if (!boxOtp || boxOtp.style.display === "none") {
+      alert("⚠️ Vui lòng bấm nút '📩 Gửi Mã OTP' trước!");
       return;
     }
     if (!otpCode || otpCode.length !== 6) {
-      alert("Vui lòng nhập đầy đủ mã OTP 6 chữ số.");
+      alert("❌ Vui lòng nhập đầy đủ mã OTP 6 chữ số.");
       return;
     }
 
     try {
-      if (confirmationResult) {
-        await confirmationResult.confirm(otpCode);
-      }
-
-      // Call Backend API to verify / register user in D1 Database
-      const res = await fetch("/api/auth/phone-login", {
+      const res = await fetch("/api/auth/verify-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           phone: rawPhone,
-          otp_verified: true,
-          full_name: rawPhone.includes("0900000000") ? "Sếp Tổng Quản Lý" : "Nhân Viên"
+          otp_code: otpCode
         })
       });
 
@@ -2400,10 +2448,10 @@ async function handleConfirmAuth() {
         closeRoleModal();
         showToast(`🎉 Đăng nhập thành công! Vai trò: ${data.user.role === 'admin' ? '👑 Sếp Tổng' : (data.user.role === 'manager' ? '⭐ Quản lý' : '👤 Công nhân')}`);
       } else {
-        alert(data.error || "Lỗi xác thực người dùng");
+        alert("❌ " + (data.error || "Xác thực OTP không thành công!"));
       }
     } catch (err) {
-      alert("❌ Xác thực OTP không thành công: " + err.message);
+      alert("❌ Lỗi xác thực OTP: " + err.message);
     }
   } else {
     // 3. Verify via PIN Code
