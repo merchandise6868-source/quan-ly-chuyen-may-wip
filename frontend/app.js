@@ -63,13 +63,40 @@ function checkLoginPortalState() {
   const portal = document.getElementById("loginPortalScreen");
   const mainApp = document.getElementById("appMainWrapper");
 
-  if (appState.currentUser && appState.currentUserRole) {
-    if (portal) portal.style.display = "none";
-    if (mainApp) mainApp.style.display = "block";
+  // Read persisted user info from localStorage or long-lived cookie
+  let savedUser = null;
+  try {
+    const rawUser = localStorage.getItem("dd_user_info") || sessionStorage.getItem("dd_user_info");
+    if (rawUser) {
+      savedUser = JSON.parse(rawUser);
+    }
+  } catch (e) {
+    console.warn("Error reading localStorage:", e);
+  }
+
+  // Fallback: Check cookie if storage is cleared by iOS Safari / WebView
+  if (!savedUser) {
+    const match = document.cookie.match(/(^|;)\s*dd_wip_session\s*=\s*([^;]+)/);
+    if (match && match[2]) {
+      try {
+        savedUser = JSON.parse(decodeURIComponent(match[2]));
+      } catch (e) {
+        console.warn("Error parsing cookie session:", e);
+      }
+    }
+  }
+
+  if (savedUser && (savedUser.role || savedUser.email || savedUser.phone)) {
+    appState.currentUser = savedUser;
+    appState.currentUserRole = savedUser.role || localStorage.getItem("dd_wip_role") || "worker";
+    if (portal) portal.style.setProperty("display", "none", "important");
+    if (mainApp) mainApp.style.setProperty("display", "block", "important");
     applyUserRole(appState.currentUserRole, appState.currentUser);
   } else {
-    if (portal) portal.style.display = "flex";
-    if (mainApp) mainApp.style.display = "none";
+    appState.currentUser = null;
+    appState.currentUserRole = "worker";
+    if (portal) portal.style.setProperty("display", "flex", "important");
+    if (mainApp) mainApp.style.setProperty("display", "none", "important");
   }
 }
 
@@ -1839,8 +1866,27 @@ function exportToExcel() {
 function onLoginSuccess(user, role) {
   appState.currentUserRole = role || user.role || "worker";
   appState.currentUser = user;
-  localStorage.setItem("dd_wip_role", appState.currentUserRole);
-  localStorage.setItem("dd_user_info", JSON.stringify(user));
+
+  const chkRemember = document.getElementById("chkRememberMe");
+  const shouldRemember = chkRemember ? chkRemember.checked : true;
+
+  if (shouldRemember) {
+    try {
+      localStorage.setItem("dd_wip_role", appState.currentUserRole);
+      localStorage.setItem("dd_user_info", JSON.stringify(user));
+      // Save cookie with 1 year expiration (31536000 seconds) for cross-browser & iOS persistence
+      document.cookie = `dd_wip_session=${encodeURIComponent(JSON.stringify(user))}; max-age=31536000; path=/; SameSite=Lax`;
+    } catch (e) {
+      console.warn("Storage save error:", e);
+    }
+  } else {
+    try {
+      sessionStorage.setItem("dd_wip_role", appState.currentUserRole);
+      sessionStorage.setItem("dd_user_info", JSON.stringify(user));
+    } catch (e) {
+      console.warn("Session storage save error:", e);
+    }
+  }
 
   const portal = document.getElementById("loginPortalScreen");
   const mainApp = document.getElementById("appMainWrapper");
@@ -1865,10 +1911,27 @@ function onLoginSuccess(user, role) {
 
 function handleLogout() {
   if (confirm("Bạn có chắc chắn muốn đăng xuất khỏi hệ thống?")) {
-    localStorage.removeItem("dd_user_info");
-    localStorage.removeItem("dd_wip_role");
+    try {
+      localStorage.removeItem("dd_user_info");
+      localStorage.removeItem("dd_wip_role");
+      sessionStorage.removeItem("dd_user_info");
+      sessionStorage.removeItem("dd_wip_role");
+      document.cookie = "dd_wip_session=; max-age=0; path=/; SameSite=Lax";
+    } catch (e) {
+      console.warn("Logout clear error:", e);
+    }
     appState.currentUser = null;
     appState.currentUserRole = "worker";
+
+    // Clear login input values for next clean login
+    const emailInput = document.getElementById("portalTxtEmail");
+    const passInput = document.getElementById("portalTxtPassword");
+    const phoneInput = document.getElementById("portalTxtPhone");
+    const pinInput = document.getElementById("portalPinCode");
+    if (emailInput) emailInput.value = "";
+    if (passInput) passInput.value = "";
+    if (phoneInput) phoneInput.value = "";
+    if (pinInput) pinInput.value = "";
 
     const portal = document.getElementById("loginPortalScreen");
     const mainApp = document.getElementById("appMainWrapper");
@@ -1885,7 +1948,7 @@ function handleLogout() {
 
 // BIND DEDICATED LOGIN PORTAL EVENTS
 function bindPortalEvents() {
-  // 1. Role Choice Cards in Portal
+  // 1. Role Choice Cards in Portal (Visual indicator only, no auto-filling credentials)
   const cardAdmin = document.getElementById("cardRoleAdmin");
   const cardManager = document.getElementById("cardRoleManager");
   const cardWorker = document.getElementById("cardRoleWorker");
@@ -1897,16 +1960,10 @@ function bindPortalEvents() {
 
     if (role === "admin" && cardAdmin) {
       cardAdmin.classList.add("active-admin");
-      document.getElementById("portalTxtEmail").value = "admin@ddlongan.com";
-      document.getElementById("portalTxtPassword").value = "Admin@123456";
     } else if (role === "manager" && cardManager) {
       cardManager.classList.add("active-manager");
-      document.getElementById("portalTxtEmail").value = "manager@ddlongan.com";
-      document.getElementById("portalTxtPassword").value = "Manager@123456";
     } else if (role === "worker" && cardWorker) {
       cardWorker.classList.add("active-worker");
-      document.getElementById("portalTxtEmail").value = "worker@ddlongan.com";
-      document.getElementById("portalTxtPassword").value = "Worker@123456";
     }
   }
 
