@@ -2375,4 +2375,71 @@ input[type=number] {
   }
 }
 
+/* ========================================================
+   PWA INSTALL BUTTON & IOS INSTALL MODAL STYLES
+   ======================================================== */
+.btn-install-pwa {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: linear-gradient(135deg, #0284c7, #0f766e);
+  color: #ffffff !important;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.35);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  animation: pulse-pwa 2.5s infinite;
+}
+
+.btn-install-pwa:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.45);
+  filter: brightness(1.1);
+}
+
+@keyframes pulse-pwa {
+  0% { box-shadow: 0 0 0 0 rgba(2, 132, 199, 0.5); }
+  70% { box-shadow: 0 0 0 8px rgba(2, 132, 199, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(2, 132, 199, 0); }
+}
+
+.ios-step-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+  background: #f1f5f9;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border-left: 4px solid #0f766e;
+}
+
+.ios-step-num {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #0f766e;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.ios-step-text {
+  font-size: 13px;
+  color: #334155;
+  line-height: 1.45;
+}
+
+
 

@@ -3,14 +3,27 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
+  <title>BÁO CÁO ĐỐI CHIẾU NHẬP XUẤT TỒN - WIP FLOW TRACKING</title>
+
+  <!-- PWA & Mobile Web App Meta Tags -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0f766e">
+  <meta name="application-name" content="WIP D&D Long An">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="format-detection" content="telephone=no">
+  <meta name="apple-mobile-web-app-title" content="WIP D&D">
   <meta name="mobile-web-app-capable" content="yes">
-  <title>BÁO CÁO ĐỐI CHIẾU NHẬP XUẤT TỒN - WIP FLOW TRACKING</title>
-  <link rel="stylesheet" href="styles.css?v=20260925_2210">
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#0f172a">
+  <meta name="format-detection" content="telephone=no">
+
+  <!-- Icons -->
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+  <link rel="apple-touch-icon" sizes="192x192" href="icon-192.png">
+  <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png">
+
+  <link rel="stylesheet" href="styles.css?v=20260926_1000">
+  
   <!-- cdn for sheetjs (xlsx) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
@@ -34,6 +47,11 @@
         <div class="login-portal-logo">🧵</div>
         <h1>D&D LONG AN - HỆ THỐNG WIP TRACKING</h1>
         <p>Hệ Thống Kiểm Kê Dở Dang, Đối Chiếu Nhập Xuất Tồn & Quản Lý Tiến Độ Chuyền May</p>
+        <div style="margin-top: 10px;">
+          <button type="button" id="btnPortalInstallApp" class="btn-install-pwa" style="display: none;">
+            📲 Cài Đặt Ứng Dụng (Thêm Vào Màn Hình Chính)
+          </button>
+        </div>
       </div>
 
       <!-- 3 ROLES INFORMATIONAL CARDS -->
@@ -125,6 +143,7 @@
           <div class="control-item role-control-box">
             <label>TÀI KHOẢN HIỆN TẠI:</label>
             <div class="role-badge-group">
+              <button type="button" id="btnInstallPWA" class="btn-install-pwa" style="display: none;" title="Cài đặt ứng dụng về thiết bị để mở nhanh như app native">📲 Cài App</button>
               <span class="role-badge is-worker" id="currentRoleBadge">👤 Công nhân</span>
               <button class="btn-role-switch" id="btnSwitchRole" title="Đổi quyền hoặc đăng nhập tài khoản khác">🔄 Đổi Quyền</button>
               <button class="btn-logout" id="btnLogout" title="Đăng xuất khỏi hệ thống">🚪 Đăng Xuất</button>
@@ -694,6 +713,49 @@
     </div>
   </div>
 
-  <script src="app.js?v=20260925_2330"></script>
+  <!-- MODAL HƯỚNG DẪN CÀI ĐẶT APP CHO IPHONE / IPAD (IOS SAFARI) -->
+  <div id="modalIosInstall" class="modal-overlay">
+    <div class="modal-card" style="max-width: 440px; text-align: center; border-radius: 16px;">
+      <div class="modal-header" style="background: linear-gradient(135deg, #0f766e, #0369a1); color: #ffffff; border-radius: 16px 16px 0 0;">
+        <h3 style="margin:0; font-size: 16px; color:#ffffff;">📲 Cài Đặt App Trên iPhone / iPad</h3>
+        <button class="btn-close-modal" id="btnCloseIosModal" style="color: #ffffff;">×</button>
+      </div>
+      <div class="modal-body" style="padding: 24px 20px; text-align: left;">
+        <div style="display:flex; align-items:center; gap: 12px; margin-bottom: 16px;">
+          <div style="font-size: 32px;">🍏</div>
+          <div>
+            <strong style="font-size: 15px; color:#0f172a; display:block;">Thêm vào Màn hình chính</strong>
+            <span style="font-size: 12.5px; color:#64748b;">Mở ứng dụng ngay lập tức như app gốc, không cần qua trình duyệt.</span>
+          </div>
+        </div>
+
+        <div class="ios-step-item">
+          <div class="ios-step-num">1</div>
+          <div class="ios-step-text">
+            Nhấn vào nút <strong>Chia sẻ (Share) <span style="font-size: 16px;">⎙ / 📤</span></strong> ở thanh công cụ dưới đáy trình duyệt Safari.
+          </div>
+        </div>
+
+        <div class="ios-step-item">
+          <div class="ios-step-num">2</div>
+          <div class="ios-step-text">
+            Cuộn xuống danh sách tác vụ và chọn <strong>"Thêm vào MH chính" (Add to Home Screen ➕)</strong>.
+          </div>
+        </div>
+
+        <div class="ios-step-item">
+          <div class="ios-step-num">3</div>
+          <div class="ios-step-text">
+            Nhấn nút <strong>"Thêm" (Add)</strong> ở góc trên bên phải màn hình. Biểu tượng App WIP May D&D sẽ xuất hiện trên màn hình chính của bạn!
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content: center; background: #f8fafc; border-radius: 0 0 16px 16px;">
+        <button class="btn btn-primary" id="btnGotItIosModal" style="padding: 10px 30px; font-weight: 700;">Đã Hiểu</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js?v=20260926_1000"></script>
 </body>
 </html>

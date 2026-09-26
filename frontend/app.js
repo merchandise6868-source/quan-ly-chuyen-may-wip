@@ -54,10 +54,117 @@ function initFirebaseAuth() {
   }
 }
 
+// PWA (PROGRESSIVE WEB APP) MANAGEMENT
+let deferredInstallPrompt = null;
+
+function initPWA() {
+  // 1. Register Service Worker
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js', { scope: '/' })
+        .then(reg => {
+          console.log('✅ Service Worker registered successfully:', reg.scope);
+          reg.onupdatefound = () => {
+            const installingWorker = reg.installing;
+            if (installingWorker) {
+              installingWorker.onstatechange = () => {
+                if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  console.log('🔄 Đã cập nhật phiên bản ứng dụng mới ngầm.');
+                }
+              };
+            }
+          };
+        })
+        .catch(err => console.warn('SW registration warning:', err));
+    });
+  }
+
+  // 2. Capture Install Prompt for Android / Desktop Chrome / Edge
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    const btnTop = document.getElementById("btnInstallPWA");
+    const btnPortal = document.getElementById("btnPortalInstallApp");
+    if (btnTop) btnTop.style.display = "inline-flex";
+    if (btnPortal) btnPortal.style.display = "inline-flex";
+    console.log("📲 PWA install ready.");
+  });
+
+  // 3. Handle Install Click (Desktop / Android / iOS)
+  function handleInstallClick() {
+    const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+
+    if (deferredInstallPrompt) {
+      deferredInstallPrompt.prompt();
+      deferredInstallPrompt.userChoice.then((choiceResult) => {
+        if (choiceResult.outcome === 'accepted') {
+          console.log('User installed PWA');
+          showToast('🎉 Đang tải và cài đặt ứng dụng WIP May D&D!');
+        }
+        deferredInstallPrompt = null;
+      });
+    } else if (isIos && !isStandalone) {
+      const modal = document.getElementById("modalIosInstall");
+      if (modal) modal.classList.add("show");
+    } else {
+      showToast("💡 Hãy bấm biểu tượng cài đặt trên thanh địa chỉ hoặc menu trình duyệt để thêm vào màn hình chính!");
+    }
+  }
+
+  const btnTop = document.getElementById("btnInstallPWA");
+  if (btnTop) btnTop.addEventListener("click", handleInstallClick);
+
+  const btnPortal = document.getElementById("btnPortalInstallApp");
+  if (btnPortal) btnPortal.addEventListener("click", handleInstallClick);
+
+  // iOS Modal close handlers
+  const btnCloseIos = document.getElementById("btnCloseIosModal");
+  if (btnCloseIos) {
+    btnCloseIos.addEventListener("click", () => {
+      document.getElementById("modalIosInstall")?.classList.remove("show");
+    });
+  }
+  const btnGotItIos = document.getElementById("btnGotItIosModal");
+  if (btnGotItIos) {
+    btnGotItIos.addEventListener("click", () => {
+      document.getElementById("modalIosInstall")?.classList.remove("show");
+    });
+  }
+
+  // 4. App Installed Event
+  window.addEventListener('appinstalled', () => {
+    console.log('🎉 PWA application was successfully installed.');
+    const btnTop = document.getElementById("btnInstallPWA");
+    const btnPortal = document.getElementById("btnPortalInstallApp");
+    if (btnTop) btnTop.style.display = "none";
+    if (btnPortal) btnPortal.style.display = "none";
+    showToast('🎉 Đã cài đặt ứng dụng vào màn hình chính thành công!');
+  });
+
+  // 5. Detect Standalone / iOS
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+  if (isStandalone) {
+    const btnTop = document.getElementById("btnInstallPWA");
+    const btnPortal = document.getElementById("btnPortalInstallApp");
+    if (btnTop) btnTop.style.display = "none";
+    if (btnPortal) btnPortal.style.display = "none";
+  } else {
+    const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    if (isIos) {
+      const btnTop = document.getElementById("btnInstallPWA");
+      const btnPortal = document.getElementById("btnPortalInstallApp");
+      if (btnTop) btnTop.style.display = "inline-flex";
+      if (btnPortal) btnPortal.style.display = "inline-flex";
+    }
+  }
+}
+
 // INITIALIZATION
 document.addEventListener("DOMContentLoaded", () => {
   initDate();
   initFirebaseAuth();
+  initPWA();
   bindEvents();
   bindPortalEvents();
   checkLoginPortalState();
@@ -2356,11 +2463,26 @@ function bindPortalEvents() {
 
 function applyUserRole(role, user = null) {
   appState.currentUserRole = role || "worker";
-  localStorage.setItem("dd_wip_role", appState.currentUserRole);
+  try {
+    localStorage.setItem("dd_wip_role", appState.currentUserRole);
+  } catch (e) {}
 
   if (user) {
     appState.currentUser = user;
-    localStorage.setItem("dd_user_info", JSON.stringify(user));
+    try {
+      localStorage.setItem("dd_user_info", JSON.stringify(user));
+      document.cookie = `dd_wip_session=${encodeURIComponent(JSON.stringify(user))}; max-age=31536000; path=/; SameSite=Lax`;
+    } catch (e) {
+      console.warn("Storage error:", e);
+    }
+  }
+
+  // Ensure login portal is closed and main app is visible whenever a role is applied
+  const portal = document.getElementById("loginPortalScreen");
+  const mainApp = document.getElementById("appMainWrapper");
+  if (appState.currentUser) {
+    if (portal) portal.style.setProperty("display", "none", "important");
+    if (mainApp) mainApp.style.setProperty("display", "block", "important");
   }
 
   const badge = document.getElementById("currentRoleBadge");
