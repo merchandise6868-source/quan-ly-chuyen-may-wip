@@ -477,8 +477,35 @@ async function loadReport() {
     const res = await fetch(`/api/report?po_id=${poId}&date=${date}`);
     const data = await res.json();
     if (data.success) {
-      appState.report = data.report;
+      appState.report = data.report || { po_id: poId, report_date: date, status: "DRAFT", batches: [] };
       appState.cumExportsByBatch = data.cumExportsByBatch || {};
+
+      // Auto-fallback: if report has no batches, populate immediately from currentPO default_batches
+      if (!appState.report.batches || appState.report.batches.length === 0) {
+        if (appState.currentPO && appState.currentPO.default_batches && appState.currentPO.default_batches.length > 0) {
+          appState.report.batches = appState.currentPO.default_batches.map((b, i) => ({
+            id: b.id || `b-${i+1}`,
+            batch_name: b.batch_name,
+            batch_plan: Number(b.batch_plan || b.into_sewing) || 0,
+            into_sewing: Number(b.into_sewing || b.batch_plan) || 0,
+            delivered: 0,
+            wip_sewing: 0,
+            wip_qc: 0,
+            wip_pairing: 0,
+            wip_packing: 0,
+            wip_warehouse: 0,
+            daily_out: 0,
+            note_sewing: "",
+            note_qc: "",
+            note_pairing: "",
+            note_packing: "",
+            note_warehouse: "",
+            shortage_reason_type: "",
+            shortage_note: ""
+          }));
+        }
+      }
+
       renderReportUI();
     }
   } catch (err) {
@@ -1557,7 +1584,17 @@ async function handleAddPO(e) {
     if (data.success) {
       showToast(id ? "✅ Đã cập nhật PO & Lô thành công!" : "✅ Đã thêm PO mới thành công!");
       resetPOForm();
-      fetchMetadata();
+      await fetchMetadata();
+
+      // Ensure the saved or updated PO is active and reload report
+      const savedPO = id ? appState.orders.find(o => o.id === id) : appState.orders.find(o => o.po_number === po_number);
+      if (savedPO) {
+        appState.currentPO = savedPO;
+        const selPO = document.getElementById("selectPO");
+        if (selPO) selPO.value = savedPO.id;
+        loadReport();
+        loadDeptLogs();
+      }
     }
   } catch (err) {
     alert("Lỗi khi lưu PO: " + err.message);

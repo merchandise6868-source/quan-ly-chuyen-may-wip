@@ -905,26 +905,29 @@ export default {
             let report = null;
             if (repRows && repRows.length > 0) {
               const { results: batchRows } = await env.DB.prepare("SELECT * FROM report_batches WHERE report_id = ? ORDER BY batch_name ASC").bind(key).all();
-              report = {
-                po_id: poId,
-                report_date: date,
-                status: repRows[0].status || "DRAFT",
-                batches: batchRows || []
-              };
+              if (batchRows && batchRows.length > 0) {
+                report = {
+                  po_id: poId,
+                  report_date: date,
+                  status: repRows[0].status || "DRAFT",
+                  batches: batchRows
+                };
+              }
             }
 
-            if (!report) {
+            if (!report || !report.batches || report.batches.length === 0) {
               const { results: ordRows } = await env.DB.prepare("SELECT * FROM po_orders WHERE id = ?").bind(poId).all();
               const order = ordRows && ordRows[0] ? {
                 ...ordRows[0],
-                default_batches: typeof ordRows[0].default_batches === 'string' ? JSON.parse(ordRows[0].default_batches || '[]') : []
+                default_batches: typeof ordRows[0].default_batches === 'string' ? JSON.parse(ordRows[0].default_batches || '[]') : (ordRows[0].default_batches || [])
               } : null;
 
-              const batches = order && order.default_batches ? order.default_batches.map((b, i) => ({
-                id: 'b-' + (i+1),
+              const batches = order && order.default_batches && order.default_batches.length > 0 ? order.default_batches.map((b, i) => ({
+                id: b.id || ('b-' + (i+1)),
                 batch_name: b.batch_name,
-                batch_plan: b.batch_plan,
-                into_sewing: b.into_sewing,
+                batch_plan: Number(b.batch_plan || b.into_sewing) || 0,
+                into_sewing: Number(b.into_sewing || b.batch_plan) || 0,
+                delivered: 0,
                 wip_sewing: 0,
                 wip_qc: 0,
                 wip_pairing: 0,
@@ -940,7 +943,7 @@ export default {
                 shortage_note: ""
               })) : [];
 
-              report = { po_id: poId, report_date: date, status: "DRAFT", batches };
+              report = { po_id: poId, report_date: date, status: (repRows && repRows[0] && repRows[0].status) || "DRAFT", batches };
             }
 
             // Cumulative export calculation
