@@ -234,9 +234,9 @@ function bindEvents() {
   // Header Selects & Filters
   const selCust = document.getElementById("selectCustomer");
   if (selCust) {
-    selCust.addEventListener("change", (e) => {
+    selCust.addEventListener("change", async (e) => {
       appState.currentCustomer = e.target.value;
-      filterOrdersByCustomer();
+      await filterOrdersByCustomer();
     });
   }
 
@@ -245,12 +245,7 @@ function bindEvents() {
     selPO.addEventListener("change", async (e) => {
       const poId = e.target.value;
       appState.currentPO = appState.orders.find(o => o.id === poId);
-      appState.editingBatches = {};
-      await loadReport();
-      await loadDeptLogs();
-      if (document.getElementById("subtab-history") && document.getElementById("subtab-history").classList.contains("active")) {
-        fetchReportHistory();
-      }
+      await refreshAllTabsData();
     });
   }
 
@@ -259,9 +254,7 @@ function bindEvents() {
   if (repDate) {
     repDate.addEventListener("change", async (e) => {
       appState.currentDate = e.target.value;
-      appState.editingBatches = {};
-      await loadReport();
-      await loadDeptLogs();
+      await refreshAllTabsData();
     });
   }
 
@@ -284,9 +277,11 @@ function bindEvents() {
       } else if (btn.dataset.tab === "tab-users") {
         fetchUsers();
       } else if (btn.dataset.tab === "tab-flow-log") {
-        loadDeptLogs();
+        renderDeptLogsUI();
       } else if (btn.dataset.tab === "tab-history") {
-        fetchReportHistory();
+        renderHistoryTable();
+      } else if (btn.dataset.tab === "tab-wip") {
+        renderReportUI();
       }
     });
   });
@@ -408,15 +403,41 @@ function bindEvents() {
   document.addEventListener("paste", handleExcelPaste);
 }
 
+// MASTER SYNC: REFRESH ALL TABS DATA FOR CURRENT PO & DATE
+async function refreshAllTabsData() {
+  if (!appState.currentPO) {
+    appState.report = { po_id: "", report_date: appState.currentDate, status: "DRAFT", batches: [] };
+    renderReportUI();
+    appState.historyLogs = [];
+    renderHistoryTable();
+    appState.deptLogs = {};
+    renderDeptLogsUI();
+    return;
+  }
+
+  appState.editingBatches = {};
+
+  // Update PO badge/text in all tabs
+  const histPoNum = document.getElementById("histPoNum");
+  if (histPoNum && appState.currentPO) {
+    histPoNum.innerText = `${appState.currentPO.style_code} (${appState.currentPO.po_number})`;
+  }
+
+  // Concurrently load data for all 3 operational tabs
+  await Promise.all([
+    loadReport(),
+    fetchReportHistory(),
+    loadDeptLogs()
+  ]);
+}
+
 async function changeDateByDays(days) {
   const d = new Date(appState.currentDate);
   d.setDate(d.getDate() + days);
   const newDateStr = d.toISOString().split("T")[0];
   appState.currentDate = newDateStr;
   document.getElementById("reportDate").value = newDateStr;
-  appState.editingBatches = {};
-  await loadReport();
-  await loadDeptLogs();
+  await refreshAllTabsData();
 }
 
 // FETCH METADATA
@@ -452,7 +473,7 @@ function populateCustomerSelect() {
   }
 }
 
-function filterOrdersByCustomer() {
+async function filterOrdersByCustomer() {
   const poSel = document.getElementById("selectPO");
   const filtered = appState.orders.filter(o => o.customer_id === appState.currentCustomer);
   
@@ -462,13 +483,11 @@ function filterOrdersByCustomer() {
       appState.currentPO = filtered[0];
     }
     poSel.value = appState.currentPO.id;
-    loadReport();
-    loadDeptLogs();
+    await refreshAllTabsData();
   } else {
     poSel.innerHTML = "<option value=''>-- Chưa có PO cho KH này --</option>";
     appState.currentPO = null;
-    appState.report = { po_id: "", report_date: appState.currentDate, status: "DRAFT", batches: [] };
-    renderReportUI();
+    await refreshAllTabsData();
   }
 }
 
@@ -2848,54 +2867,86 @@ function renderHistoryTable() {
   let sumNhap = 0, sumXuat = 0, sumMay = 0, sumQC = 0, sumPhoi = 0, sumDG = 0, sumKho = 0;
   let sumTonThucTe = 0, sumTonLyThuyet = 0, sumChenhLech = 0;
 
+  // Group rows by batch_name
+  const groupedByBatch = {};
   filtered.forEach(r => {
-    const into = Number(r.into_sewing || r.batch_plan) || 0;
-    const delivered = Number(r.delivered || r.daily_out) || 0;
-    const wipSewing = Number(r.wip_sewing) || 0;
-    const wipQC = Number(r.wip_qc) || 0;
-    const wipPairing = Number(r.wip_pairing) || 0;
-    const wipPacking = Number(r.wip_packing) || 0;
-    const wipWarehouse = Number(r.wip_warehouse) || 0;
+    const bName = r.batch_name || "Lô khác";
+    if (!groupedByBatch[bName]) groupedByBatch[bName] = [];
+    groupedByBatch[bName].push(r);
+  });
 
-    const actualWip = wipSewing + wipQC + wipPairing + wipPacking + wipWarehouse;
-    const tonLyThuyet = into - delivered;
-    const shortage = tonLyThuyet - actualWip;
+  // Sort batch names naturally (Lô 1, Lô 2, etc.)
+  const batchNames = Object.keys(groupedByBatch).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 
-    sumNhap += into;
-    sumXuat += delivered;
-    sumMay += wipSewing;
-    sumQC += wipQC;
-    sumPhoi += wipPairing;
-    sumDG += wipPacking;
-    sumKho += wipWarehouse;
-    sumTonThucTe += actualWip;
-    sumTonLyThuyet += tonLyThuyet;
-    sumChenhLech += shortage;
+  batchNames.forEach((bName, bIdx) => {
+    const bRows = groupedByBatch[bName];
+    // Sort dates ascending within batch
+    bRows.sort((a, b) => (a.report_date || '').localeCompare(b.report_date || ''));
+    const rowSpanCount = bRows.length;
 
-    const tr = document.createElement("tr");
-    const statusHtml = shortage === 0 
-      ? `<span class="dept-status-badge is-ok">Khớp (OK)</span>` 
-      : (shortage > 0 
-          ? `<span class="dept-status-badge is-not-ok">Thiếu ${shortage}</span>` 
-          : `<span class="dept-status-badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a;">Thừa +${Math.abs(shortage)}</span>`);
+    bRows.forEach((r, rowIdx) => {
+      const into = Number(r.into_sewing || r.batch_plan) || 0;
+      const delivered = Number(r.delivered || r.daily_out) || 0;
+      const wipSewing = Number(r.wip_sewing) || 0;
+      const wipQC = Number(r.wip_qc) || 0;
+      const wipPairing = Number(r.wip_pairing) || 0;
+      const wipPacking = Number(r.wip_packing) || 0;
+      const wipWarehouse = Number(r.wip_warehouse) || 0;
 
-    tr.innerHTML = `
-      <td style="font-weight: 700; color: #1e293b;">${r.report_date || ''}</td>
-      <td style="font-weight: 700; color: #0284c7;">${r.batch_name || ''}</td>
-      <td>${into.toLocaleString('vi-VN')}</td>
-      <td>${delivered.toLocaleString('vi-VN')}</td>
-      <td>${wipSewing.toLocaleString('vi-VN')}</td>
-      <td>${wipQC.toLocaleString('vi-VN')}</td>
-      <td>${wipPairing.toLocaleString('vi-VN')}</td>
-      <td>${wipPacking.toLocaleString('vi-VN')}</td>
-      <td>${wipWarehouse.toLocaleString('vi-VN')}</td>
-      <td style="font-weight: 700; color: #d97706;">${actualWip.toLocaleString('vi-VN')}</td>
-      <td style="font-weight: 700; color: #2563eb;">${tonLyThuyet.toLocaleString('vi-VN')}</td>
-      <td style="font-weight: 700; color: ${shortage === 0 ? '#16a34a' : (shortage > 0 ? '#dc2626' : '#d97706')};">${shortage > 0 ? '-' : (shortage < 0 ? '+' : '')}${Math.abs(shortage).toLocaleString('vi-VN')}</td>
-      <td>${statusHtml}</td>
-      <td style="font-size: 11.5px; color: #475569; text-align: left;">${r.shortage_reason_type ? `[${r.shortage_reason_type}] ` : ''}${r.shortage_note || ''}</td>
-    `;
-    tbody.appendChild(tr);
+      const actualWip = wipSewing + wipQC + wipPairing + wipPacking + wipWarehouse;
+      const tonLyThuyet = into - delivered;
+      const shortage = tonLyThuyet - actualWip;
+
+      sumNhap += into;
+      sumXuat += delivered;
+      sumMay += wipSewing;
+      sumQC += wipQC;
+      sumPhoi += wipPairing;
+      sumDG += wipPacking;
+      sumKho += wipWarehouse;
+      sumTonThucTe += actualWip;
+      sumTonLyThuyet += tonLyThuyet;
+      sumChenhLech += shortage;
+
+      const tr = document.createElement("tr");
+      if (rowIdx === 0 && bIdx > 0) {
+        tr.style.borderTop = "2px solid #94a3b8";
+      }
+
+      const statusHtml = shortage === 0 
+        ? `<span class="dept-status-badge is-ok">Khớp (OK)</span>` 
+        : (shortage > 0 
+            ? `<span class="dept-status-badge is-not-ok">Thiếu ${shortage}</span>` 
+            : `<span class="dept-status-badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a;">Thừa +${Math.abs(shortage)}</span>`);
+
+      let rowHtml = "";
+      // First column: LÔ HÀNG (only 1 merged cell spanning all date rows of this batch)
+      if (rowIdx === 0) {
+        rowHtml += `
+          <td rowspan="${rowSpanCount}" class="cell-merged-batch">
+            ${bName}
+          </td>
+        `;
+      }
+      // Second column: NGÀY BÁO CÁO (stretching along the merged batch cell)
+      rowHtml += `
+        <td style="font-weight: 700; color: #1e293b;">${r.report_date || ''}</td>
+        <td>${into.toLocaleString('vi-VN')}</td>
+        <td>${delivered.toLocaleString('vi-VN')}</td>
+        <td>${wipSewing.toLocaleString('vi-VN')}</td>
+        <td>${wipQC.toLocaleString('vi-VN')}</td>
+        <td>${wipPairing.toLocaleString('vi-VN')}</td>
+        <td>${wipPacking.toLocaleString('vi-VN')}</td>
+        <td>${wipWarehouse.toLocaleString('vi-VN')}</td>
+        <td style="font-weight: 700; color: #d97706;">${actualWip.toLocaleString('vi-VN')}</td>
+        <td style="font-weight: 700; color: #2563eb;">${tonLyThuyet.toLocaleString('vi-VN')}</td>
+        <td style="font-weight: 700; color: ${shortage === 0 ? '#16a34a' : (shortage > 0 ? '#dc2626' : '#d97706')};">${shortage > 0 ? '-' : (shortage < 0 ? '+' : '')}${Math.abs(shortage).toLocaleString('vi-VN')}</td>
+        <td>${statusHtml}</td>
+        <td style="font-size: 11.5px; color: #475569; text-align: left;">${r.shortage_reason_type ? `[${r.shortage_reason_type}] ` : ''}${r.shortage_note || ''}</td>
+      `;
+      tr.innerHTML = rowHtml;
+      tbody.appendChild(tr);
+    });
   });
 
   // Update Summary Footer
@@ -2932,7 +2983,7 @@ function renderHistoryTable() {
   const elHistStatus = document.getElementById("histStatus");
   if (elHistStatus) {
     elHistStatus.innerHTML = sumChenhLech === 0 
-      ? `<span class="dept-status-badge is-ok">OK</span>`
+      ? `<span class="dept-status-badge is-ok">OK</span>` 
       : `<span class="dept-status-badge is-not-ok">Lệch</span>`;
   }
 }
@@ -2955,7 +3006,7 @@ function exportHistoryToExcel() {
     ["THỐNG KÊ LỊCH SỬ TIẾN ĐỘ CÁC LÔ THEO TẤT CẢ CÁC NGÀY"],
     ["Đơn hàng / Style:", po ? po.style_code : "", "PO Number:", poNum, "Tổng kế hoạch:", po ? po.po_plan : 0],
     [],
-    ["Ngày Báo Cáo", "Lô Hàng", "Nhập (Vào Chuyền)", "Xuất (Giao KH)", "KK May", "KK QC", "KK Phối Đôi", "KK Đóng Gói", "KK Kho TP", "Tổng Tồn Thực Tế", "Tồn Lý Thuyết", "Chênh Lệch", "Lý Do / Ghi Chú"]
+    ["Lô Hàng", "Ngày Báo Cáo", "Nhập (Vào Chuyền)", "Xuất (Giao KH)", "KK May", "KK QC", "KK Phối Đôi", "KK Đóng Gói", "KK Kho TP", "Tổng Tồn Thực Tế", "Tồn Lý Thuyết", "Chênh Lệch", "Lý Do / Ghi Chú"]
   ];
 
   const filterBatch = document.getElementById("historyBatchFilter")?.value || "ALL";
@@ -2963,34 +3014,48 @@ function exportHistoryToExcel() {
     ? appState.historyLogs 
     : appState.historyLogs.filter(r => r.batch_name === filterBatch);
 
+  const groupedByBatch = {};
   filtered.forEach(r => {
-    const into = Number(r.into_sewing || r.batch_plan) || 0;
-    const delivered = Number(r.delivered || r.daily_out) || 0;
-    const wipSewing = Number(r.wip_sewing) || 0;
-    const wipQC = Number(r.wip_qc) || 0;
-    const wipPairing = Number(r.wip_pairing) || 0;
-    const wipPacking = Number(r.wip_packing) || 0;
-    const wipWarehouse = Number(r.wip_warehouse) || 0;
+    const bName = r.batch_name || "Lô khác";
+    if (!groupedByBatch[bName]) groupedByBatch[bName] = [];
+    groupedByBatch[bName].push(r);
+  });
 
-    const actualWip = wipSewing + wipQC + wipPairing + wipPacking + wipWarehouse;
-    const tonLyThuyet = into - delivered;
-    const shortage = tonLyThuyet - actualWip;
+  const batchNames = Object.keys(groupedByBatch).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 
-    rows.push([
-      r.report_date || "",
-      r.batch_name || "",
-      into,
-      delivered,
-      wipSewing,
-      wipQC,
-      wipPairing,
-      wipPacking,
-      wipWarehouse,
-      actualWip,
-      tonLyThuyet,
-      shortage,
-      `${r.shortage_reason_type ? `[${r.shortage_reason_type}] ` : ''}${r.shortage_note || ''}`
-    ]);
+  batchNames.forEach(bName => {
+    const bRows = groupedByBatch[bName];
+    bRows.sort((a, b) => (a.report_date || '').localeCompare(b.report_date || ''));
+
+    bRows.forEach((r, idx) => {
+      const into = Number(r.into_sewing || r.batch_plan) || 0;
+      const delivered = Number(r.delivered || r.daily_out) || 0;
+      const wipSewing = Number(r.wip_sewing) || 0;
+      const wipQC = Number(r.wip_qc) || 0;
+      const wipPairing = Number(r.wip_pairing) || 0;
+      const wipPacking = Number(r.wip_packing) || 0;
+      const wipWarehouse = Number(r.wip_warehouse) || 0;
+
+      const actualWip = wipSewing + wipQC + wipPairing + wipPacking + wipWarehouse;
+      const tonLyThuyet = into - delivered;
+      const shortage = tonLyThuyet - actualWip;
+
+      rows.push([
+        idx === 0 ? bName : "",
+        r.report_date || "",
+        into,
+        delivered,
+        wipSewing,
+        wipQC,
+        wipPairing,
+        wipPacking,
+        wipWarehouse,
+        actualWip,
+        tonLyThuyet,
+        shortage,
+        `${r.shortage_reason_type ? `[${r.shortage_reason_type}] ` : ''}${r.shortage_note || ''}`
+      ]);
+    });
   });
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
