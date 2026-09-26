@@ -97,59 +97,62 @@
        ======================================================== -->
   <div id="appMainWrapper" style="display: none;">
 
-    <!-- TOP APP BAR WITH FILTERS & USER AUTHENTICATION -->
-    <header class="top-app-bar">
-      <div class="app-title">
-        <span class="icon">🧵</span>
-        <div>
-          <h2>D&D LONG AN - QUẢN LÝ TIẾN ĐỘ CHUYỀN MAY</h2>
-          <small>Hệ Thống Kiểm Kê Dở Dang & Cân Bằng Dòng Hàng Hóa (WIP Tracking)</small>
-        </div>
-      </div>
-
-      <div class="top-controls">
-        <div class="control-item">
-          <label for="selectCustomer">KHÁCH HÀNG:</label>
-          <select id="selectCustomer" class="form-control select-customer-styled">
-            <!-- Dynamically populated -->
-          </select>
-        </div>
-        <div class="control-item">
-          <label for="selectPO">ĐƠN HÀNG / PO:</label>
-          <select id="selectPO" class="form-control select-po-styled">
-            <!-- Dynamically populated -->
-          </select>
-        </div>
-        <div class="control-item role-control-box">
-          <label>TÀI KHOẢN HIỆN TẠI:</label>
-          <div class="role-badge-group">
-            <span class="role-badge is-worker" id="currentRoleBadge">👤 Công nhân</span>
-            <button class="btn-role-switch" id="btnSwitchRole" title="Đổi quyền hoặc đăng nhập tài khoản khác">🔄 Đổi Quyền</button>
-            <button class="btn-logout" id="btnLogout" title="Đăng xuất khỏi hệ thống">🚪 Đăng Xuất</button>
+    <!-- STICKY HEADER WRAPPER (FREEZE TOP AREA: LOGO, FILTERS, ACCOUNT & TABS) -->
+    <div class="sticky-header-wrapper">
+      <!-- TOP APP BAR WITH FILTERS & USER AUTHENTICATION -->
+      <header class="top-app-bar">
+        <div class="app-title">
+          <span class="icon">🧵</span>
+          <div>
+            <h2>D&D LONG AN - QUẢN LÝ TIẾN ĐỘ CHUYỀN MAY</h2>
+            <small>Hệ Thống Kiểm Kê Dở Dang & Cân Bằng Dòng Hàng Hóa (WIP Tracking)</small>
           </div>
         </div>
-      </div>
-    </header>
 
-  <!-- TAB NAVIGATION -->
-  <nav class="nav-tabs">
-    <button class="tab-btn active" data-tab="tab-wip">
-      📊 1. Báo Cáo Đối Chiếu Nhập Xuất Tồn
-    </button>
-    <button class="tab-btn manager-only-tab" id="tabBtnHistory" data-tab="tab-history">
-      📈 2. Thống Kê Lô Tất Cả Các Ngày
-    </button>
-    <button class="tab-btn" data-tab="tab-flow-log">
-      📜 3. Báo Cáo Theo Dõi Sản Lượng (Flow Log)
-    </button>
-    <button class="tab-btn manager-only-tab" id="tabBtnManage" data-tab="tab-manage">
-      ⚙️ 4. Quản Lý Khách Hàng & Đơn Hàng PO
-    </button>
-    <button class="tab-btn admin-only-tab" id="tabBtnUsers" data-tab="tab-users">
-      👑 5. Phân Quyền & Quản Lý SĐT / Tài Khoản
-    </button>
-    <div class="status-tag" id="reportStatusTag">TRẠNG THÁI: BẢN NHÁP</div>
-  </nav>
+        <div class="top-controls">
+          <div class="control-item">
+            <label for="selectCustomer">KHÁCH HÀNG:</label>
+            <select id="selectCustomer" class="form-control select-customer-styled">
+              <!-- Dynamically populated -->
+            </select>
+          </div>
+          <div class="control-item">
+            <label for="selectPO">ĐƠN HÀNG / PO:</label>
+            <select id="selectPO" class="form-control select-po-styled">
+              <!-- Dynamically populated -->
+            </select>
+          </div>
+          <div class="control-item role-control-box">
+            <label>TÀI KHOẢN HIỆN TẠI:</label>
+            <div class="role-badge-group">
+              <span class="role-badge is-worker" id="currentRoleBadge">👤 Công nhân</span>
+              <button class="btn-role-switch" id="btnSwitchRole" title="Đổi quyền hoặc đăng nhập tài khoản khác">🔄 Đổi Quyền</button>
+              <button class="btn-logout" id="btnLogout" title="Đăng xuất khỏi hệ thống">🚪 Đăng Xuất</button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- TAB NAVIGATION -->
+      <nav class="nav-tabs">
+        <button class="tab-btn active" data-tab="tab-wip">
+          📊 1. Báo Cáo Đối Chiếu Nhập Xuất Tồn
+        </button>
+        <button class="tab-btn manager-only-tab" id="tabBtnHistory" data-tab="tab-history">
+          📈 2. Thống Kê Lô Tất Cả Các Ngày
+        </button>
+        <button class="tab-btn" data-tab="tab-flow-log">
+          📜 3. Báo Cáo Theo Dõi Sản Lượng (Flow Log)
+        </button>
+        <button class="tab-btn manager-only-tab" id="tabBtnManage" data-tab="tab-manage">
+          ⚙️ 4. Quản Lý Khách Hàng & Đơn Hàng PO
+        </button>
+        <button class="tab-btn admin-only-tab" id="tabBtnUsers" data-tab="tab-users">
+          👑 5. Phân Quyền & Quản Lý SĐT / Tài Khoản
+        </button>
+        <div class="status-tag" id="reportStatusTag">TRẠNG THÁI: BẢN NHÁP</div>
+      </nav>
+    </div>
 
   <!-- MAIN CONTAINER -->
   <main class="main-content">

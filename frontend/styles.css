@@ -68,17 +68,25 @@ body {
   opacity: 1;
 }
 
+/* STICKY HEADER WRAPPER (FREEZE TOP APP BAR & NAV TABS ON SCROLL) */
+.sticky-header-wrapper {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.12);
+  background-color: #ffffff;
+}
+
 /* TOP APP BAR & FILTERS */
 .top-app-bar {
   background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
   color: #ffffff;
-  padding: 12px 24px;
+  padding: 10px 24px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
   gap: 15px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
 }
 
 .app-title {
@@ -155,6 +163,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  overflow-x: auto;
+  white-space: nowrap;
   box-shadow: 0 1px 3px rgba(0,0,0,0.02);
 }
 
