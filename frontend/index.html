@@ -427,8 +427,9 @@
         
         <!-- CARD 1: QUẢN LÝ KHÁCH HÀNG -->
         <div class="manage-card">
-          <div class="manage-card-header">
-            <h3>🏢 1. Danh Sách Khách Hàng (3 Công Ty)</h3>
+          <div class="manage-card-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <h3>🏢 1. Danh Sách Khách Hàng (<span id="statCustHeaderCount">0 Công Ty</span>)</h3>
+            <span style="font-size:12px; color:#0284c7; font-weight:600;">👉 Nhấp vào dòng để xem PO</span>
           </div>
           <div class="manage-card-body">
             <form id="formAddCustomer" class="form-grid">
@@ -448,13 +449,13 @@
             </form>
 
             <div class="table-responsive" style="margin-top: 15px;">
-              <table class="flow-log-table" id="tableCustomers">
+              <table class="flow-log-table table-clickable-customers" id="tableCustomers">
                 <thead>
                   <tr>
                     <th>Mã KH</th>
                     <th>Tên Khách Hàng</th>
                     <th>Số PO</th>
-                    <th>Thao Tác</th>
+                    <th style="width: 140px; text-align:center;">Thao Tác</th>
                   </tr>
                 </thead>
                 <tbody id="tbodyCustomers">
@@ -467,8 +468,9 @@
 
         <!-- CARD 2: QUẢN LÝ ĐƠN HÀNG / PO & CHI TIẾT LÔ HÀNG -->
         <div class="manage-card">
-          <div class="manage-card-header">
-            <h3>📦 2. Chi Tiết Đơn Hàng / PO & Lô Hàng (Khách Hàng Đang Chọn)</h3>
+          <div class="manage-card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+            <h3>📦 2. Chi Tiết Đơn Hàng / PO (<span id="lblSelectedCustTitle" style="color:#0284c7; font-weight:800;">Tất Cả</span>)</h3>
+            <span class="badge-checker-ok" id="badgeSelectedCustPoCount" style="font-size:12px; padding:4px 10px;">0 PO</span>
           </div>
           <div class="manage-card-body">
             <form id="formAddPO" class="form-grid">

@@ -1241,6 +1241,82 @@ body {
   margin-bottom: 3px;
 }
 
+/* INTERACTIVE MASTER-DETAIL CUSTOMER TABLE */
+.table-clickable-customers tbody tr.customer-row-item {
+  cursor: pointer;
+  transition: all 0.18s ease-in-out;
+  border-left: 4px solid transparent;
+}
+
+.table-clickable-customers tbody tr.customer-row-item:hover {
+  background-color: #f0f9ff !important;
+}
+
+.table-clickable-customers tbody tr.customer-row-item.selected-cust-row {
+  background-color: #e0f2fe !important;
+  border-left: 4px solid #0284c7 !important;
+  font-weight: 600;
+}
+
+.table-clickable-customers tbody tr.customer-row-item.selected-cust-row td:first-child strong {
+  color: #0369a1 !important;
+}
+
+/* ACTION BUTTONS (EDIT ✏️ / DELETE 🗑️) */
+.btn-action-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px 9px;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  line-height: 1.2;
+}
+
+.btn-action-edit {
+  background-color: #fef3c7;
+  color: #b45309;
+  border-color: #fde68a;
+}
+
+.btn-action-edit:hover {
+  background-color: #fde68a;
+  color: #92400e;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(245, 158, 11, 0.2);
+}
+
+.btn-action-danger {
+  background-color: #fee2e2;
+  color: #dc2626;
+  border-color: #fca5a5;
+}
+
+.btn-action-danger:hover {
+  background-color: #fecaca;
+  color: #b91c1c;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(220, 38, 38, 0.2);
+}
+
+.badge-po-count {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 11.5px;
+  font-weight: 800;
+  background: #e0e7ff;
+  color: #3730a3;
+  border: 1px solid #c7d2fe;
+}
+
+
 /* TAB 2: BÁO CÁO ĐỐI CHIẾU NHẬP XUẤT TỒN + THEO DÕI SẢN LƯỢNG (SIDE-BY-SIDE) */
 .dept-main-header {
   margin-bottom: 14px;

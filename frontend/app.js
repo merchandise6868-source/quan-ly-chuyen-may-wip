@@ -327,11 +327,18 @@ function bindEvents() {
   if (btnCancelPO) btnCancelPO.addEventListener("click", resetPOForm);
 
   // Dynamic Batch Count in PO Form
-  const batchCountSel = document.getElementById("poBatchCountSelect");
+  const batchCountSel = document.getElementById("selectBatchCount") || document.getElementById("poBatchCountSelect");
   if (batchCountSel) {
     batchCountSel.addEventListener("change", (e) => {
-      const count = parseInt(e.target.value, 10) || 3;
+      const count = parseInt(e.target.value, 10) || 2;
       renderBatchInputBoxes(count);
+    });
+  }
+
+  const poCustomerSelect = document.getElementById("poCustomerSelect");
+  if (poCustomerSelect) {
+    poCustomerSelect.addEventListener("change", (e) => {
+      selectCustomerInManageTab(e.target.value);
     });
   }
 
@@ -1012,140 +1019,310 @@ function handleAddBatch() {
   renderReportUI();
 }
 
-// TAB 3: CUSTOMER & PO MANAGEMENT FUNCTIONS
+// TAB 4: CUSTOMER & PO MANAGEMENT FUNCTIONS (MASTER-DETAIL INTERACTIVE)
 function renderManageTab() {
   // 1. Calculate & Render Statistics Banner
   const totalCust = appState.customers.length;
   const totalPO = appState.orders.length;
   const totalPlan = appState.orders.reduce((sum, o) => sum + (Number(o.po_plan) || 0), 0);
-  const totalBatches = appState.orders.reduce((sum, o) => sum + (o.default_batches ? o.default_batches.length : 0), 0);
 
-  document.getElementById("statTotalCust").innerText = totalCust;
-  document.getElementById("statTotalPO").innerText = totalPO;
-  document.getElementById("statTotalPlan").innerText = totalPlan.toLocaleString("vi-VN") + " đôi";
-  document.getElementById("statTotalBatches").innerText = totalBatches + " Lô";
+  const elStatCust = document.getElementById("statTotalCust");
+  if (elStatCust) elStatCust.innerText = totalCust;
 
-  // 2. Populate Customer select in PO form
+  const elStatPO = document.getElementById("statTotalPO");
+  if (elStatPO) elStatPO.innerText = totalPO;
+
+  const elStatPlan = document.getElementById("statTotalPlan");
+  if (elStatPlan) elStatPlan.innerText = totalPlan.toLocaleString("vi-VN") + " đôi";
+
+  const elStatBatches = document.getElementById("statTotalBatches");
+  if (elStatBatches) {
+    const totalBatches = appState.orders.reduce((sum, o) => sum + (o.default_batches ? o.default_batches.length : 0), 0);
+    elStatBatches.innerText = totalBatches + " Lô";
+  }
+
+  // 2. Populate Customer select dropdown in PO form
   const poCustSel = document.getElementById("poCustomerSelect");
-  poCustSel.innerHTML = appState.customers.map(c => `<option value="${c.id}" ${c.id === appState.currentCustomer ? 'selected' : ''}>${c.name} (${c.code})</option>`).join("");
+  if (poCustSel) {
+    poCustSel.innerHTML = appState.customers.map(c => `<option value="${c.id}">${c.name} (${c.code})</option>`).join("");
+    
+    // Ensure selected customer is valid
+    if (!appState.currentCustomer || !appState.customers.some(c => c.id === appState.currentCustomer)) {
+      if (appState.customers.length > 0) {
+        appState.currentCustomer = appState.customers[0].id;
+      } else {
+        appState.currentCustomer = null;
+      }
+    }
+    if (appState.currentCustomer) {
+      poCustSel.value = appState.currentCustomer;
+    }
+  }
 
-  // 3. Render Customer Table
+  // 3. Render Master Customer Table (Left)
+  renderCustomerTable();
+
+  // 4. Render Detail Orders Table (Right) for currently selected customer
+  renderOrdersTable(appState.currentCustomer);
+
+  // 5. Ensure batch configuration boxes are initialized in PO form
+  initPOBatchInputs();
+}
+
+// 1. RENDER MASTER CUSTOMER TABLE
+function renderCustomerTable() {
   const tbodyCust = document.getElementById("tbodyCustomers");
+  const hdrCount = document.getElementById("statCustHeaderCount");
+  if (hdrCount) hdrCount.innerText = `${appState.customers.length} Công Ty`;
+
+  if (!tbodyCust) return;
+
+  if (appState.customers.length === 0) {
+    tbodyCust.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:20px; color:#94a3b8;">Chưa có khách hàng nào. Hãy thêm khách hàng mới ở biểu mẫu phía trên.</td></tr>`;
+    return;
+  }
+
   tbodyCust.innerHTML = appState.customers.map(c => {
+    const isSelected = (c.id === appState.currentCustomer);
     const custPOCount = appState.orders.filter(o => o.customer_id === c.id).length;
+
     return `
-      <tr>
-        <td><strong>${c.code}</strong></td>
-        <td>${c.name}</td>
-        <td><span class="batch-tag-badge">${custPOCount} PO</span></td>
-        <td>
-          <button class="btn btn-warning btn-edit-cust" data-id="${c.id}" data-name="${c.name}" data-code="${c.code}">Sửa</button>
-          <button class="btn btn-danger btn-delete-cust" data-id="${c.id}">Xóa</button>
+      <tr class="customer-row-item ${isSelected ? 'selected-cust-row' : ''}" data-id="${c.id}" title="Nhấp chuột để xem danh sách PO của ${c.name}">
+        <td><strong style="color: #0369a1; font-weight: 800;">${c.code}</strong></td>
+        <td><strong>${c.name}</strong></td>
+        <td><span class="badge-po-count">${custPOCount} PO</span></td>
+        <td style="text-align:center; white-space: nowrap;">
+          <button type="button" class="btn-action-icon btn-action-edit btn-edit-cust" data-id="${c.id}" data-name="${c.name}" data-code="${c.code}" title="Sửa thông tin khách hàng">✏️ Sửa</button>
+          <button type="button" class="btn-action-icon btn-action-danger btn-delete-cust" data-id="${c.id}" data-name="${c.name}" data-code="${c.code}" title="Xóa khách hàng">🗑️ Xóa</button>
         </td>
       </tr>
     `;
   }).join("");
 
-  document.querySelectorAll(".btn-edit-cust").forEach(btn => {
-    btn.addEventListener("click", (e) => {
-      document.getElementById("editCustId").value = e.target.dataset.id;
-      document.getElementById("custName").value = e.target.dataset.name;
-      document.getElementById("custCode").value = e.target.dataset.code;
-      document.getElementById("btnSubmitCust").innerText = "💾 Cập Nhật Khách Hàng";
-      document.getElementById("btnCancelEditCust").style.display = "inline-flex";
+  // Bind click event on customer rows to switch PO list on the right
+  tbodyCust.querySelectorAll(".customer-row-item").forEach(row => {
+    row.addEventListener("click", (e) => {
+      // Do nothing if user clicked action buttons (handled separately)
+      if (e.target.closest(".btn-action-icon")) return;
+
+      const custId = row.dataset.id;
+      selectCustomerInManageTab(custId);
     });
   });
 
-  document.querySelectorAll(".btn-delete-cust").forEach(btn => {
-    btn.addEventListener("click", async (e) => {
-      const id = e.target.dataset.id;
-      if (confirm("Bạn có chắc chắn muốn xóa khách hàng này cùng tất cả PO liên quan?")) {
-        await fetch(`/api/customers?id=${id}`, { method: "DELETE" });
-        fetchMetadata();
+  // Bind Edit Customer Button
+  tbodyCust.querySelectorAll(".btn-edit-cust").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.id;
+      const name = btn.dataset.name;
+      const code = btn.dataset.code;
+
+      const elId = document.getElementById("editCustId");
+      if (elId) elId.value = id;
+      const elName = document.getElementById("custName");
+      if (elName) elName.value = name;
+      const elCode = document.getElementById("custCode");
+      if (elCode) elCode.value = code;
+
+      const btnSubmit = document.getElementById("btnSubmitCust");
+      if (btnSubmit) btnSubmit.innerText = "💾 Cập Nhật Khách Hàng";
+
+      const btnCancel = document.getElementById("btnCancelEditCust");
+      if (btnCancel) btnCancel.style.display = "inline-flex";
+
+      if (elName) {
+        elName.focus();
+        elName.scrollIntoView({ behavior: "smooth", block: "center" });
       }
     });
   });
 
-  // 4. Render Orders Table for currently selected customer in Tab 3
-  const targetCustId = poCustSel.value || appState.currentCustomer;
-  const filteredOrders = appState.orders.filter(o => o.customer_id === targetCustId);
+  // Bind Delete Customer Button
+  tbodyCust.querySelectorAll(".btn-delete-cust").forEach(btn => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.id;
+      const name = btn.dataset.name;
+      const code = btn.dataset.code;
 
+      if (confirm(`⚠️ Bạn có chắc chắn muốn xóa khách hàng "${name}" (${code}) cùng tất cả đơn hàng PO liên quan?`)) {
+        try {
+          const res = await fetch(`/api/customers?id=${id}`, { method: "DELETE" });
+          const data = await res.json();
+          if (data.success) {
+            showToast(`🗑️ Đã xóa khách hàng "${name}" thành công!`);
+            fetchMetadata();
+          } else {
+            alert("Lỗi khi xóa: " + (data.error || "Không thể xóa"));
+          }
+        } catch (err) {
+          alert("Lỗi khi xóa khách hàng: " + err.message);
+        }
+      }
+    });
+  });
+}
+
+// 2. SELECT CUSTOMER IN TAB 4 (SYNC SELECTION, HIGHLIGHT & ORDERS TABLE)
+function selectCustomerInManageTab(custId) {
+  appState.currentCustomer = custId;
+
+  // Highlight selected row in customer table
+  document.querySelectorAll("#tbodyCustomers .customer-row-item").forEach(r => {
+    if (r.dataset.id === custId) {
+      r.classList.add("selected-cust-row");
+    } else {
+      r.classList.remove("selected-cust-row");
+    }
+  });
+
+  // Sync PO Form Customer select
+  const poCustSel = document.getElementById("poCustomerSelect");
+  if (poCustSel) poCustSel.value = custId;
+
+  // Sync Top Filter Select & PO selector
+  const topCustSel = document.getElementById("selectCustomer");
+  if (topCustSel) {
+    topCustSel.value = custId;
+    filterOrdersByCustomer();
+  }
+
+  // Render detail POs for this customer
+  renderOrdersTable(custId);
+}
+
+// 3. RENDER DETAIL ORDERS TABLE FOR SELECTED CUSTOMER
+function renderOrdersTable(customerId) {
   const tbodyOrders = document.getElementById("tbodyOrders");
+  const lblCustTitle = document.getElementById("lblSelectedCustTitle");
+  const badgePoCount = document.getElementById("badgeSelectedCustPoCount");
+
+  const cust = appState.customers.find(c => c.id === customerId);
+  const custNameDisplay = cust ? `${cust.name} (${cust.code})` : "Tất Cả";
+  
+  if (lblCustTitle) lblCustTitle.innerText = custNameDisplay;
+
+  const filteredOrders = customerId 
+    ? appState.orders.filter(o => o.customer_id === customerId)
+    : appState.orders;
+
+  if (badgePoCount) badgePoCount.innerText = `${filteredOrders.length} PO`;
+
+  if (!tbodyOrders) return;
+
+  if (filteredOrders.length === 0) {
+    tbodyOrders.innerHTML = `
+      <tr>
+        <td colspan="6" style="text-align:center; padding: 25px; color: #64748b; font-style: italic;">
+          🏢 Khách hàng <strong>${cust ? cust.name : ''}</strong> chưa có đơn hàng / PO nào.<br>
+          <span style="font-size:12px; color:#94a3b8;">Bạn hãy thêm đơn hàng / PO mới ở biểu mẫu phía trên!</span>
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
   tbodyOrders.innerHTML = filteredOrders.map(o => {
-    const batchTags = (o.default_batches || []).map(b => `<span class="batch-tag-badge">${b.batch_name}: ${b.into_sewing.toLocaleString('vi-VN')}</span>`).join(" ");
-    const batchStr = (o.default_batches || []).map(b => `${b.batch_name}:${b.into_sewing}`).join(", ");
+    const batchTags = (o.default_batches || []).map(b => {
+      const qty = Number(b.into_sewing || b.batch_plan) || 0;
+      return `<span class="batch-tag-badge">${b.batch_name}: ${qty.toLocaleString('vi-VN')}</span>`;
+    }).join(" ");
+
     return `
       <tr>
-        <td><strong>${o.po_number}</strong></td>
-        <td>${o.style_code}</td>
+        <td><strong style="color: #0369a1; font-size: 13.5px;">${o.po_number}</strong></td>
+        <td><strong>${o.style_code}</strong></td>
         <td>${o.line_name}</td>
-        <td><strong>${(o.po_plan||0).toLocaleString('vi-VN')} đôi</strong></td>
-        <td style="text-align:left;">${batchTags || '<em>Chưa có Lô</em>'}</td>
-        <td>
-          <button class="btn btn-warning btn-edit-po" 
-                  data-id="${o.id}" 
-                  data-cust="${o.customer_id}" 
-                  data-ponum="${o.po_number}" 
-                  data-style="${o.style_code}" 
-                  data-line="${o.line_name}" 
-                  data-plan="${o.po_plan}" 
-                  data-batches="${batchStr}">Sửa</button>
-          <button class="btn btn-danger btn-delete-po" data-id="${o.id}">Xóa</button>
+        <td><strong style="color: #16a34a;">${(Number(o.po_plan) || 0).toLocaleString('vi-VN')} đôi</strong></td>
+        <td style="text-align:left;">${batchTags || '<em style="color:#94a3b8;">Chưa cấu hình Lô</em>'}</td>
+        <td style="text-align:center; white-space: nowrap;">
+          <button type="button" class="btn-action-icon btn-action-edit btn-edit-po" data-id="${o.id}" title="Sửa đơn hàng & cấu hình Lô">✏️ Sửa</button>
+          <button type="button" class="btn-action-icon btn-action-danger btn-delete-po" data-id="${o.id}" data-ponum="${o.po_number}" title="Xóa đơn hàng PO">🗑️ Xóa</button>
         </td>
       </tr>
     `;
   }).join("");
 
-  document.querySelectorAll(".btn-edit-po").forEach(btn => {
+  // Bind Edit PO Button
+  tbodyOrders.querySelectorAll(".btn-edit-po").forEach(btn => {
     btn.addEventListener("click", (e) => {
-      const orderId = e.target.dataset.id;
+      e.stopPropagation();
+      const orderId = btn.dataset.id;
       const order = appState.orders.find(o => o.id === orderId);
       if (!order) return;
-      document.getElementById("editOrderId").value = order.id;
-      document.getElementById("poCustomerSelect").value = order.customer_id;
-      document.getElementById("poNumber").value = order.po_number;
-      document.getElementById("poStyleCode").value = order.style_code;
-      document.getElementById("poLineName").value = order.line_name;
-      document.getElementById("poPlanTotal").value = order.po_plan;
+
+      const elOrderId = document.getElementById("editOrderId");
+      if (elOrderId) elOrderId.value = order.id;
+
+      const elCustSel = document.getElementById("poCustomerSelect");
+      if (elCustSel) elCustSel.value = order.customer_id;
+
+      const elPoNum = document.getElementById("poNumber");
+      if (elPoNum) elPoNum.value = order.po_number;
+
+      const elStyle = document.getElementById("poStyleCode");
+      if (elStyle) elStyle.value = order.style_code;
+
+      const elLine = document.getElementById("poLineName");
+      if (elLine) elLine.value = order.line_name;
+
+      const elPlan = document.getElementById("poPlanTotal");
+      if (elPlan) elPlan.value = order.po_plan;
 
       const batches = order.default_batches || [];
-      const hasTail = batches.some(b => b.batch_name.toLowerCase().includes("đuôi"));
       const regularBatches = batches.filter(b => !b.batch_name.toLowerCase().includes("đuôi"));
       let batchCount = regularBatches.length;
       if (batchCount === 0 && batches.length > 0) batchCount = Math.max(1, batches.length - 1);
-      if (batchCount < 1) batchCount = 3;
+      if (batchCount < 1) batchCount = 2;
 
-      const selCount = document.getElementById("poBatchCountSelect");
+      const selCount = document.getElementById("selectBatchCount") || document.getElementById("poBatchCountSelect");
       if (selCount) selCount.value = String(Math.min(batchCount, 10));
 
       renderBatchInputBoxes(batchCount, batches);
-      document.getElementById("btnSubmitPO").innerText = "💾 Cập Nhật PO & Lô";
-      document.getElementById("btnCancelEditPO").style.display = "inline-flex";
+
+      const btnSubmitPO = document.getElementById("btnSubmitPO");
+      if (btnSubmitPO) btnSubmitPO.innerText = "💾 Cập Nhật PO & Cấu Hình Lô";
+
+      const btnCancelPO = document.getElementById("btnCancelEditPO");
+      if (btnCancelPO) btnCancelPO.style.display = "inline-flex";
+
+      const formPO = document.getElementById("formAddPO");
+      if (formPO) formPO.scrollIntoView({ behavior: "smooth", block: "center" });
     });
   });
 
-  document.querySelectorAll(".btn-delete-po").forEach(btn => {
+  // Bind Delete PO Button
+  tbodyOrders.querySelectorAll(".btn-delete-po").forEach(btn => {
     btn.addEventListener("click", async (e) => {
-      const id = e.target.dataset.id;
-      if (confirm("Bạn có chắc chắn muốn xóa đơn hàng / PO này?")) {
-        await fetch(`/api/orders?id=${id}`, { method: "DELETE" });
-        fetchMetadata();
+      e.stopPropagation();
+      const id = btn.dataset.id;
+      const poNum = btn.dataset.ponum || "";
+
+      if (confirm(`⚠️ Bạn có chắc chắn muốn xóa đơn hàng / PO "${poNum}" khỏi hệ thống?`)) {
+        try {
+          const res = await fetch(`/api/orders?id=${id}`, { method: "DELETE" });
+          const data = await res.json();
+          if (data.success) {
+            showToast(`🗑️ Đã xóa PO "${poNum}" thành công!`);
+            fetchMetadata();
+          } else {
+            alert("Lỗi khi xóa PO: " + (data.error || "Không thể xóa"));
+          }
+        } catch (err) {
+          alert("Lỗi khi xóa PO: " + err.message);
+        }
       }
     });
   });
+}
 
-  poCustSel.addEventListener("change", () => {
-    renderManageTab();
-  });
-
-  // Load User Management Table in Tab 4
-  fetchUsers();
-
-  // Ensure batch boxes are rendered if not already
-  const gridContainer = document.getElementById("batchInputGrid");
-  if (gridContainer && gridContainer.children.length === 0) {
-    const selCount = document.getElementById("poBatchCountSelect");
-    const count = selCount ? parseInt(selCount.value, 10) || 3 : 3;
+// INITIALIZE BATCH INPUTS IF EMPTY
+function initPOBatchInputs() {
+  const container = document.getElementById("dynamicBatchInputsContainer") || document.getElementById("batchInputGrid");
+  if (container && container.children.length === 0) {
+    const selCount = document.getElementById("selectBatchCount") || document.getElementById("poBatchCountSelect");
+    const count = selCount ? parseInt(selCount.value, 10) || 2 : 2;
     renderBatchInputBoxes(count, [
       { batch_name: "Lô 1", into_sewing: 1230 },
       { batch_name: "Lô 2", into_sewing: 267 },
@@ -1156,7 +1333,7 @@ function renderManageTab() {
 
 // RENDER DYNAMIC BATCH INPUT BOXES (Lô 1..N + Số đuôi)
 function renderBatchInputBoxes(count, initialBatches = null) {
-  const container = document.getElementById("batchInputGrid");
+  const container = document.getElementById("dynamicBatchInputsContainer") || document.getElementById("batchInputGrid");
   if (!container) return;
 
   // Preserve existing typed values if no initialBatches provided
@@ -1234,69 +1411,87 @@ function renderBatchInputBoxes(count, initialBatches = null) {
 }
 
 function updateBatchSummaryCheck() {
-  const inputs = document.querySelectorAll("#batchInputGrid .batch-card-input");
+  const container = document.getElementById("dynamicBatchInputsContainer") || document.getElementById("batchInputGrid");
+  const inputs = container ? container.querySelectorAll(".batch-card-input") : [];
   let totalBatchQty = 0;
   inputs.forEach(inp => {
     totalBatchQty += Number(inp.value) || 0;
   });
 
-  const poPlan = Number(document.getElementById("poPlanTotal") ? document.getElementById("poPlanTotal").value : 0) || 0;
+  const poPlanInput = document.getElementById("poPlanTotal");
+  const poPlan = Number(poPlanInput ? poPlanInput.value : 0) || 0;
 
-  const elSum = document.getElementById("batchSumDisplay");
+  // Update label elements
+  const elSum = document.getElementById("lblCurrentSumBatches") || document.getElementById("batchSumDisplay");
   if (elSum) elSum.innerText = totalBatchQty.toLocaleString("vi-VN");
 
-  const elPlan = document.getElementById("batchPlanDisplay");
+  const elPlan = document.getElementById("lblTargetPoPlan") || document.getElementById("batchPlanDisplay");
   if (elPlan) elPlan.innerText = poPlan.toLocaleString("vi-VN");
 
-  const elDiff = document.getElementById("batchDiffDisplay");
-  if (elDiff) {
+  const elStatus = document.getElementById("lblBatchSumStatus") || document.getElementById("batchDiffDisplay");
+  if (elStatus) {
     const diff = totalBatchQty - poPlan;
     if (poPlan > 0 && diff === 0) {
-      elDiff.className = "batch-diff-badge match";
-      elDiff.innerText = "✅ Đã khớp kế hoạch PO";
+      elStatus.className = "badge-checker-ok";
+      elStatus.innerText = "✅ Khớp kế hoạch";
     } else if (poPlan > 0 && diff > 0) {
-      elDiff.className = "batch-diff-badge diff-warn";
-      elDiff.innerText = `⚠️ Thừa ${diff.toLocaleString("vi-VN")} đôi`;
+      elStatus.className = "badge-checker-warn";
+      elStatus.innerText = `⚠️ Thừa ${diff.toLocaleString("vi-VN")} đôi`;
     } else if (poPlan > 0 && diff < 0) {
-      elDiff.className = "batch-diff-badge diff-warn";
-      elDiff.innerText = `⚠️ Thiếu ${Math.abs(diff).toLocaleString("vi-VN")} đôi`;
+      elStatus.className = "badge-checker-warn";
+      elStatus.innerText = `⚠️ Thiếu ${Math.abs(diff).toLocaleString("vi-VN")} đôi`;
     } else {
-      elDiff.className = "batch-diff-badge match";
-      elDiff.innerText = `Tổng: ${totalBatchQty.toLocaleString("vi-VN")} đôi`;
+      elStatus.className = "badge-checker-ok";
+      elStatus.innerText = `Tổng: ${totalBatchQty.toLocaleString("vi-VN")} đôi`;
     }
   }
 }
 
 function resetCustomerForm() {
-  document.getElementById("editCustId").value = "";
-  document.getElementById("custName").value = "";
-  document.getElementById("custCode").value = "";
-  document.getElementById("btnSubmitCust").innerText = "➕ Thêm Khách Hàng";
-  document.getElementById("btnCancelEditCust").style.display = "none";
+  const elId = document.getElementById("editCustId");
+  if (elId) elId.value = "";
+  const elName = document.getElementById("custName");
+  if (elName) elName.value = "";
+  const elCode = document.getElementById("custCode");
+  if (elCode) elCode.value = "";
+  const btnSub = document.getElementById("btnSubmitCust");
+  if (btnSub) btnSub.innerText = "➕ Thêm Khách Hàng";
+  const btnCan = document.getElementById("btnCancelEditCust");
+  if (btnCan) btnCan.style.display = "none";
 }
 
 function resetPOForm() {
-  document.getElementById("editOrderId").value = "";
-  document.getElementById("poNumber").value = "";
-  document.getElementById("poStyleCode").value = "";
-  document.getElementById("poLineName").value = "";
-  document.getElementById("poPlanTotal").value = "";
-  const selCount = document.getElementById("poBatchCountSelect");
-  if (selCount) selCount.value = "3";
-  renderBatchInputBoxes(3, [
+  const elId = document.getElementById("editOrderId");
+  if (elId) elId.value = "";
+  const elPo = document.getElementById("poNumber");
+  if (elPo) elPo.value = "";
+  const elSt = document.getElementById("poStyleCode");
+  if (elSt) elSt.value = "";
+  const elLine = document.getElementById("poLineName");
+  if (elLine) elLine.value = "";
+  const elPlan = document.getElementById("poPlanTotal");
+  if (elPlan) elPlan.value = "";
+
+  const selCount = document.getElementById("selectBatchCount") || document.getElementById("poBatchCountSelect");
+  if (selCount) selCount.value = "2";
+
+  renderBatchInputBoxes(2, [
     { batch_name: "Lô 1", into_sewing: 1230 },
     { batch_name: "Lô 2", into_sewing: 267 },
     { batch_name: "Số đuôi", into_sewing: 126 }
   ]);
-  document.getElementById("btnSubmitPO").innerText = "➕ Thêm Đơn Hàng / PO Mới";
-  document.getElementById("btnCancelEditPO").style.display = "none";
+
+  const btnSub = document.getElementById("btnSubmitPO");
+  if (btnSub) btnSub.innerText = "💾 Lưu Đơn Hàng & Cấu Hình Lô";
+  const btnCan = document.getElementById("btnCancelEditPO");
+  if (btnCan) btnCan.style.display = "none";
 }
 
 async function handleAddCustomer(e) {
   e.preventDefault();
-  const id = document.getElementById("editCustId").value;
-  const name = document.getElementById("custName").value.trim();
-  const code = document.getElementById("custCode").value.trim();
+  const id = document.getElementById("editCustId")?.value;
+  const name = document.getElementById("custName")?.value.trim();
+  const code = document.getElementById("custCode")?.value.trim();
   if (!name || !code) return;
 
   try {
@@ -1318,15 +1513,25 @@ async function handleAddCustomer(e) {
 
 async function handleAddPO(e) {
   e.preventDefault();
-  const id = document.getElementById("editOrderId").value;
-  const customer_id = document.getElementById("poCustomerSelect").value;
-  const po_number = document.getElementById("poNumber").value.trim();
-  const style_code = document.getElementById("poStyleCode").value.trim();
-  const line_name = document.getElementById("poLineName").value.trim();
-  const po_plan = Number(document.getElementById("poPlanTotal").value) || 0;
+  const id = document.getElementById("editOrderId")?.value;
+  const customer_id = document.getElementById("poCustomerSelect")?.value;
+  const po_number = document.getElementById("poNumber")?.value.trim();
+  const style_code = document.getElementById("poStyleCode")?.value.trim();
+  const line_name = document.getElementById("poLineName")?.value.trim();
+  const po_plan = Number(document.getElementById("poPlanTotal")?.value) || 0;
+
+  if (!customer_id) {
+    alert("Vui lòng chọn khách hàng!");
+    return;
+  }
+  if (!po_number) {
+    alert("Vui lòng nhập số PO!");
+    return;
+  }
 
   // Collect batches from dynamic grid
-  const batchCards = document.querySelectorAll("#batchInputGrid .batch-card-item");
+  const container = document.getElementById("dynamicBatchInputsContainer") || document.getElementById("batchInputGrid");
+  const batchCards = container ? container.querySelectorAll(".batch-card-item") : [];
   const batches = [];
   batchCards.forEach((card, i) => {
     const bName = card.dataset.batchName;
