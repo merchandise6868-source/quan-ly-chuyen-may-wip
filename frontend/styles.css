@@ -738,6 +738,104 @@ body {
   box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.2);
 }
 
+/* TABLE 2 ACTION COLUMN & EDITABLE/LOCKED STATES */
+.wip-col-action {
+  width: 95px !important;
+}
+
+.hdr-action-top {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
+  color: #ffffff !important;
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+}
+
+.cell-batch-actions {
+  text-align: center;
+  vertical-align: middle;
+  background-color: #f8fafc;
+  padding: 6px 4px !important;
+}
+
+.btn-batch-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 800;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+.btn-batch-toggle.is-editing {
+  background-color: #16a34a !important;
+  color: #ffffff !important;
+  border-color: #15803d !important;
+}
+
+.btn-batch-toggle.is-editing:hover {
+  background-color: #15803d !important;
+  transform: translateY(-1px);
+}
+
+.btn-batch-toggle.is-locked {
+  background-color: #f8fafc !important;
+  color: #0284c7 !important;
+  border-color: #bae6fd !important;
+}
+
+.btn-batch-toggle.is-locked:hover {
+  background-color: #e0f2fe !important;
+  color: #0369a1 !important;
+  transform: translateY(-1px);
+}
+
+/* Locked mode styling */
+.batch-row-locked .wip-num-input {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+  border: 1px solid transparent !important;
+  cursor: default;
+}
+
+.batch-row-locked .wip-num-input-out {
+  color: #c2410c !important;
+  font-weight: 800;
+}
+
+.batch-row-locked .wip-executor-input {
+  background: #f8fafc !important;
+  border: 1px solid transparent !important;
+  color: #475569 !important;
+  cursor: default;
+}
+
+/* Editing mode styling */
+.batch-row-editing .wip-num-input {
+  background: #ffffff !important;
+  border: 1.5px solid #0284c7 !important;
+  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15) !important;
+  color: #0f172a !important;
+}
+
+.batch-row-editing .wip-num-input-out {
+  border-color: #ea580c !important;
+  box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.15) !important;
+  color: #c2410c !important;
+}
+
+.batch-row-editing .wip-executor-input {
+  background: #ffffff !important;
+  border: 1.5px solid #0284c7 !important;
+  color: #0f172a !important;
+}
+
 /* ========================================================
    TAB 3: MASTER DATA MANAGEMENT & STATISTICS BANNER
    ======================================================== */

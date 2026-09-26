@@ -15,6 +15,7 @@ let appState = {
     batches: []
   },
   cumExportsByBatch: {},
+  editingBatches: {},
   flowLogs: [],
   historyLogs: [],
   activeInputEl: null
@@ -242,11 +243,9 @@ function bindEvents() {
   const selPO = document.getElementById("selectPO");
   if (selPO) {
     selPO.addEventListener("change", async (e) => {
-      clearTimeout(autoSaveReportTimer);
-      if (appState.currentPO) await saveReport(appState.report.status || "DRAFT", true);
-
       const poId = e.target.value;
       appState.currentPO = appState.orders.find(o => o.id === poId);
+      appState.editingBatches = {};
       await loadReport();
       await loadDeptLogs();
       if (document.getElementById("subtab-history") && document.getElementById("subtab-history").classList.contains("active")) {
@@ -259,10 +258,8 @@ function bindEvents() {
   const repDate = document.getElementById("reportDate");
   if (repDate) {
     repDate.addEventListener("change", async (e) => {
-      clearTimeout(autoSaveReportTimer);
-      if (appState.currentPO) await saveReport(appState.report.status || "DRAFT", true);
-
       appState.currentDate = e.target.value;
+      appState.editingBatches = {};
       await loadReport();
       await loadDeptLogs();
     });
@@ -276,10 +273,7 @@ function bindEvents() {
 
   // Tab switching
   document.querySelectorAll(".tab-btn").forEach(btn => {
-    btn.addEventListener("click", async () => {
-      clearTimeout(autoSaveReportTimer);
-      if (appState.currentPO) await saveReport(appState.report.status || "DRAFT", true);
-
+    btn.addEventListener("click", () => {
       document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
       document.querySelectorAll(".tab-pane").forEach(p => p.classList.remove("active"));
       btn.classList.add("active");
@@ -415,14 +409,12 @@ function bindEvents() {
 }
 
 async function changeDateByDays(days) {
-  clearTimeout(autoSaveReportTimer);
-  if (appState.currentPO) await saveReport(appState.report.status || "DRAFT", true);
-
   const d = new Date(appState.currentDate);
   d.setDate(d.getDate() + days);
   const newDateStr = d.toISOString().split("T")[0];
   appState.currentDate = newDateStr;
   document.getElementById("reportDate").value = newDateStr;
+  appState.editingBatches = {};
   await loadReport();
   await loadDeptLogs();
 }
@@ -563,6 +555,7 @@ function renderReportUI() {
   }
 
   batches.forEach((batch, idx) => {
+    const isEditing = Boolean(appState.editingBatches && appState.editingBatches[idx]);
     const intoSewing = Number(batch.into_sewing) || 0;
     const delivered = Number(appState.cumExportsByBatch[batch.batch_name]) || Number(batch.daily_out) || 0;
     batch.delivered = delivered;
@@ -614,7 +607,7 @@ function renderReportUI() {
               <td class="cell-thieu-data">
                 <div class="thieu-num-display" id="calcShortage_${idx}">${shortage.toLocaleString("vi-VN")}</div>
                 <div class="thieu-dropdown-container">
-                  <select class="thieu-select field-reason-type grid-nav-input" data-batch="${idx}" data-row="0" data-col="6" data-idx="${idx}">
+                  <select class="thieu-select field-reason-type grid-nav-input" data-batch="${idx}" data-row="0" data-col="6" data-idx="${idx}" ${isEditing ? '' : 'disabled'}>
                     <option value="" ${!reasonType ? 'selected' : ''}>(Chọn)</option>
                     <option value="Mất xác" ${reasonType === 'Mất xác' ? 'selected' : ''}>Mất xác</option>
                     <option value="Hàng phế" ${reasonType === 'Hàng phế' ? 'selected' : ''}>Hàng phế</option>
@@ -624,6 +617,7 @@ function renderReportUI() {
                          id="customReason_${idx}"
                          placeholder="Thiếu phôi..."
                          value="${customReason}"
+                         ${isEditing ? '' : 'readonly'}
                          data-batch="${idx}" data-row="0" data-col="7"
                          style="${reasonType === 'Khác' ? 'display:block;' : 'display:none;'}"
                          data-idx="${idx}">
@@ -655,6 +649,7 @@ function renderReportUI() {
               <tr>
                 <th colspan="5" class="hdr-wip-top">KIỂM KÊ TỒN THỰC TẾ</th>
                 <th class="hdr-out-top">XUẤT TRONG NGÀY</th>
+                <th rowspan="3" class="hdr-action-top wip-col-action">THAO TÁC</th>
               </tr>
               <tr>
                 <th class="wip-col-1 sub-wip-1">1. ĐANG SẢN XUẤT</th>
@@ -675,22 +670,27 @@ function renderReportUI() {
             </thead>
             <tbody>
               <!-- ROW 1: SỐ LƯỢNG KIỂM KÊ & XUẤT TRONG NGÀY -->
-              <tr>
-                <td><input type="number" class="wip-num-input field-wip-sewing grid-nav-input" data-batch="${idx}" data-row="1" data-col="0" value="${batch.wip_sewing || ''}" placeholder="0" data-idx="${idx}"></td>
-                <td><input type="number" class="wip-num-input field-wip-qc grid-nav-input" data-batch="${idx}" data-row="1" data-col="1" value="${batch.wip_qc || ''}" placeholder="0" data-idx="${idx}"></td>
-                <td><input type="number" class="wip-num-input field-wip-pairing grid-nav-input" data-batch="${idx}" data-row="1" data-col="2" value="${batch.wip_pairing || ''}" placeholder="0" data-idx="${idx}"></td>
-                <td><input type="number" class="wip-num-input field-wip-packing grid-nav-input" data-batch="${idx}" data-row="1" data-col="3" value="${batch.wip_packing || ''}" placeholder="0" data-idx="${idx}"></td>
-                <td><input type="number" class="wip-num-input field-wip-warehouse grid-nav-input" data-batch="${idx}" data-row="1" data-col="4" value="${batch.wip_warehouse || ''}" placeholder="0" data-idx="${idx}"></td>
-                <td><input type="number" class="wip-num-input wip-num-input-out field-daily-out grid-nav-input" data-batch="${idx}" data-row="1" data-col="5" value="${batch.daily_out || ''}" placeholder="0" data-idx="${idx}"></td>
+              <tr class="${isEditing ? 'batch-row-editing' : 'batch-row-locked'}">
+                <td><input type="number" ${isEditing ? '' : 'readonly'} class="wip-num-input field-wip-sewing grid-nav-input" data-batch="${idx}" data-row="1" data-col="0" value="${batch.wip_sewing || ''}" placeholder="0" data-idx="${idx}"></td>
+                <td><input type="number" ${isEditing ? '' : 'readonly'} class="wip-num-input field-wip-qc grid-nav-input" data-batch="${idx}" data-row="1" data-col="1" value="${batch.wip_qc || ''}" placeholder="0" data-idx="${idx}"></td>
+                <td><input type="number" ${isEditing ? '' : 'readonly'} class="wip-num-input field-wip-pairing grid-nav-input" data-batch="${idx}" data-row="1" data-col="2" value="${batch.wip_pairing || ''}" placeholder="0" data-idx="${idx}"></td>
+                <td><input type="number" ${isEditing ? '' : 'readonly'} class="wip-num-input field-wip-packing grid-nav-input" data-batch="${idx}" data-row="1" data-col="3" value="${batch.wip_packing || ''}" placeholder="0" data-idx="${idx}"></td>
+                <td><input type="number" ${isEditing ? '' : 'readonly'} class="wip-num-input field-wip-warehouse grid-nav-input" data-batch="${idx}" data-row="1" data-col="4" value="${batch.wip_warehouse || ''}" placeholder="0" data-idx="${idx}"></td>
+                <td><input type="number" ${isEditing ? '' : 'readonly'} class="wip-num-input wip-num-input-out field-daily-out grid-nav-input" data-batch="${idx}" data-row="1" data-col="5" value="${batch.daily_out || ''}" placeholder="0" data-idx="${idx}"></td>
+                <td rowspan="2" class="cell-batch-actions">
+                  <button type="button" class="btn-batch-toggle ${isEditing ? 'is-editing' : 'is-locked'} btn-toggle-batch" data-batch="${idx}">
+                    ${isEditing ? '✅ OK' : '✏️ Sửa'}
+                  </button>
+                </td>
               </tr>
               <!-- ROW 2: TÊN NGƯỜI THỰC HIỆN / GHI CHÚ (DÒNG CUỐI CÙNG) -->
-              <tr>
-                <td><input type="text" class="wip-executor-input field-note-sewing grid-nav-input" data-batch="${idx}" data-row="2" data-col="0" value="${batch.note_sewing || ''}" placeholder="Người thực hiện..." data-idx="${idx}"></td>
-                <td><input type="text" class="wip-executor-input field-note-qc grid-nav-input" data-batch="${idx}" data-row="2" data-col="1" value="${batch.note_qc || ''}" placeholder="Người thực hiện..." data-idx="${idx}"></td>
-                <td><input type="text" class="wip-executor-input field-note-pairing grid-nav-input" data-batch="${idx}" data-row="2" data-col="2" value="${batch.note_pairing || ''}" placeholder="Người thực hiện..." data-idx="${idx}"></td>
-                <td><input type="text" class="wip-executor-input field-note-packing grid-nav-input" data-batch="${idx}" data-row="2" data-col="3" value="${batch.note_packing || ''}" placeholder="Người thực hiện..." data-idx="${idx}"></td>
-                <td><input type="text" class="wip-executor-input field-note-warehouse grid-nav-input" data-batch="${idx}" data-row="2" data-col="4" value="${batch.note_warehouse || ''}" placeholder="Người thực hiện..." data-idx="${idx}"></td>
-                <td><input type="text" class="wip-executor-input grid-nav-input" data-batch="${idx}" data-row="2" data-col="5" placeholder="Ghi chú xuất..." data-idx="${idx}"></td>
+              <tr class="${isEditing ? 'batch-row-editing' : 'batch-row-locked'}">
+                <td><input type="text" ${isEditing ? '' : 'readonly'} class="wip-executor-input field-note-sewing grid-nav-input" data-batch="${idx}" data-row="2" data-col="0" value="${batch.note_sewing || ''}" placeholder="Người thực hiện..." data-idx="${idx}"></td>
+                <td><input type="text" ${isEditing ? '' : 'readonly'} class="wip-executor-input field-note-qc grid-nav-input" data-batch="${idx}" data-row="2" data-col="1" value="${batch.note_qc || ''}" placeholder="Người thực hiện..." data-idx="${idx}"></td>
+                <td><input type="text" ${isEditing ? '' : 'readonly'} class="wip-executor-input field-note-pairing grid-nav-input" data-batch="${idx}" data-row="2" data-col="2" value="${batch.note_pairing || ''}" placeholder="Người thực hiện..." data-idx="${idx}"></td>
+                <td><input type="text" ${isEditing ? '' : 'readonly'} class="wip-executor-input field-note-packing grid-nav-input" data-batch="${idx}" data-row="2" data-col="3" value="${batch.note_packing || ''}" placeholder="Người thực hiện..." data-idx="${idx}"></td>
+                <td><input type="text" ${isEditing ? '' : 'readonly'} class="wip-executor-input field-note-warehouse grid-nav-input" data-batch="${idx}" data-row="2" data-col="4" value="${batch.note_warehouse || ''}" placeholder="Người thực hiện..." data-idx="${idx}"></td>
+                <td><input type="text" ${isEditing ? '' : 'readonly'} class="wip-executor-input field-note-export grid-nav-input" data-batch="${idx}" data-row="2" data-col="5" value="${batch.note_export || ''}" placeholder="Ghi chú xuất..." data-idx="${idx}"></td>
               </tr>
             </tbody>
           </table>
@@ -775,18 +775,38 @@ function recalculateAllInPlace() {
   if (elDebt) elDebt.innerText = prepDebt.toLocaleString("vi-VN");
 }
 
-let autoSaveReportTimer = null;
-function debouncedAutoSaveReport() {
-  clearTimeout(autoSaveReportTimer);
-  autoSaveReportTimer = setTimeout(() => {
-    if (appState.currentPO) {
-      saveReport(appState.report.status || "DRAFT", true);
-    }
-  }, 400);
-}
-
 // BIND CARD INPUT LISTENERS
 function bindCardInputs() {
+  // Batch Edit/Lock Toggle Buttons
+  document.querySelectorAll(".btn-toggle-batch").forEach(btn => {
+    btn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      const bIdx = parseInt(btn.dataset.batch, 10);
+      if (isNaN(bIdx)) return;
+      if (!appState.editingBatches) appState.editingBatches = {};
+
+      const currentlyEditing = Boolean(appState.editingBatches[bIdx]);
+      if (currentlyEditing) {
+        // User clicked OK -> Save and lock
+        appState.editingBatches[bIdx] = false;
+        await saveReport(appState.report.status || "DRAFT", true);
+        const b = appState.report.batches[bIdx];
+        showToast(`💾 Đã lưu và khoá ${b ? b.batch_name : 'Lô'} ngày ${formatDateDisplay(appState.currentDate)}!`);
+        renderReportUI();
+      } else {
+        // User clicked Sửa -> Enter edit mode
+        appState.editingBatches[bIdx] = true;
+        renderReportUI();
+        // Focus first input of this batch
+        const firstInput = document.querySelector(`.excel-batch-wrapper[data-index="${bIdx}"] .field-wip-sewing`);
+        if (firstInput) {
+          firstInput.focus();
+          firstInput.select();
+        }
+      }
+    });
+  });
+
   document.querySelectorAll(".excel-batches-container input, .excel-batches-container select").forEach(input => {
     input.addEventListener("input", (e) => {
       const idx = e.target.dataset.idx;
@@ -807,6 +827,7 @@ function bindCardInputs() {
       if (e.target.classList.contains("field-note-pairing")) b.note_pairing = e.target.value;
       if (e.target.classList.contains("field-note-packing")) b.note_packing = e.target.value;
       if (e.target.classList.contains("field-note-warehouse")) b.note_warehouse = e.target.value;
+      if (e.target.classList.contains("field-note-export")) b.note_export = e.target.value;
 
       if (e.target.classList.contains("field-reason-type")) {
         const selVal = e.target.value;
@@ -826,7 +847,6 @@ function bindCardInputs() {
       }
 
       recalculateAllInPlace();
-      debouncedAutoSaveReport();
     });
 
     input.addEventListener("dblclick", (e) => {
@@ -851,9 +871,13 @@ function handleGlobalKeyNavigation(e) {
 
     if (e.key === "Enter") {
       e.preventDefault();
-      saveReport(appState.report.status || "DRAFT", true);
-      showToast("💾 Đã lưu số liệu thành công!");
-      navigateCell(batchIdx, rowIdx + 1, colIdx);
+      if (!appState.editingBatches) appState.editingBatches = {};
+      appState.editingBatches[batchIdx] = false;
+      saveReport(appState.report.status || "DRAFT", true).then(() => {
+        const b = appState.report.batches[batchIdx];
+        showToast(`💾 Đã lưu số liệu ${b ? b.batch_name : ''} ngày ${formatDateDisplay(appState.currentDate)}!`);
+        renderReportUI();
+      });
       return;
     }
 
@@ -1630,6 +1654,7 @@ async function handleAddPO(e) {
 // SAVE REPORT
 async function saveReport(status, silent = false) {
   if (!appState.currentPO) return;
+  recalculateAllInPlace();
   appState.report.po_id = appState.currentPO.id;
   appState.report.report_date = appState.currentDate;
   appState.report.status = status || "DRAFT";
