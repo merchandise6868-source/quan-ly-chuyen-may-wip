@@ -1029,8 +1029,9 @@ export default {
             await env.DB.prepare("DELETE FROM report_batches WHERE report_id = ?").bind(key).run();
 
             // Insert batches
-            for (const b of (batches || [])) {
-              const bId = b.id || ('rb-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5));
+            for (let i = 0; i < (batches || []).length; i++) {
+              const b = batches[i];
+              const bId = `rb-${key}-${(b.batch_name || ('b' + (i+1))).replace(/\s+/g, '_')}`;
               const dailyOut = Number(b.daily_out) || 0;
               const delivered = Number(b.delivered) || dailyOut;
               await env.DB.prepare(`
