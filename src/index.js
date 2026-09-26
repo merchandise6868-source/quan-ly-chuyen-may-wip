@@ -946,9 +946,9 @@ export default {
               report = { po_id: poId, report_date: date, status: (repRows && repRows[0] && repRows[0].status) || "DRAFT", batches };
             }
 
-            // Cumulative export calculation
+            // Cumulative export calculation: sum of daily_out from prior days strictly before current report date
             const { results: allBatchExports } = await env.DB.prepare(
-              "SELECT batch_name, SUM(daily_out) as total_out FROM report_batches WHERE po_id = ? AND report_date <= ? GROUP BY batch_name"
+              "SELECT batch_name, SUM(daily_out) as total_out FROM report_batches WHERE po_id = ? AND report_date < ? GROUP BY batch_name"
             ).bind(poId, date).all();
 
             const cumExportsByBatch = {};
@@ -992,7 +992,7 @@ export default {
         const cumExportsByBatch = {};
         allKeys.forEach(k => {
           const repDate = k.replace(poId + '_', '');
-          if (repDate <= date) {
+          if (repDate < date) {
             const rep = memoryDB.reports[k];
             if (rep && rep.batches) {
               rep.batches.forEach(b => {

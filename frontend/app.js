@@ -241,11 +241,14 @@ function bindEvents() {
 
   const selPO = document.getElementById("selectPO");
   if (selPO) {
-    selPO.addEventListener("change", (e) => {
+    selPO.addEventListener("change", async (e) => {
+      clearTimeout(autoSaveReportTimer);
+      if (appState.currentPO) await saveReport(appState.report.status || "DRAFT", true);
+
       const poId = e.target.value;
       appState.currentPO = appState.orders.find(o => o.id === poId);
-      loadReport();
-      loadDeptLogs();
+      await loadReport();
+      await loadDeptLogs();
       if (document.getElementById("subtab-history") && document.getElementById("subtab-history").classList.contains("active")) {
         fetchReportHistory();
       }
@@ -255,10 +258,13 @@ function bindEvents() {
   // Date Change & Navigation
   const repDate = document.getElementById("reportDate");
   if (repDate) {
-    repDate.addEventListener("change", (e) => {
+    repDate.addEventListener("change", async (e) => {
+      clearTimeout(autoSaveReportTimer);
+      if (appState.currentPO) await saveReport(appState.report.status || "DRAFT", true);
+
       appState.currentDate = e.target.value;
-      loadReport();
-      loadDeptLogs();
+      await loadReport();
+      await loadDeptLogs();
     });
   }
 
@@ -270,7 +276,10 @@ function bindEvents() {
 
   // Tab switching
   document.querySelectorAll(".tab-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", async () => {
+      clearTimeout(autoSaveReportTimer);
+      if (appState.currentPO) await saveReport(appState.report.status || "DRAFT", true);
+
       document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
       document.querySelectorAll(".tab-pane").forEach(p => p.classList.remove("active"));
       btn.classList.add("active");
@@ -405,13 +414,17 @@ function bindEvents() {
   document.addEventListener("paste", handleExcelPaste);
 }
 
-function changeDateByDays(days) {
+async function changeDateByDays(days) {
+  clearTimeout(autoSaveReportTimer);
+  if (appState.currentPO) await saveReport(appState.report.status || "DRAFT", true);
+
   const d = new Date(appState.currentDate);
   d.setDate(d.getDate() + days);
   const newDateStr = d.toISOString().split("T")[0];
   appState.currentDate = newDateStr;
   document.getElementById("reportDate").value = newDateStr;
-  loadReport();
+  await loadReport();
+  await loadDeptLogs();
 }
 
 // FETCH METADATA
@@ -716,9 +729,11 @@ function recalculateAllInPlace() {
     const into = Number(b.into_sewing) || 0;
     totalReceived += into;
 
-    const baseHistory = Number(appState.cumExportsByBatch[b.batch_name]) || 0;
+    // Prior days cumulative export strictly before current report date
+    const priorExports = Number(appState.cumExportsByBatch && appState.cumExportsByBatch[b.batch_name]) || 0;
     const currentDaily = Number(b.daily_out) || 0;
-    const delivered = Math.max(baseHistory, currentDaily);
+    // Total delivered up to current date = prior days export + today's daily export
+    const delivered = priorExports + currentDaily;
     b.delivered = delivered;
     totalDelivered += delivered;
 
@@ -758,6 +773,16 @@ function recalculateAllInPlace() {
 
   const elDebt = document.getElementById("summaryPrepDebt");
   if (elDebt) elDebt.innerText = prepDebt.toLocaleString("vi-VN");
+}
+
+let autoSaveReportTimer = null;
+function debouncedAutoSaveReport() {
+  clearTimeout(autoSaveReportTimer);
+  autoSaveReportTimer = setTimeout(() => {
+    if (appState.currentPO) {
+      saveReport(appState.report.status || "DRAFT", true);
+    }
+  }, 400);
 }
 
 // BIND CARD INPUT LISTENERS
@@ -801,6 +826,7 @@ function bindCardInputs() {
       }
 
       recalculateAllInPlace();
+      debouncedAutoSaveReport();
     });
 
     input.addEventListener("dblclick", (e) => {
@@ -1603,7 +1629,10 @@ async function handleAddPO(e) {
 
 // SAVE REPORT
 async function saveReport(status, silent = false) {
-  appState.report.status = status;
+  if (!appState.currentPO) return;
+  appState.report.po_id = appState.currentPO.id;
+  appState.report.report_date = appState.currentDate;
+  appState.report.status = status || "DRAFT";
   try {
     const res = await fetch("/api/report", {
       method: "POST",
