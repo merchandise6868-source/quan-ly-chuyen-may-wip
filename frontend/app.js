@@ -761,6 +761,7 @@ function renderReportUI() {
           <svg class="blue-block-arrow" viewBox="0 0 24 28" fill="#0284c7">
             <path d="M7 0 H17 V14 H24 L12 28 L0 14 H7 Z" />
           </svg>
+          <span class="mobile-flow-text">⬇ NHẬP SỐ KIỂM KÊ 5 TRẠM & XUẤT HÀNG ⬇</span>
         </div>
       </div>
 

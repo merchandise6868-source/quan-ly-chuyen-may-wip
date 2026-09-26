@@ -22,7 +22,7 @@
   <link rel="apple-touch-icon" sizes="192x192" href="icon-192.png">
   <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png">
 
-  <link rel="stylesheet" href="styles.css?v=20260926_1000">
+  <link rel="stylesheet" href="styles.css?v=20260926_1045">
   
   <!-- cdn for sheetjs (xlsx) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -119,35 +119,35 @@
     <div class="sticky-header-wrapper">
       <!-- TOP APP BAR WITH FILTERS & USER AUTHENTICATION -->
       <header class="top-app-bar">
-        <div class="app-title">
-          <span class="icon">🧵</span>
-          <div>
-            <h2>D&D LONG AN - QUẢN LÝ TIẾN ĐỘ CHUYỀN MAY</h2>
-            <small>Hệ Thống Kiểm Kê Dở Dang & Cân Bằng Dòng Hàng Hóa (WIP Tracking)</small>
+        <div class="top-bar-main-row">
+          <div class="app-title">
+            <span class="icon">🧵</span>
+            <div>
+              <h2>D&D LONG AN - WIP CHUYỀN MAY</h2>
+              <small class="hide-mobile">Hệ Thống Kiểm Kê Dở Dang & Cân Bằng Dòng Hàng Hóa</small>
+            </div>
+          </div>
+
+          <div class="user-action-cluster">
+            <button type="button" id="btnInstallPWA" class="btn-install-pwa" style="display: none;" title="Cài đặt ứng dụng về thiết bị để mở nhanh như app native">📲 Cài App</button>
+            <span class="role-badge is-worker" id="currentRoleBadge">👤 Công nhân</span>
+            <button class="btn-role-switch" id="btnSwitchRole" title="Đổi quyền hoặc đăng nhập tài khoản khác">🔄 Đổi Quyền</button>
+            <button class="btn-logout" id="btnLogout" title="Đăng xuất khỏi hệ thống">🚪 Đăng Xuất</button>
           </div>
         </div>
 
-        <div class="top-controls">
-          <div class="control-item">
+        <div class="top-filters-row">
+          <div class="control-item filter-col">
             <label for="selectCustomer">KHÁCH HÀNG:</label>
             <select id="selectCustomer" class="form-control select-customer-styled">
               <!-- Dynamically populated -->
             </select>
           </div>
-          <div class="control-item">
+          <div class="control-item filter-col">
             <label for="selectPO">ĐƠN HÀNG / PO:</label>
             <select id="selectPO" class="form-control select-po-styled">
               <!-- Dynamically populated -->
             </select>
-          </div>
-          <div class="control-item role-control-box">
-            <label>TÀI KHOẢN HIỆN TẠI:</label>
-            <div class="role-badge-group">
-              <button type="button" id="btnInstallPWA" class="btn-install-pwa" style="display: none;" title="Cài đặt ứng dụng về thiết bị để mở nhanh như app native">📲 Cài App</button>
-              <span class="role-badge is-worker" id="currentRoleBadge">👤 Công nhân</span>
-              <button class="btn-role-switch" id="btnSwitchRole" title="Đổi quyền hoặc đăng nhập tài khoản khác">🔄 Đổi Quyền</button>
-              <button class="btn-logout" id="btnLogout" title="Đăng xuất khỏi hệ thống">🚪 Đăng Xuất</button>
-            </div>
           </div>
         </div>
       </header>
@@ -756,6 +756,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20260926_1000"></script>
+  <script src="app.js?v=20260926_1045"></script>
 </body>
 </html>
