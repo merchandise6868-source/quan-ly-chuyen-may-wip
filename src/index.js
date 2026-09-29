@@ -191,6 +191,7 @@ async function initD1Tables(db) {
         batch_plan INTEGER NOT NULL DEFAULT 0,
         into_sewing INTEGER NOT NULL DEFAULT 0,
         delivered INTEGER NOT NULL DEFAULT 0,
+        daily_out INTEGER NOT NULL DEFAULT 0,
         wip_sewing INTEGER NOT NULL DEFAULT 0,
         wip_qc INTEGER NOT NULL DEFAULT 0,
         wip_pairing INTEGER NOT NULL DEFAULT 0,
@@ -201,8 +202,12 @@ async function initD1Tables(db) {
         note_pairing TEXT,
         note_packing TEXT,
         note_warehouse TEXT,
+        note_export TEXT,
         shortage_reason_type TEXT,
-        shortage_note TEXT
+        shortage_note TEXT,
+        shortage_mat_xac INTEGER NOT NULL DEFAULT 0,
+        shortage_hang_phe INTEGER NOT NULL DEFAULT 0,
+        shortage_khac INTEGER NOT NULL DEFAULT 0
       )`,
       `CREATE TABLE IF NOT EXISTS dept_logs (
         id TEXT PRIMARY KEY,
@@ -957,7 +962,10 @@ export default {
                 note_packing: "",
                 note_warehouse: "",
                 shortage_reason_type: "",
-                shortage_note: ""
+                shortage_note: "",
+                shortage_mat_xac: 0,
+                shortage_hang_phe: 0,
+                shortage_khac: 0
               })) : [];
 
               report = { po_id: poId, report_date: date, status: (repRows && repRows[0] && repRows[0].status) || "DRAFT", batches };
@@ -1001,7 +1009,10 @@ export default {
             note_packing: "",
             note_warehouse: "",
             shortage_reason_type: "",
-            shortage_note: ""
+            shortage_note: "",
+            shortage_mat_xac: 0,
+            shortage_hang_phe: 0,
+            shortage_khac: 0
           })) : [];
 
           report = { po_id: poId, report_date: date, status: "DRAFT", batches };

@@ -1061,41 +1061,48 @@ function handleGlobalKeyNavigation(e) {
   const active = document.activeElement;
   if (!active) return;
 
-  // TAB 1 NAVIGATION
+  // TAB 1 NAVIGATION (EXCEL KIỂM KÊ)
   if (active.classList.contains("grid-nav-input")) {
     const batchIdx = parseInt(active.dataset.batch, 10);
-    const rowIdx = parseInt(active.dataset.row, 10);
-    const colIdx = parseInt(active.dataset.col, 10);
     if (isNaN(batchIdx)) return;
 
     if (e.key === "Enter") {
       e.preventDefault();
-      if (!appState.editingBatches) appState.editingBatches = {};
-      appState.editingBatches[batchIdx] = false;
+      // Auto-save on Enter
       saveReport(appState.report.status || "DRAFT", true).then(() => {
         const b = appState.report.batches[batchIdx];
         showToast(`💾 Đã lưu số liệu ${b ? b.batch_name : ''} ngày ${formatDateDisplay(appState.currentDate)}!`);
-        renderReportUI();
       });
+
+      // Move to next input cell
+      advanceToNextInput(active);
       return;
     }
 
+    const allInputs = Array.from(document.querySelectorAll(".excel-batches-container .grid-nav-input:not([disabled])"));
+    const currentIndex = allInputs.indexOf(active);
+    if (currentIndex === -1) return;
+
     if (e.key === "ArrowRight") {
-      if (active.selectionStart === active.value.length || active.type === "select-one") {
+      if (active.selectionStart === active.value.length || active.type === "number" || active.type === "select-one") {
         e.preventDefault();
-        navigateCell(batchIdx, rowIdx, colIdx + 1);
+        if (currentIndex < allInputs.length - 1) {
+          focusAndSelect(allInputs[currentIndex + 1]);
+        }
       }
     } else if (e.key === "ArrowLeft") {
-      if (active.selectionStart === 0 || active.type === "select-one") {
+      if (active.selectionStart === 0 || active.type === "number" || active.type === "select-one") {
         e.preventDefault();
-        navigateCell(batchIdx, rowIdx, colIdx - 1);
+        if (currentIndex > 0) {
+          focusAndSelect(allInputs[currentIndex - 1]);
+        }
       }
     } else if (e.key === "ArrowDown") {
       e.preventDefault();
-      navigateCell(batchIdx, rowIdx + 1, colIdx);
+      navigateVertical(active, 1);
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      navigateCell(batchIdx, rowIdx - 1, colIdx);
+      navigateVertical(active, -1);
     }
     return;
   }
@@ -1135,18 +1142,62 @@ function handleGlobalKeyNavigation(e) {
   }
 }
 
-function navigateCell(bIdx, rIdx, cIdx) {
-  let target = document.querySelector(`.grid-nav-input[data-batch="${bIdx}"][data-row="${rIdx}"][data-col="${cIdx}"]`);
-  if (!target) {
-    if (rIdx > 2) {
-      target = document.querySelector(`.grid-nav-input[data-batch="${bIdx + 1}"][data-row="1"][data-col="${cIdx}"]`);
-    } else if (rIdx < 1 && bIdx > 0) {
-      target = document.querySelector(`.grid-nav-input[data-batch="${bIdx - 1}"][data-row="2"][data-col="${cIdx}"]`);
-    }
+function focusAndSelect(input) {
+  if (!input) return;
+  input.focus();
+  if (input.select && input.type !== "select-one") input.select();
+}
+
+function advanceToNextInput(currentInput) {
+  const allInputs = Array.from(document.querySelectorAll(".excel-batches-container .grid-nav-input:not([disabled])"));
+  const currentIndex = allInputs.indexOf(currentInput);
+  if (currentIndex >= 0 && currentIndex < allInputs.length - 1) {
+    focusAndSelect(allInputs[currentIndex + 1]);
   }
-  if (target) {
-    target.focus();
-    if (target.select && target.type !== "select-one") target.select();
+}
+
+function navigateVertical(activeInput, direction) {
+  const allInputs = Array.from(document.querySelectorAll(".excel-batches-container .grid-nav-input:not([disabled])"));
+  const activeRect = activeInput.getBoundingClientRect();
+  const activeCenterX = activeRect.left + activeRect.width / 2;
+  const activeCenterY = activeRect.top + activeRect.height / 2;
+
+  let bestInput = null;
+  let minDistance = Infinity;
+
+  allInputs.forEach(input => {
+    if (input === activeInput) return;
+    const rect = input.getBoundingClientRect();
+    const centerY = rect.top + rect.height / 2;
+    const centerX = rect.left + rect.width / 2;
+
+    const dy = centerY - activeCenterY;
+    if (direction > 0 && dy > 8) { // Below
+      const dx = Math.abs(centerX - activeCenterX);
+      const dist = dy * 2 + dx;
+      if (dist < minDistance) {
+        minDistance = dist;
+        bestInput = input;
+      }
+    } else if (direction < 0 && dy < -8) { // Above
+      const dx = Math.abs(centerX - activeCenterX);
+      const dist = Math.abs(dy) * 2 + dx;
+      if (dist < minDistance) {
+        minDistance = dist;
+        bestInput = input;
+      }
+    }
+  });
+
+  if (bestInput) {
+    focusAndSelect(bestInput);
+  } else {
+    const currentIndex = allInputs.indexOf(activeInput);
+    if (direction > 0 && currentIndex < allInputs.length - 1) {
+      focusAndSelect(allInputs[currentIndex + 1]);
+    } else if (direction < 0 && currentIndex > 0) {
+      focusAndSelect(allInputs[currentIndex - 1]);
+    }
   }
 }
 
