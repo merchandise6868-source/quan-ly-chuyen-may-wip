@@ -739,7 +739,7 @@ function renderReportUI() {
               <th class="sub-shortage-khac">
                 <div class="sub-khac-header-box">
                   <span class="sub-khac-title">3. KHÁC (SL)</span>
-                  <input type="text" ${isEditing ? '' : 'readonly'} class="th-khac-note-input field-shortage-note grid-nav-input" data-batch="${idx}" data-row="0" data-col="8" value="${batch.shortage_note || ''}" placeholder="✍️ Ghi chú lý do..." data-idx="${idx}" title="Ghi chú trực tiếp lý do khác">
+                  <input type="text" class="th-khac-note-input field-shortage-note grid-nav-input" data-batch="${idx}" data-row="0" data-col="8" value="${batch.shortage_note || ''}" placeholder="✍️ Ghi chú lý do..." data-idx="${idx}" title="Ghi chú trực tiếp lý do khác">
                 </div>
               </th>
             </tr>
@@ -770,10 +770,10 @@ function renderReportUI() {
               <td class="lbl-row-type font-semibold text-amber-900">2. Phát sinh trong hôm nay</td>
               <td class="val-dash">--</td>
               <td class="val-today-in">
-                <input type="number" ${isEditing ? '' : 'readonly'} class="wip-num-input field-daily-in field-into-sewing grid-nav-input font-black text-sky-900" data-batch="${idx}" data-row="0" data-col="2" value="${batch.into_sewing || ''}" placeholder="0" data-idx="${idx}" title="Số phôi nhập vào chuyền hôm nay">
+                <input type="number" class="wip-num-input field-daily-in field-into-sewing grid-nav-input font-black text-sky-900" data-batch="${idx}" data-row="0" data-col="2" value="${batch.into_sewing || ''}" placeholder="0" data-idx="${idx}" title="Số phôi nhập vào chuyền hôm nay">
               </td>
               <td class="val-today-out">
-                <input type="number" ${isEditing ? '' : 'readonly'} class="wip-num-input wip-num-input-out field-daily-out grid-nav-input font-black text-emerald-900" data-batch="${idx}" data-row="0" data-col="3" value="${batch.daily_out || ''}" placeholder="0" data-idx="${idx}" title="Số lượng xuất giao khách trong ngày hôm nay">
+                <input type="number" class="wip-num-input wip-num-input-out field-daily-out grid-nav-input font-black text-emerald-900" data-batch="${idx}" data-row="0" data-col="3" value="${batch.daily_out || ''}" placeholder="0" data-idx="${idx}" title="Số lượng xuất giao khách trong ngày hôm nay">
               </td>
               <td class="val-dash">--</td>
               <td class="val-dash">--</td>
@@ -800,13 +800,13 @@ function renderReportUI() {
                 </div>
               </td>
               <td class="cell-shortage-matxac">
-                <input type="number" ${isEditing ? '' : 'readonly'} class="wip-num-input field-shortage-matxac grid-nav-input font-black text-rose-700" data-batch="${idx}" data-row="0" data-col="5" value="${batch.shortage_mat_xac || ''}" placeholder="0" data-idx="${idx}" title="Số lượng thiếu do Mất xác">
+                <input type="number" class="wip-num-input field-shortage-matxac grid-nav-input font-black text-rose-700" data-batch="${idx}" data-row="0" data-col="5" value="${batch.shortage_mat_xac || ''}" placeholder="0" data-idx="${idx}" title="Số lượng thiếu do Mất xác">
               </td>
               <td class="cell-shortage-hangphe">
-                <input type="number" ${isEditing ? '' : 'readonly'} class="wip-num-input field-shortage-hangphe grid-nav-input font-black text-amber-700" data-batch="${idx}" data-row="0" data-col="6" value="${batch.shortage_hang_phe || ''}" placeholder="0" data-idx="${idx}" title="Số lượng thiếu do Hàng phế">
+                <input type="number" class="wip-num-input field-shortage-hangphe grid-nav-input font-black text-amber-700" data-batch="${idx}" data-row="0" data-col="6" value="${batch.shortage_hang_phe || ''}" placeholder="0" data-idx="${idx}" title="Số lượng thiếu do Hàng phế">
               </td>
               <td class="cell-shortage-khac">
-                <input type="number" ${isEditing ? '' : 'readonly'} class="wip-num-input field-shortage-khac grid-nav-input font-black text-purple-700" data-batch="${idx}" data-row="0" data-col="7" value="${batch.shortage_khac || ''}" placeholder="0" data-idx="${idx}" title="Số lượng thiếu do Lý do khác">
+                <input type="number" class="wip-num-input field-shortage-khac grid-nav-input font-black text-purple-700" data-batch="${idx}" data-row="0" data-col="7" value="${batch.shortage_khac || ''}" placeholder="0" data-idx="${idx}" title="Số lượng thiếu do Lý do khác">
               </td>
             </tr>
           </tbody>
@@ -853,25 +853,25 @@ function renderReportUI() {
             </thead>
             <tbody>
               <!-- ROW 1: SỐ LƯỢNG KIỂM KÊ 5 TRẠM -->
-              <tr class="${isEditing ? 'batch-row-editing' : 'batch-row-locked'}">
-                <td><input type="number" ${isEditing ? '' : 'readonly'} class="wip-num-input field-wip-sewing grid-nav-input" data-batch="${idx}" data-row="1" data-col="0" value="${batch.wip_sewing || ''}" placeholder="0" data-idx="${idx}"></td>
-                <td><input type="number" ${isEditing ? '' : 'readonly'} class="wip-num-input field-wip-qc grid-nav-input" data-batch="${idx}" data-row="1" data-col="1" value="${batch.wip_qc || ''}" placeholder="0" data-idx="${idx}"></td>
-                <td><input type="number" ${isEditing ? '' : 'readonly'} class="wip-num-input field-wip-pairing grid-nav-input" data-batch="${idx}" data-row="1" data-col="2" value="${batch.wip_pairing || ''}" placeholder="0" data-idx="${idx}"></td>
-                <td><input type="number" ${isEditing ? '' : 'readonly'} class="wip-num-input field-wip-packing grid-nav-input" data-batch="${idx}" data-row="1" data-col="3" value="${batch.wip_packing || ''}" placeholder="0" data-idx="${idx}"></td>
-                <td><input type="number" ${isEditing ? '' : 'readonly'} class="wip-num-input field-wip-warehouse grid-nav-input" data-batch="${idx}" data-row="1" data-col="4" value="${batch.wip_warehouse || ''}" placeholder="0" data-idx="${idx}"></td>
+              <tr class="batch-row-editing">
+                <td><input type="number" class="wip-num-input field-wip-sewing grid-nav-input" data-batch="${idx}" data-row="1" data-col="0" value="${batch.wip_sewing || ''}" placeholder="0" data-idx="${idx}"></td>
+                <td><input type="number" class="wip-num-input field-wip-qc grid-nav-input" data-batch="${idx}" data-row="1" data-col="1" value="${batch.wip_qc || ''}" placeholder="0" data-idx="${idx}"></td>
+                <td><input type="number" class="wip-num-input field-wip-pairing grid-nav-input" data-batch="${idx}" data-row="1" data-col="2" value="${batch.wip_pairing || ''}" placeholder="0" data-idx="${idx}"></td>
+                <td><input type="number" class="wip-num-input field-wip-packing grid-nav-input" data-batch="${idx}" data-row="1" data-col="3" value="${batch.wip_packing || ''}" placeholder="0" data-idx="${idx}"></td>
+                <td><input type="number" class="wip-num-input field-wip-warehouse grid-nav-input" data-batch="${idx}" data-row="1" data-col="4" value="${batch.wip_warehouse || ''}" placeholder="0" data-idx="${idx}"></td>
                 <td rowspan="2" class="cell-batch-actions">
-                  <button type="button" class="btn-batch-toggle ${isEditing ? 'is-editing' : 'is-locked'} btn-toggle-batch" data-batch="${idx}">
-                    ${isEditing ? '✅ OK' : '✏️ Sửa'}
+                  <button type="button" class="btn-batch-toggle is-editing btn-toggle-batch" data-batch="${idx}" title="Lưu số liệu lô này">
+                    💾 Lưu
                   </button>
                 </td>
               </tr>
               <!-- ROW 2: TÊN NGƯỜI THỰC HIỆN (5 TRẠM) -->
-              <tr class="${isEditing ? 'batch-row-editing' : 'batch-row-locked'}">
-                <td><input type="text" ${isEditing ? '' : 'readonly'} class="wip-executor-input field-note-sewing grid-nav-input" data-batch="${idx}" data-row="2" data-col="0" value="${batch.note_sewing || ''}" placeholder="Người thực hiện..." data-idx="${idx}"></td>
-                <td><input type="text" ${isEditing ? '' : 'readonly'} class="wip-executor-input field-note-qc grid-nav-input" data-batch="${idx}" data-row="2" data-col="1" value="${batch.note_qc || ''}" placeholder="Người thực hiện..." data-idx="${idx}"></td>
-                <td><input type="text" ${isEditing ? '' : 'readonly'} class="wip-executor-input field-note-pairing grid-nav-input" data-batch="${idx}" data-row="2" data-col="2" value="${batch.note_pairing || ''}" placeholder="Người thực hiện..." data-idx="${idx}"></td>
-                <td><input type="text" ${isEditing ? '' : 'readonly'} class="wip-executor-input field-note-packing grid-nav-input" data-batch="${idx}" data-row="2" data-col="3" value="${batch.note_packing || ''}" placeholder="Người thực hiện..." data-idx="${idx}"></td>
-                <td><input type="text" ${isEditing ? '' : 'readonly'} class="wip-executor-input field-note-warehouse grid-nav-input" data-batch="${idx}" data-row="2" data-col="4" value="${batch.note_warehouse || ''}" placeholder="Người thực hiện..." data-idx="${idx}"></td>
+              <tr class="batch-row-editing">
+                <td><input type="text" class="wip-executor-input field-note-sewing grid-nav-input" data-batch="${idx}" data-row="2" data-col="0" value="${batch.note_sewing || ''}" placeholder="Người thực hiện..." data-idx="${idx}"></td>
+                <td><input type="text" class="wip-executor-input field-note-qc grid-nav-input" data-batch="${idx}" data-row="2" data-col="1" value="${batch.note_qc || ''}" placeholder="Người thực hiện..." data-idx="${idx}"></td>
+                <td><input type="text" class="wip-executor-input field-note-pairing grid-nav-input" data-batch="${idx}" data-row="2" data-col="2" value="${batch.note_pairing || ''}" placeholder="Người thực hiện..." data-idx="${idx}"></td>
+                <td><input type="text" class="wip-executor-input field-note-packing grid-nav-input" data-batch="${idx}" data-row="2" data-col="3" value="${batch.note_packing || ''}" placeholder="Người thực hiện..." data-idx="${idx}"></td>
+                <td><input type="text" class="wip-executor-input field-note-warehouse grid-nav-input" data-batch="${idx}" data-row="2" data-col="4" value="${batch.note_warehouse || ''}" placeholder="Người thực hiện..." data-idx="${idx}"></td>
               </tr>
             </tbody>
           </table>
@@ -978,33 +978,15 @@ function recalculateAllInPlace() {
 
 // BIND CARD INPUT LISTENERS
 function bindCardInputs() {
-  // Batch Edit/Lock Toggle Buttons
+  // Batch Save Button
   document.querySelectorAll(".btn-toggle-batch").forEach(btn => {
     btn.addEventListener("click", async (e) => {
       e.preventDefault();
       const bIdx = parseInt(btn.dataset.batch, 10);
       if (isNaN(bIdx)) return;
-      if (!appState.editingBatches) appState.editingBatches = {};
-
-      const currentlyEditing = Boolean(appState.editingBatches[bIdx]);
-      if (currentlyEditing) {
-        // User clicked OK -> Save and lock
-        appState.editingBatches[bIdx] = false;
-        await saveReport(appState.report.status || "DRAFT", true);
-        const b = appState.report.batches[bIdx];
-        showToast(`💾 Đã lưu và khoá ${b ? b.batch_name : 'Lô'} ngày ${formatDateDisplay(appState.currentDate)}!`);
-        renderReportUI();
-      } else {
-        // User clicked Sửa -> Enter edit mode
-        appState.editingBatches[bIdx] = true;
-        renderReportUI();
-        // Focus first input of this batch
-        const firstInput = document.querySelector(`.excel-batch-wrapper[data-index="${bIdx}"] .field-wip-sewing`);
-        if (firstInput) {
-          firstInput.focus();
-          firstInput.select();
-        }
-      }
+      await saveReport(appState.report.status || "DRAFT", true);
+      const b = appState.report.batches[bIdx];
+      showToast(`💾 Đã lưu thành công ${b ? b.batch_name : 'Lô'} ngày ${formatDateDisplay(appState.currentDate)}!`);
     });
   });
 
