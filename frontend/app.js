@@ -725,6 +725,8 @@ function renderReportUI() {
               <th class="col-ton-cuoi th-ton-cuoi">TỒN LÝ THUYẾT</th>
               <th class="col-ton-thucte th-ton-thucte">TỒN THỰC TẾ</th>
               <th rowspan="2" class="col-thieu th-thieu-cell">THIẾU / LỆCH</th>
+              <th rowspan="2" class="col-arrow-thieu th-arrow-cell">➔</th>
+              <th colspan="4" class="hdr-shortage-breakdown">PHÂN TÍCH NGUYÊN NHÂN THIẾU / LỆCH</th>
             </tr>
             <tr>
               <th class="sub-ton-dau">Luôn bằng 0</th>
@@ -732,6 +734,10 @@ function renderReportUI() {
               <th class="sub-xuat">Đã giao KH</th>
               <th class="sub-ton-cuoi">Nhập TL - Xuất TL</th>
               <th class="sub-ton-thucte">Kiểm kê 5 trạm</th>
+              <th class="sub-shortage-matxac">1. MẤT XÁC (SL)</th>
+              <th class="sub-shortage-hangphe">2. HÀNG PHẾ (SL)</th>
+              <th class="sub-shortage-khac">3. KHÁC (SL)</th>
+              <th class="sub-shortage-note">4. GHI CHÚ LÝ DO KHÁC</th>
             </tr>
           </thead>
           <tbody>
@@ -741,6 +747,11 @@ function renderReportUI() {
               <td class="val-dash">--</td>
               <td class="val-prev-in font-bold text-sky-700" id="calcPrevIn_${idx}">${prevIn.toLocaleString("vi-VN")}</td>
               <td class="val-prev-out font-bold text-emerald-700" id="calcPrevOut_${idx}">${prevOut.toLocaleString("vi-VN")}</td>
+              <td class="val-dash">--</td>
+              <td class="val-dash">--</td>
+              <td class="val-dash">--</td>
+              <td class="val-dash">--</td>
+              <td class="val-dash">--</td>
               <td class="val-dash">--</td>
               <td class="val-dash">--</td>
               <td class="val-dash">--</td>
@@ -756,6 +767,11 @@ function renderReportUI() {
               <td class="val-today-out">
                 <input type="number" ${isEditing ? '' : 'readonly'} class="wip-num-input wip-num-input-out field-daily-out grid-nav-input font-black text-emerald-900" data-batch="${idx}" data-row="0" data-col="3" value="${batch.daily_out || ''}" placeholder="0" data-idx="${idx}" title="Số lượng xuất giao khách trong ngày hôm nay">
               </td>
+              <td class="val-dash">--</td>
+              <td class="val-dash">--</td>
+              <td class="val-dash">--</td>
+              <td class="val-dash">--</td>
+              <td class="val-dash">--</td>
               <td class="val-dash">--</td>
               <td class="val-dash">--</td>
               <td class="val-dash">--</td>
@@ -776,22 +792,23 @@ function renderReportUI() {
                 <div class="thieu-num-display" id="calcShortage_${idx}">
                   ${shortage === 0 ? '<span class="status-ok">0 (OK)</span>' : (shortage > 0 ? ('<span class="status-shortage">-' + Math.abs(shortage).toLocaleString("vi-VN") + '</span>') : ('<span class="status-surplus">+' + Math.abs(shortage).toLocaleString("vi-VN") + '</span>'))}
                 </div>
-                <div class="thieu-dropdown-container">
-                  <select class="thieu-select field-reason-type grid-nav-input" data-batch="${idx}" data-row="0" data-col="6" data-idx="${idx}" ${isEditing ? '' : 'disabled'}>
-                    <option value="" ${!reasonType ? 'selected' : ''}>(Lý do)</option>
-                    <option value="Mất xác" ${reasonType === 'Mất xác' ? 'selected' : ''}>Mất xác</option>
-                    <option value="Hàng phế" ${reasonType === 'Hàng phế' ? 'selected' : ''}>Hàng phế</option>
-                    <option value="Khác" ${reasonType === 'Khác' ? 'selected' : ''}>Khác</option>
-                  </select>
-                  <input type="text" class="thieu-underline-box field-custom-reason grid-nav-input"
-                         id="customReason_${idx}"
-                         placeholder="Thiếu phôi..."
-                         value="${customReason}"
-                         ${isEditing ? '' : 'readonly'}
-                         data-batch="${idx}" data-row="0" data-col="7"
-                         style="${reasonType === 'Khác' ? 'display:block;' : 'display:none;'}"
-                         data-idx="${idx}">
-                </div>
+              </td>
+              <td class="cell-arrow-thieu">
+                <svg class="red-right-arrow" viewBox="0 0 28 20" fill="#dc2626">
+                  <path d="M0 7 H16 V0 L28 10 L16 20 V13 H0 Z" />
+                </svg>
+              </td>
+              <td class="cell-shortage-matxac">
+                <input type="number" ${isEditing ? '' : 'readonly'} class="wip-num-input field-shortage-matxac grid-nav-input font-black text-rose-700" data-batch="${idx}" data-row="0" data-col="5" value="${batch.shortage_mat_xac || ''}" placeholder="0" data-idx="${idx}" title="Số lượng thiếu do Mất xác">
+              </td>
+              <td class="cell-shortage-hangphe">
+                <input type="number" ${isEditing ? '' : 'readonly'} class="wip-num-input field-shortage-hangphe grid-nav-input font-black text-amber-700" data-batch="${idx}" data-row="0" data-col="6" value="${batch.shortage_hang_phe || ''}" placeholder="0" data-idx="${idx}" title="Số lượng thiếu do Hàng phế">
+              </td>
+              <td class="cell-shortage-khac">
+                <input type="number" ${isEditing ? '' : 'readonly'} class="wip-num-input field-shortage-khac grid-nav-input font-black text-purple-700" data-batch="${idx}" data-row="0" data-col="7" value="${batch.shortage_khac || ''}" placeholder="0" data-idx="${idx}" title="Số lượng thiếu do Lý do khác">
+              </td>
+              <td class="cell-shortage-note">
+                <input type="text" ${isEditing ? '' : 'readonly'} class="wip-executor-input field-shortage-note grid-nav-input" data-batch="${idx}" data-row="0" data-col="8" value="${batch.shortage_note || ''}" placeholder="Nhập lý do khác..." data-idx="${idx}" title="Diễn giải chi tiết lý do khác">
               </td>
             </tr>
           </tbody>
@@ -1016,22 +1033,17 @@ function bindCardInputs() {
       if (e.target.classList.contains("field-note-pairing")) b.note_pairing = e.target.value;
       if (e.target.classList.contains("field-note-packing")) b.note_packing = e.target.value;
       if (e.target.classList.contains("field-note-warehouse")) b.note_warehouse = e.target.value;
-      if (e.target.classList.contains("field-note-export")) b.note_export = e.target.value;
 
-      if (e.target.classList.contains("field-reason-type")) {
-        const selVal = e.target.value;
-        b.shortage_reason_type = selVal;
-        const customInput = document.getElementById(`customReason_${idx}`);
-        if (selVal === "Khác") {
-          b.shortage_note = customInput ? customInput.value : "";
-          if (customInput) customInput.style.display = "block";
-        } else {
-          b.shortage_note = selVal;
-          if (customInput) customInput.style.display = "none";
-        }
+      if (e.target.classList.contains("field-shortage-matxac")) {
+        b.shortage_mat_xac = Number(e.target.value) || 0;
       }
-
-      if (e.target.classList.contains("field-custom-reason")) {
+      if (e.target.classList.contains("field-shortage-hangphe")) {
+        b.shortage_hang_phe = Number(e.target.value) || 0;
+      }
+      if (e.target.classList.contains("field-shortage-khac")) {
+        b.shortage_khac = Number(e.target.value) || 0;
+      }
+      if (e.target.classList.contains("field-shortage-note")) {
         b.shortage_note = e.target.value;
       }
 

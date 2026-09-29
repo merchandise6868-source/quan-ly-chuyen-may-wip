@@ -257,12 +257,21 @@ async function initD1Tables(db) {
       await db.prepare("ALTER TABLE users ADD COLUMN password TEXT DEFAULT 'Admin@123456'").run();
     } catch (e) {}
 
-    // Safe schema migrations for report_batches table (daily_out and note_export)
+    // Safe schema migrations for report_batches table (daily_out, note_export, shortage breakdown)
     try {
       await db.prepare("ALTER TABLE report_batches ADD COLUMN daily_out INTEGER DEFAULT 0").run();
     } catch (e) {}
     try {
       await db.prepare("ALTER TABLE report_batches ADD COLUMN note_export TEXT").run();
+    } catch (e) {}
+    try {
+      await db.prepare("ALTER TABLE report_batches ADD COLUMN shortage_mat_xac INTEGER DEFAULT 0").run();
+    } catch (e) {}
+    try {
+      await db.prepare("ALTER TABLE report_batches ADD COLUMN shortage_hang_phe INTEGER DEFAULT 0").run();
+    } catch (e) {}
+    try {
+      await db.prepare("ALTER TABLE report_batches ADD COLUMN shortage_khac INTEGER DEFAULT 0").run();
     } catch (e) {}
 
     // Check if customers empty, then seed
@@ -1043,13 +1052,13 @@ export default {
                   id, report_id, po_id, report_date, batch_name, batch_plan, into_sewing, delivered, daily_out,
                   wip_sewing, wip_qc, wip_pairing, wip_packing, wip_warehouse,
                   note_sewing, note_qc, note_pairing, note_packing, note_warehouse, note_export,
-                  shortage_reason_type, shortage_note
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                  shortage_reason_type, shortage_note, shortage_mat_xac, shortage_hang_phe, shortage_khac
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
               `).bind(
                 bId, key, po_id, report_date, b.batch_name, Number(b.batch_plan) || 0, Number(b.into_sewing) || 0, delivered, dailyOut,
                 Number(b.wip_sewing) || 0, Number(b.wip_qc) || 0, Number(b.wip_pairing) || 0, Number(b.wip_packing) || 0, Number(b.wip_warehouse) || 0,
                 b.note_sewing || '', b.note_qc || '', b.note_pairing || '', b.note_packing || '', b.note_warehouse || '', b.note_export || '',
-                b.shortage_reason_type || '', b.shortage_note || ''
+                b.shortage_reason_type || '', b.shortage_note || '', Number(b.shortage_mat_xac) || 0, Number(b.shortage_hang_phe) || 0, Number(b.shortage_khac) || 0
               ).run();
             }
 
