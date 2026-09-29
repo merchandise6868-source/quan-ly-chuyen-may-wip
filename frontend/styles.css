@@ -654,10 +654,27 @@ body {
 }
 
 .val-today-out {
+  background-color: #ffffff !important;
+  padding: 2px 4px !important;
+}
+
+.val-today-out input {
+  width: 100%;
+  border: 1px solid #86efac;
+  border-radius: 4px;
+  padding: 4px;
   font-size: 14px;
   font-weight: 800;
-  color: #c2410c;
-  background-color: #fff7ed;
+  text-align: center;
+  color: #166534;
+  background: #f0fdf4;
+  outline: none;
+}
+
+.val-today-out input:focus {
+  background: #ffffff;
+  border-color: #16a34a;
+  box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.2);
 }
 
 .sub-batch-plan {

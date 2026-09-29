@@ -753,7 +753,9 @@ function renderReportUI() {
               <td class="val-today-in">
                 <input type="number" ${isEditing ? '' : 'readonly'} class="wip-num-input field-daily-in field-into-sewing grid-nav-input font-black text-sky-900" data-batch="${idx}" data-row="0" data-col="2" value="${batch.into_sewing || ''}" placeholder="0" data-idx="${idx}" title="Số phôi nhập vào chuyền hôm nay">
               </td>
-              <td class="val-today-out font-black text-emerald-800" id="calcTodayOut_${idx}">${todayOut.toLocaleString("vi-VN")}</td>
+              <td class="val-today-out">
+                <input type="number" ${isEditing ? '' : 'readonly'} class="wip-num-input wip-num-input-out field-daily-out grid-nav-input font-black text-emerald-900" data-batch="${idx}" data-row="0" data-col="3" value="${batch.daily_out || ''}" placeholder="0" data-idx="${idx}" title="Số lượng xuất giao khách trong ngày hôm nay">
+              </td>
               <td class="val-dash">--</td>
               <td class="val-dash">--</td>
               <td class="val-dash">--</td>
@@ -803,11 +805,11 @@ function renderReportUI() {
           <svg class="blue-block-arrow" viewBox="0 0 24 28" fill="#0284c7">
             <path d="M7 0 H17 V14 H24 L12 28 L0 14 H7 Z" />
           </svg>
-          <span class="mobile-flow-text">⬇ NHẬP SỐ KIỂM KÊ 5 TRẠM & XUẤT HÀNG ⬇</span>
+          <span class="mobile-flow-text">⬇ NHẬP SỐ KIỂM KÊ 5 TRẠM WIP ⬇</span>
         </div>
       </div>
 
-      <!-- LOWER SECTION: TABLE 2 (HÌNH 2 - ĐIỀN TÊN NẰM NGANG DÒNG CUỐI) -->
+      <!-- LOWER SECTION: TABLE 2 (HÌNH 2 - KIỂM KÊ 5 TRẠM WIP) -->
       <div class="lower-section">
         <div class="lower-left-spacer">
           <span class="executor-label-txt">Điền tên người Thực Hiện</span>
@@ -817,7 +819,6 @@ function renderReportUI() {
             <thead>
               <tr>
                 <th colspan="5" class="hdr-wip-top">KIỂM KÊ TỒN THỰC TẾ</th>
-                <th class="hdr-out-top">XUẤT TRONG NGÀY</th>
                 <th rowspan="3" class="hdr-action-top wip-col-action">THAO TÁC</th>
               </tr>
               <tr>
@@ -826,10 +827,8 @@ function renderReportUI() {
                 <th class="wip-col-3 sub-wip-3">3. TỒN PHỐI ĐÔI</th>
                 <th class="wip-col-4 sub-wip-4">4. TỒN ĐÓNG GÓI</th>
                 <th class="wip-col-5 sub-wip-5">5. TỒN KHO THÀNH<br>PHẨM</th>
-                <th class="wip-col-6 sub-wip-6">6.XUẤT</th>
               </tr>
               <tr>
-                <th class="sub-batch-tag"><i>${batch.batch_name}</i></th>
                 <th class="sub-batch-tag"><i>${batch.batch_name}</i></th>
                 <th class="sub-batch-tag"><i>${batch.batch_name}</i></th>
                 <th class="sub-batch-tag"><i>${batch.batch_name}</i></th>
@@ -838,28 +837,26 @@ function renderReportUI() {
               </tr>
             </thead>
             <tbody>
-              <!-- ROW 1: SỐ LƯỢNG KIỂM KÊ & XUẤT TRONG NGÀY -->
+              <!-- ROW 1: SỐ LƯỢNG KIỂM KÊ 5 TRẠM -->
               <tr class="${isEditing ? 'batch-row-editing' : 'batch-row-locked'}">
                 <td><input type="number" ${isEditing ? '' : 'readonly'} class="wip-num-input field-wip-sewing grid-nav-input" data-batch="${idx}" data-row="1" data-col="0" value="${batch.wip_sewing || ''}" placeholder="0" data-idx="${idx}"></td>
                 <td><input type="number" ${isEditing ? '' : 'readonly'} class="wip-num-input field-wip-qc grid-nav-input" data-batch="${idx}" data-row="1" data-col="1" value="${batch.wip_qc || ''}" placeholder="0" data-idx="${idx}"></td>
                 <td><input type="number" ${isEditing ? '' : 'readonly'} class="wip-num-input field-wip-pairing grid-nav-input" data-batch="${idx}" data-row="1" data-col="2" value="${batch.wip_pairing || ''}" placeholder="0" data-idx="${idx}"></td>
                 <td><input type="number" ${isEditing ? '' : 'readonly'} class="wip-num-input field-wip-packing grid-nav-input" data-batch="${idx}" data-row="1" data-col="3" value="${batch.wip_packing || ''}" placeholder="0" data-idx="${idx}"></td>
                 <td><input type="number" ${isEditing ? '' : 'readonly'} class="wip-num-input field-wip-warehouse grid-nav-input" data-batch="${idx}" data-row="1" data-col="4" value="${batch.wip_warehouse || ''}" placeholder="0" data-idx="${idx}"></td>
-                <td><input type="number" ${isEditing ? '' : 'readonly'} class="wip-num-input wip-num-input-out field-daily-out grid-nav-input" data-batch="${idx}" data-row="1" data-col="5" value="${batch.daily_out || ''}" placeholder="0" data-idx="${idx}"></td>
                 <td rowspan="2" class="cell-batch-actions">
                   <button type="button" class="btn-batch-toggle ${isEditing ? 'is-editing' : 'is-locked'} btn-toggle-batch" data-batch="${idx}">
                     ${isEditing ? '✅ OK' : '✏️ Sửa'}
                   </button>
                 </td>
               </tr>
-              <!-- ROW 2: TÊN NGƯỜI THỰC HIỆN / GHI CHÚ (DÒNG CUỐI CÙNG) -->
+              <!-- ROW 2: TÊN NGƯỜI THỰC HIỆN (5 TRẠM) -->
               <tr class="${isEditing ? 'batch-row-editing' : 'batch-row-locked'}">
                 <td><input type="text" ${isEditing ? '' : 'readonly'} class="wip-executor-input field-note-sewing grid-nav-input" data-batch="${idx}" data-row="2" data-col="0" value="${batch.note_sewing || ''}" placeholder="Người thực hiện..." data-idx="${idx}"></td>
                 <td><input type="text" ${isEditing ? '' : 'readonly'} class="wip-executor-input field-note-qc grid-nav-input" data-batch="${idx}" data-row="2" data-col="1" value="${batch.note_qc || ''}" placeholder="Người thực hiện..." data-idx="${idx}"></td>
                 <td><input type="text" ${isEditing ? '' : 'readonly'} class="wip-executor-input field-note-pairing grid-nav-input" data-batch="${idx}" data-row="2" data-col="2" value="${batch.note_pairing || ''}" placeholder="Người thực hiện..." data-idx="${idx}"></td>
                 <td><input type="text" ${isEditing ? '' : 'readonly'} class="wip-executor-input field-note-packing grid-nav-input" data-batch="${idx}" data-row="2" data-col="3" value="${batch.note_packing || ''}" placeholder="Người thực hiện..." data-idx="${idx}"></td>
                 <td><input type="text" ${isEditing ? '' : 'readonly'} class="wip-executor-input field-note-warehouse grid-nav-input" data-batch="${idx}" data-row="2" data-col="4" value="${batch.note_warehouse || ''}" placeholder="Người thực hiện..." data-idx="${idx}"></td>
-                <td><input type="text" ${isEditing ? '' : 'readonly'} class="wip-executor-input field-note-export grid-nav-input" data-batch="${idx}" data-row="2" data-col="5" value="${batch.note_export || ''}" placeholder="Ghi chú xuất..." data-idx="${idx}"></td>
               </tr>
             </tbody>
           </table>
