@@ -947,40 +947,6 @@ export default {
               }
             }
 
-            if (!report || !report.batches || report.batches.length === 0) {
-              const { results: ordRows } = await env.DB.prepare("SELECT * FROM po_orders WHERE id = ?").bind(poId).all();
-              const order = ordRows && ordRows[0] ? {
-                ...ordRows[0],
-                default_batches: typeof ordRows[0].default_batches === 'string' ? JSON.parse(ordRows[0].default_batches || '[]') : (ordRows[0].default_batches || [])
-              } : null;
-
-              const batches = order && order.default_batches && order.default_batches.length > 0 ? order.default_batches.map((b, i) => ({
-                id: b.id || ('b-' + (i+1)),
-                batch_name: b.batch_name,
-                batch_plan: Number(b.batch_plan || b.into_sewing) || 0,
-                into_sewing: Number(b.into_sewing || b.batch_plan) || 0,
-                delivered: 0,
-                wip_sewing: 0,
-                wip_qc: 0,
-                wip_pairing: 0,
-                wip_packing: 0,
-                wip_warehouse: 0,
-                daily_out: 0,
-                note_sewing: "",
-                note_qc: "",
-                note_pairing: "",
-                note_packing: "",
-                note_warehouse: "",
-                shortage_reason_type: "",
-                shortage_note: "",
-                shortage_mat_xac: 0,
-                shortage_hang_phe: 0,
-                shortage_khac: 0
-              })) : [];
-
-              report = { po_id: poId, report_date: date, status: (repRows && repRows[0] && repRows[0].status) || "DRAFT", batches };
-            }
-
             // Cumulative export & import calculation from prior days strictly before current report date
             const { results: allBatchExports } = await env.DB.prepare(
               "SELECT batch_name, SUM(COALESCE(daily_out, 0)) as total_out, SUM(COALESCE(into_sewing, 0)) as total_in FROM report_batches WHERE po_id = ? AND report_date < ? GROUP BY batch_name"
@@ -993,39 +959,48 @@ export default {
               cumImportsByBatch[r.batch_name] = Number(r.total_in) || 0;
             });
 
+            if (!report || !report.batches || report.batches.length === 0) {
+              const { results: ordRows } = await env.DB.prepare("SELECT * FROM po_orders WHERE id = ?").bind(poId).all();
+              const order = ordRows && ordRows[0] ? {
+                ...ordRows[0],
+                default_batches: typeof ordRows[0].default_batches === 'string' ? JSON.parse(ordRows[0].default_batches || '[]') : (ordRows[0].default_batches || [])
+              } : null;
+
+              const batches = order && order.default_batches && order.default_batches.length > 0 ? order.default_batches.map((b, i) => {
+                const priorIn = cumImportsByBatch[b.batch_name] || 0;
+                const defaultTodayIn = priorIn > 0 ? 0 : (Number(b.into_sewing || b.batch_plan) || 0);
+                return {
+                  id: b.id || ('b-' + (i+1)),
+                  batch_name: b.batch_name,
+                  batch_plan: Number(b.batch_plan || b.into_sewing) || 0,
+                  into_sewing: defaultTodayIn,
+                  delivered: 0,
+                  wip_sewing: 0,
+                  wip_qc: 0,
+                  wip_pairing: 0,
+                  wip_packing: 0,
+                  wip_warehouse: 0,
+                  daily_out: 0,
+                  note_sewing: "",
+                  note_qc: "",
+                  note_pairing: "",
+                  note_packing: "",
+                  note_warehouse: "",
+                  shortage_reason_type: "",
+                  shortage_note: "",
+                  shortage_mat_xac: 0,
+                  shortage_hang_phe: 0,
+                  shortage_khac: 0
+                };
+              }) : [];
+
+              report = { po_id: poId, report_date: date, status: (repRows && repRows[0] && repRows[0].status) || "DRAFT", batches };
+            }
+
             return Response.json({ success: true, report, cumExportsByBatch, cumImportsByBatch }, { headers });
           } catch (err) {
             console.error("D1 Report Query Error:", err);
           }
-        }
-
-        let report = memoryDB.reports[key];
-        if (!report) {
-          const order = memoryDB.orders.find(o => o.id === poId);
-          const batches = order && order.default_batches ? order.default_batches.map((b, i) => ({
-            id: 'b-' + (i+1),
-            batch_name: b.batch_name,
-            batch_plan: b.batch_plan,
-            into_sewing: b.into_sewing,
-            wip_sewing: 0,
-            wip_qc: 0,
-            wip_pairing: 0,
-            wip_packing: 0,
-            wip_warehouse: 0,
-            daily_out: 0,
-            note_sewing: "",
-            note_qc: "",
-            note_pairing: "",
-            note_packing: "",
-            note_warehouse: "",
-            shortage_reason_type: "",
-            shortage_note: "",
-            shortage_mat_xac: 0,
-            shortage_hang_phe: 0,
-            shortage_khac: 0
-          })) : [];
-
-          report = { po_id: poId, report_date: date, status: "DRAFT", batches };
         }
 
         const allKeys = Object.keys(memoryDB.reports).filter(k => k.startsWith(poId + '_')).sort();
@@ -1043,6 +1018,39 @@ export default {
             }
           }
         });
+
+        let report = memoryDB.reports[key];
+        if (!report) {
+          const order = memoryDB.orders.find(o => o.id === poId);
+          const batches = order && order.default_batches ? order.default_batches.map((b, i) => {
+            const priorIn = cumImportsByBatch[b.batch_name] || 0;
+            const defaultTodayIn = priorIn > 0 ? 0 : (Number(b.into_sewing || b.batch_plan) || 0);
+            return {
+              id: 'b-' + (i+1),
+              batch_name: b.batch_name,
+              batch_plan: Number(b.batch_plan || b.into_sewing) || 0,
+              into_sewing: defaultTodayIn,
+              wip_sewing: 0,
+              wip_qc: 0,
+              wip_pairing: 0,
+              wip_packing: 0,
+              wip_warehouse: 0,
+              daily_out: 0,
+              note_sewing: "",
+              note_qc: "",
+              note_pairing: "",
+              note_packing: "",
+              note_warehouse: "",
+              shortage_reason_type: "",
+              shortage_note: "",
+              shortage_mat_xac: 0,
+              shortage_hang_phe: 0,
+              shortage_khac: 0
+            };
+          }) : [];
+
+          report = { po_id: poId, report_date: date, status: "DRAFT", batches };
+        }
 
         return Response.json({ success: true, report, cumExportsByBatch, cumImportsByBatch }, { headers });
       }

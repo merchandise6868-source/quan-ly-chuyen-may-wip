@@ -483,6 +483,14 @@ body {
   box-shadow: 0 2px 10px rgba(0,0,0,0.04);
 }
 
+/* DESKTOP vs MOBILE BATCH DISPLAY */
+.desktop-batch-layout {
+  display: block;
+}
+.mobile-batch-layout {
+  display: none;
+}
+
 .batch-table-1 {
   border-collapse: collapse;
   font-size: 13px;
@@ -826,12 +834,13 @@ body {
 }
 
 .arrow-offset {
-  width: 540px;
+  width: 580px;
   flex-shrink: 0;
+  transition: width 0.1s ease-out;
 }
 
 .arrow-holder {
-  width: 120px;
+  width: 32px;
   text-align: center;
   display: flex;
   justify-content: center;
@@ -855,13 +864,14 @@ body {
 }
 
 .lower-left-spacer {
-  width: 540px;
+  width: 580px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: flex-end;
   padding-right: 16px;
   height: 40px;
+  transition: width 0.1s ease-out;
 }
 
 .executor-label-txt {
@@ -2705,94 +2715,282 @@ input[type=number] {
     font-size: 11px !important;
   }
 
-  .table-card-1, .table-card-2 {
-    display: block !important;
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch !important;
-    border-radius: 6px !important;
-    width: 100% !important;
-  }
-
-  .batch-table-1, .batch-table-2 {
-    min-width: 640px !important;
-    font-size: 11px !important;
-  }
-
-  .batch-table-1 th, .batch-table-1 td {
-    padding: 4px 3px !important;
-  }
-
-  .batch-table-2 th, .batch-table-2 td {
-    padding: 4px 2px !important;
-  }
-
-  /* REMOVE 540PX SPACERS ON MOBILE SO TABLE 2 IS NOT PUSHED OFF-SCREEN */
-  .arrow-offset {
+  /* DESKTOP vs MOBILE TOGGLE */
+  .desktop-batch-layout {
     display: none !important;
-    width: 0 !important;
   }
-
-  .lower-left-spacer {
-    display: none !important;
-    width: 0 !important;
-  }
-
-  .lower-section {
+  .mobile-batch-layout {
     display: block !important;
-    width: 100% !important;
   }
 
-  .arrow-row {
-    display: flex !important;
-    justify-content: center !important;
-    align-items: center !important;
-    margin: 6px 0 !important;
-    gap: 6px !important;
+  /* MOBILE BATCH CARD (HÌNH 2) */
+  .mobile-batch-layout {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 10px 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    border: 1px solid #cbd5e1;
+    margin-bottom: 18px;
   }
 
-  .arrow-holder {
-    width: auto !important;
-    display: flex !important;
-    align-items: center !important;
-    gap: 6px !important;
+  /* 1. Header Meta Bar (Ngày | 29.9.2026 | Tên lô | Lô 1 | KH (đôi) | 237) */
+  .mob-batch-meta-bar {
+    display: grid;
+    grid-template-columns: 65px 1fr 65px 1fr 75px 1fr;
+    border: 1px solid #94a3b8;
+    background: #ffffff;
+    margin-bottom: 10px;
+    font-size: 12px;
+    text-align: center;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .mob-meta-cell {
+    padding: 5px 3px;
+    border-right: 1px solid #cbd5e1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+  }
+  .mob-meta-cell:last-child {
+    border-right: none;
+  }
+  .mob-meta-lbl {
+    font-weight: 800;
+    color: #0f172a;
+    background: #f1f5f9;
+  }
+  .mob-meta-val {
+    font-weight: 700;
+    color: #0369a1;
   }
 
-  .blue-block-arrow {
-    width: 18px !important;
-    height: 20px !important;
+  /* 2. Scrollable sheet */
+  .mob-scrollable-sheet {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 10px;
   }
 
-  .mobile-flow-text {
-    display: inline-block !important;
-    font-size: 10px !important;
+  .mob-top-grid {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* Table 1 Mobile (7 Cột) */
+  .mob-batch-table-1 {
+    border-collapse: collapse;
+    font-size: 11.5px;
+    background: #ffffff;
+    border: 1px solid #94a3b8;
+    white-space: nowrap;
+  }
+  .mob-batch-table-1 th, .mob-batch-table-1 td {
+    border: 1px solid #cbd5e1;
+    text-align: center;
+    padding: 4px 6px;
+    vertical-align: middle;
+  }
+  .mob-hdr-main {
+    font-weight: 800;
+    font-size: 11.5px;
+  }
+  .mob-hdr-sub {
+    font-size: 9.5px;
+    font-weight: 600;
+    color: #64748b;
+    font-style: italic;
+  }
+  .mob-col-type { width: 145px; background: #f8fafc; font-weight: 800; }
+  .mob-col-tondau { width: 85px; background: #f1f5f9; }
+  .mob-col-nhap { width: 90px; background: #e0f2fe; color: #0369a1; }
+  .mob-col-xuat { width: 90px; background: #dcfce7; color: #15803d; }
+  .mob-col-tonlt { width: 100px; background: #ffedd5; color: #9a3412; }
+  .mob-col-tontt { width: 100px; background: #cffafe; color: #0e7490; }
+  .mob-col-thieu { width: 95px; background: #ffe4e6; color: #be123c; }
+
+  /* Dòng 3 Tích lũy (NỀN VÀNG RỰC RỠ NHƯ HÌNH 2) */
+  .mob-row-cumulative {
+    background-color: #ffff00 !important;
+    color: #000000 !important;
     font-weight: 800 !important;
-    color: #0369a1 !important;
-    background: #e0f2fe !important;
-    padding: 2px 8px !important;
-    border-radius: 10px !important;
-    border: 1px solid #bae6fd !important;
+  }
+  .mob-row-cumulative td {
+    border-color: #858500 !important;
+    color: #000000 !important;
+  }
+  .mob-cum-label {
+    font-weight: 900 !important;
+    color: #000000 !important;
+    text-align: left !important;
+    padding-left: 6px !important;
   }
 
-  .wip-num-input {
+  /* Red Arrow between Table 1 and Breakdown Table */
+  .mob-arrow-thieu-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    flex-shrink: 0;
+  }
+  .mob-arrow-thieu-wrapper .red-right-arrow {
+    width: 24px;
+    height: 20px;
+  }
+
+  /* Table Phân Tích Nguyên Nhân (2 Cột x 5 Dòng) */
+  .mob-breakdown-card {
+    border: 1px solid #94a3b8;
+    display: inline-block;
+    background: #ffffff;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .mob-breakdown-table {
+    border-collapse: collapse;
+    font-size: 11.5px;
+    white-space: nowrap;
+  }
+  .mob-breakdown-table th, .mob-breakdown-table td {
+    border: 1px solid #cbd5e1;
+    padding: 4px 6px;
+    text-align: center;
+  }
+  .mob-hdr-breakdown-top {
+    background-color: #881337;
+    color: #ffffff;
+    font-weight: 800;
+    font-size: 11.5px;
+    letter-spacing: 0.3px;
+    padding: 6px 8px !important;
+  }
+  .mob-lbl-reason {
+    text-align: left !important;
+    font-weight: 700;
+    color: #1e293b;
+    background: #f8fafc;
+    padding-left: 8px !important;
+    min-width: 140px;
+  }
+  .mob-col-reason-val {
+    min-width: 110px;
+    font-weight: 800;
+    background: #f1f5f9;
+  }
+  .mob-unallocated-box {
+    color: #0284c7;
+    font-weight: 900;
+    font-size: 13px;
+  }
+
+  /* Blue Down Arrow Row (Dưới Cột Tồn Thực Tế) */
+  .mob-blue-arrow-row {
+    display: flex;
+    margin: 6px 0;
+    height: 28px;
+    align-items: center;
+  }
+  .mob-blue-arrow-holder {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    width: 28px;
+    margin-left: 450px;
+  }
+
+  /* Table 2 WIP Kiểm Kê 5 Trạm (Dọc 3 Cột) */
+  .mob-wip-section {
+    display: block;
+    padding-left: 260px;
+  }
+  .mob-wip-table-wrapper {
+    display: inline-block;
+    border: 1px solid #94a3b8;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .mob-wip-table {
+    border-collapse: collapse;
+    font-size: 11.5px;
+    background: #ffffff;
+    white-space: nowrap;
+  }
+  .mob-wip-table th, .mob-wip-table td {
+    border: 1px solid #cbd5e1;
+    padding: 4px 6px;
+    text-align: center;
+    vertical-align: middle;
+  }
+  .mob-hdr-wip-top {
+    background-color: #0e7490;
+    color: #ffffff;
+    font-weight: 800;
+    font-size: 12px;
+    padding: 6px 10px !important;
+    letter-spacing: 0.5px;
+  }
+  .mob-wip-col-station { width: 130px; background: #f8fafc; font-weight: 800; }
+  .mob-wip-col-qty { width: 95px; background: #f1f5f9; font-weight: 800; }
+  .mob-wip-col-executor { width: 130px; background: #f8fafc; font-weight: 800; }
+
+  .station-bg-yellow {
+    background-color: #fef9c3 !important;
+  }
+  .station-bg-green {
+    background-color: #dcfce7 !important;
+  }
+  .station-name-cell {
+    text-align: left !important;
+    padding-left: 8px !important;
+    font-weight: 700;
+    font-size: 11.5px;
+    line-height: 1.25;
+  }
+  .station-name-cell .st-num {
+    display: block;
+    font-weight: 800;
+    color: #0f172a;
+  }
+  .station-name-cell .st-batch {
+    display: block;
+    font-size: 10px;
+    color: #475569;
+    font-weight: 600;
+  }
+
+  /* Footer row */
+  .mob-wip-footer-row td {
+    background: #f8fafc;
+    font-weight: 800;
+  }
+  .mob-wip-footer-label {
+    color: #0e7490 !important;
+    font-size: 11.5px !important;
+    text-align: left !important;
+    padding-left: 8px !important;
+  }
+  .mob-wip-footer-sum {
+    color: #0f172a !important;
     font-size: 13px !important;
-    padding: 3px 0 !important;
-    height: 28px !important;
+    font-weight: 900 !important;
+  }
+  .mob-wip-footer-target {
+    font-style: italic;
+    color: #0284c7;
+    font-size: 11px;
   }
 
-  .wip-executor-input {
-    font-size: 9.5px !important;
-    padding: 2px 1px !important;
-    height: 24px !important;
+  .mob-wip-action-bar {
+    margin-top: 8px;
   }
-
-  .btn-batch-toggle {
-    padding: 5px 6px !important;
-    font-size: 11px !important;
-  }
-
-  .thieu-select, .thieu-underline-box {
-    width: 78px !important;
-    font-size: 10px !important;
+  .mob-wip-action-bar .btn-batch-toggle {
+    width: 100%;
+    padding: 7px 10px;
+    font-size: 12px;
+    font-weight: 700;
   }
 
   /* LOGIN PORTAL ON MOBILE */
