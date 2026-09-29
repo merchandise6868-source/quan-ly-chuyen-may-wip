@@ -275,8 +275,18 @@ async function initD1Tables(db) {
     try {
       await db.prepare("ALTER TABLE report_batches ADD COLUMN shortage_hang_phe INTEGER DEFAULT 0").run();
     } catch (e) {}
+    // Safe schema migrations for dept_logs table (ton_dau, nhap, xuat, ton_cuoi)
     try {
-      await db.prepare("ALTER TABLE report_batches ADD COLUMN shortage_khac INTEGER DEFAULT 0").run();
+      await db.prepare("ALTER TABLE dept_logs ADD COLUMN ton_dau INTEGER DEFAULT 0").run();
+    } catch (e) {}
+    try {
+      await db.prepare("ALTER TABLE dept_logs ADD COLUMN nhap INTEGER DEFAULT 0").run();
+    } catch (e) {}
+    try {
+      await db.prepare("ALTER TABLE dept_logs ADD COLUMN xuat INTEGER DEFAULT 0").run();
+    } catch (e) {}
+    try {
+      await db.prepare("ALTER TABLE dept_logs ADD COLUMN ton_cuoi INTEGER DEFAULT 0").run();
     } catch (e) {}
 
     // Check if customers empty, then seed
@@ -1139,10 +1149,14 @@ export default {
               if (!logs[r.batch_name]) logs[r.batch_name] = [];
               logs[r.batch_name].push({
                 date: r.log_date || "",
-                nhap_phoi: r.nhap_phoi,
-                giao_dg: r.giao_dg,
-                nhap_kho: r.nhap_kho,
-                xuat_kho: r.xuat_kho
+                ton_dau: r.ton_dau !== undefined && r.ton_dau !== null ? r.ton_dau : "",
+                nhap: r.nhap !== undefined && r.nhap !== null ? r.nhap : "",
+                xuat: r.xuat !== undefined && r.xuat !== null ? r.xuat : "",
+                ton_cuoi: r.ton_cuoi !== undefined && r.ton_cuoi !== null ? r.ton_cuoi : "",
+                nhap_phoi: r.nhap_phoi !== undefined && r.nhap_phoi !== null ? r.nhap_phoi : "",
+                giao_dg: r.giao_dg !== undefined && r.giao_dg !== null ? r.giao_dg : "",
+                nhap_kho: r.nhap_kho !== undefined && r.nhap_kho !== null ? r.nhap_kho : "",
+                xuat_kho: r.xuat_kho !== undefined && r.xuat_kho !== null ? r.xuat_kho : ""
               });
             });
 
@@ -1156,7 +1170,7 @@ export default {
         return Response.json({ success: true, logs }, { headers });
       }
 
-      // Save Dept Logs (Tab 3)
+      // Save Dept Logs (Tab 2)
       if (url.pathname === '/api/dept-logs' && request.method === 'POST') {
         try {
           const body = await request.json();
@@ -1171,11 +1185,19 @@ export default {
                 const r = bRows[i];
                 const rowId = `dl-${po_id}-${bName}-${i}-${Date.now()}`;
                 await env.DB.prepare(`
-                  INSERT INTO dept_logs (id, po_id, batch_name, log_date, nhap_phoi, giao_dg, nhap_kho, xuat_kho, row_order)
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                  INSERT INTO dept_logs (id, po_id, batch_name, log_date, ton_dau, nhap, xuat, ton_cuoi, nhap_phoi, giao_dg, nhap_kho, xuat_kho, row_order)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 `).bind(
                   rowId, po_id, bName, r.date || '',
-                  Number(r.nhap_phoi) || 0, Number(r.giao_dg) || 0, Number(r.nhap_kho) || 0, Number(r.xuat_kho) || 0, i
+                  r.ton_dau !== "" && r.ton_dau !== undefined ? Number(r.ton_dau) : 0,
+                  r.nhap !== "" && r.nhap !== undefined ? Number(r.nhap) : 0,
+                  r.xuat !== "" && r.xuat !== undefined ? Number(r.xuat) : 0,
+                  r.ton_cuoi !== "" && r.ton_cuoi !== undefined ? Number(r.ton_cuoi) : 0,
+                  r.nhap_phoi !== "" && r.nhap_phoi !== undefined ? Number(r.nhap_phoi) : 0,
+                  r.giao_dg !== "" && r.giao_dg !== undefined ? Number(r.giao_dg) : 0,
+                  r.nhap_kho !== "" && r.nhap_kho !== undefined ? Number(r.nhap_kho) : 0,
+                  r.xuat_kho !== "" && r.xuat_kho !== undefined ? Number(r.xuat_kho) : 0,
+                  i
                 ).run();
               }
             }

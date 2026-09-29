@@ -305,40 +305,6 @@ function bindEvents() {
   const btnCancelUser = document.getElementById("btnCancelEditUser");
   if (btnCancelUser) btnCancelUser.addEventListener("click", resetUserForm);
 
-  // Sub-tabs in Tab 1
-  const subDaily = document.getElementById("subtabBtnDaily");
-  const subHistory = document.getElementById("subtabBtnHistory");
-  if (subDaily && subHistory) {
-    subDaily.addEventListener("click", () => {
-      subDaily.classList.add("active");
-      subHistory.classList.remove("active");
-      document.getElementById("subtab-daily").classList.add("active");
-      document.getElementById("subtab-history").classList.remove("active");
-    });
-    subHistory.addEventListener("click", () => {
-      subHistory.classList.add("active");
-      subDaily.classList.remove("active");
-      document.getElementById("subtab-history").classList.add("active");
-      document.getElementById("subtab-daily").classList.remove("active");
-      fetchReportHistory();
-    });
-  }
-
-  const histBatchFilter = document.getElementById("historyBatchFilter");
-  if (histBatchFilter) {
-    histBatchFilter.addEventListener("change", renderHistoryTable);
-  }
-
-  const btnRefreshHist = document.getElementById("btnRefreshHistory");
-  if (btnRefreshHist) {
-    btnRefreshHist.addEventListener("click", fetchReportHistory);
-  }
-
-  const btnExportHist = document.getElementById("btnExportHistoryExcel");
-  if (btnExportHist) {
-    btnExportHist.addEventListener("click", exportHistoryToExcel);
-  }
-
   // Header Selects & Filters
   const selCust = document.getElementById("selectCustomer");
   if (selCust) {
@@ -386,8 +352,6 @@ function bindEvents() {
         fetchUsers();
       } else if (btn.dataset.tab === "tab-flow-log") {
         renderDeptLogsUI();
-      } else if (btn.dataset.tab === "tab-history") {
-        renderHistoryTable();
       } else if (btn.dataset.tab === "tab-wip") {
         renderReportUI();
       }
@@ -516,8 +480,6 @@ async function refreshAllTabsData() {
   if (!appState.currentPO) {
     appState.report = { po_id: "", report_date: appState.currentDate, status: "DRAFT", batches: [] };
     renderReportUI();
-    appState.historyLogs = [];
-    renderHistoryTable();
     appState.deptLogs = {};
     renderDeptLogsUI();
     return;
@@ -525,16 +487,9 @@ async function refreshAllTabsData() {
 
   appState.editingBatches = {};
 
-  // Update PO badge/text in all tabs
-  const histPoNum = document.getElementById("histPoNum");
-  if (histPoNum && appState.currentPO) {
-    histPoNum.innerText = `${appState.currentPO.style_code} (${appState.currentPO.po_number})`;
-  }
-
-  // Concurrently load data for all 3 operational tabs
+  // Concurrently load data for active tabs (Tab 1 & Tab 2)
   await Promise.all([
     loadReport(),
-    fetchReportHistory(),
     loadDeptLogs()
   ]);
 }
@@ -1277,15 +1232,20 @@ function handleExcelPaste(e) {
     if (requiredRows > currentRows) {
       const tbody = document.getElementById(`deptTbody_${startBIdx}`);
       for (let i = currentRows; i < requiredRows; i++) {
-        appState.deptLogs[bName].push({ date: "", nhap_phoi: "", giao_dg: "", nhap_kho: "", xuat_kho: "" });
+        appState.deptLogs[bName].push({ date: "", ton_dau: "", nhap: "", xuat: "", ton_cuoi: "", nhap_phoi: "", giao_dg: "", nhap_kho: "", xuat_kho: "" });
         if (tbody) {
           const tr = document.createElement("tr");
           tr.innerHTML = `
-            <td><input type="text" class="dept-nav-input txt-date" data-batch-idx="${startBIdx}" data-row-idx="${i}" data-col-idx="1" data-field="date" value="" placeholder=""></td>
-            <td><input type="number" class="dept-nav-input dept-cell-nhap-phoi" data-batch-idx="${startBIdx}" data-row-idx="${i}" data-col-idx="2" data-field="nhap_phoi" value=""></td>
-            <td><input type="number" class="dept-nav-input dept-cell-giao-dg" data-batch-idx="${startBIdx}" data-row-idx="${i}" data-col-idx="3" data-field="giao_dg" value=""></td>
-            <td><input type="number" class="dept-nav-input dept-cell-nhap-kho" data-batch-idx="${startBIdx}" data-row-idx="${i}" data-col-idx="4" data-field="nhap_kho" value=""></td>
-            <td><input type="number" class="dept-nav-input dept-cell-xuat-kho" data-batch-idx="${startBIdx}" data-row-idx="${i}" data-col-idx="5" data-field="xuat_kho" value=""></td>
+            <td><input type="text" class="dept-nav-input txt-date" data-batch-idx="${startBIdx}" data-row-idx="${i}" data-col-idx="1" data-field="date" value="" placeholder="DD-MMM"></td>
+            <td><input type="number" class="dept-nav-input dept-cell-ton-dau" data-batch-idx="${startBIdx}" data-row-idx="${i}" data-col-idx="2" data-field="ton_dau" value="" placeholder="0"></td>
+            <td><input type="number" class="dept-nav-input dept-cell-nhap font-bold text-sky-800" data-batch-idx="${startBIdx}" data-row-idx="${i}" data-col-idx="3" data-field="nhap" value="" placeholder="0"></td>
+            <td><input type="number" class="dept-nav-input dept-cell-xuat font-bold text-emerald-800" data-batch-idx="${startBIdx}" data-row-idx="${i}" data-col-idx="4" data-field="xuat" value="" placeholder="0"></td>
+            <td><input type="number" class="dept-nav-input dept-cell-ton-cuoi font-bold text-amber-800" data-batch-idx="${startBIdx}" data-row-idx="${i}" data-col-idx="5" data-field="ton_cuoi" value="" placeholder="0"></td>
+            <td><input type="number" class="dept-nav-input dept-cell-nhap-phoi" data-batch-idx="${startBIdx}" data-row-idx="${i}" data-col-idx="6" data-field="nhap_phoi" value="" placeholder="0"></td>
+            <td><input type="number" class="dept-nav-input dept-cell-giao-dg" data-batch-idx="${startBIdx}" data-row-idx="${i}" data-col-idx="7" data-field="giao_dg" value="" placeholder="0"></td>
+            <td><input type="number" class="dept-nav-input dept-cell-nhap-kho" data-batch-idx="${startBIdx}" data-row-idx="${i}" data-col-idx="8" data-field="nhap_kho" value="" placeholder="0"></td>
+            <td><input type="number" class="dept-nav-input dept-cell-xuat-kho font-bold text-emerald-700" data-batch-idx="${startBIdx}" data-row-idx="${i}" data-col-idx="9" data-field="xuat_kho" value="" placeholder="0"></td>
+            <td></td>
           `;
           tbody.appendChild(tr);
         }
@@ -1293,7 +1253,7 @@ function handleExcelPaste(e) {
       bindDeptTableInputs();
     }
 
-    const fieldMap = { 1: "date", 2: "nhap_phoi", 3: "giao_dg", 4: "nhap_kho", 5: "xuat_kho" };
+    const fieldMap = { 1: "date", 2: "ton_dau", 3: "nhap", 4: "xuat", 5: "ton_cuoi", 6: "nhap_phoi", 7: "giao_dg", 8: "nhap_kho", 9: "xuat_kho" };
 
     rows.forEach((rText, rOffset) => {
       const targetRIdx = startRIdx + rOffset;
@@ -1984,43 +1944,56 @@ function renderDeptLogsUI() {
   batches.forEach((b, bIdx) => {
     const bName = b.batch_name;
     const batchPlan = Number(b.into_sewing || b.batch_plan) || 0;
-    totalAllReceived += batchPlan;
 
     // Load or initialize rows for this batch (default 6 rows)
     if (!appState.deptLogs[bName] || !Array.isArray(appState.deptLogs[bName]) || appState.deptLogs[bName].length === 0) {
       appState.deptLogs[bName] = [
-        { date: "", nhap_phoi: "", giao_dg: "", nhap_kho: "", xuat_kho: "" },
-        { date: "", nhap_phoi: "", giao_dg: "", nhap_kho: "", xuat_kho: "" },
-        { date: "", nhap_phoi: "", giao_dg: "", nhap_kho: "", xuat_kho: "" },
-        { date: "", nhap_phoi: "", giao_dg: "", nhap_kho: "", xuat_kho: "" },
-        { date: "", nhap_phoi: "", giao_dg: "", nhap_kho: "", xuat_kho: "" },
-        { date: "", nhap_phoi: "", giao_dg: "", nhap_kho: "", xuat_kho: "" }
+        { date: "", ton_dau: 0, nhap: batchPlan, xuat: 0, ton_cuoi: batchPlan, nhap_phoi: "", giao_dg: "", nhap_kho: "", xuat_kho: "" },
+        { date: "", ton_dau: "", nhap: "", xuat: "", ton_cuoi: "", nhap_phoi: "", giao_dg: "", nhap_kho: "", xuat_kho: "" },
+        { date: "", ton_dau: "", nhap: "", xuat: "", ton_cuoi: "", nhap_phoi: "", giao_dg: "", nhap_kho: "", xuat_kho: "" },
+        { date: "", ton_dau: "", nhap: "", xuat: "", ton_cuoi: "", nhap_phoi: "", giao_dg: "", nhap_kho: "", xuat_kho: "" },
+        { date: "", ton_dau: "", nhap: "", xuat: "", ton_cuoi: "", nhap_phoi: "", giao_dg: "", nhap_kho: "", xuat_kho: "" },
+        { date: "", ton_dau: "", nhap: "", xuat: "", ton_cuoi: "", nhap_phoi: "", giao_dg: "", nhap_kho: "", xuat_kho: "" }
       ];
     }
 
     const rows = appState.deptLogs[bName];
+    let sumTonDau = 0;
+    let sumNhap = 0;
+    let sumXuat = 0;
+    let sumTonCuoi = 0;
     let sumNhapPhoi = 0;
     let sumGiaoDG = 0;
     let sumNhapKho = 0;
     let sumXuatKho = 0;
 
-    rows.forEach(r => {
+    rows.forEach((r, rIdx) => {
+      if (r.ton_dau === undefined) r.ton_dau = (rIdx === 0 ? 0 : "");
+      if (r.nhap === undefined) r.nhap = (rIdx === 0 ? batchPlan : "");
+      if (r.xuat === undefined) r.xuat = "";
+      if (r.ton_cuoi === undefined) r.ton_cuoi = (rIdx === 0 ? batchPlan : "");
+
+      sumTonDau += Number(r.ton_dau) || 0;
+      sumNhap += Number(r.nhap) || 0;
+      sumXuat += Number(r.xuat) || 0;
+      sumTonCuoi += Number(r.ton_cuoi) || 0;
       sumNhapPhoi += Number(r.nhap_phoi) || 0;
       sumGiaoDG += Number(r.giao_dg) || 0;
       sumNhapKho += Number(r.nhap_kho) || 0;
       sumXuatKho += Number(r.xuat_kho) || 0;
     });
 
+    const targetNhap = sumNhap > 0 ? sumNhap : batchPlan;
+    totalAllReceived += targetNhap;
     totalAllDelivered += sumXuatKho;
-    const tonCuoi = batchPlan - sumXuatKho;
 
-    // Điều kiện: Tất cả các ô tổng cộng bằng nhau VÀ bằng số Nhập vào chuyền may của Lô đó
-    const isOk = (batchPlan > 0 && sumNhapPhoi === batchPlan && sumGiaoDG === batchPlan && sumNhapKho === batchPlan && sumXuatKho === batchPlan);
+    // Điều kiện: Đến khi nào dòng tổng cộng mà tổng xuất kho thành phẩm bằng tổng nhập vào thì hiển thị trạng thái oke
+    const isOk = (targetNhap > 0 && sumXuatKho === targetNhap);
     const statusBadge = isOk 
-      ? `<span class="dept-status-badge is-ok">OK</span>`
-      : `<span class="dept-status-badge is-not-ok">Not OKe</span>`;
+      ? `<span class="dept-status-badge is-ok">OKE</span>`
+      : `<span class="dept-status-badge is-not-ok">NOT OKE</span>`;
 
-    // Render Batch Block (Left Table + Right Table)
+    // Render Batch Block (1 Unified Table)
     const blockEl = document.createElement("div");
     blockEl.className = "dept-batch-block";
     blockEl.dataset.batchName = bName;
@@ -2030,77 +2003,71 @@ function renderDeptLogsUI() {
     rows.forEach((r, rIdx) => {
       rowsHtml += `
         <tr>
-          <td><input type="text" class="dept-nav-input txt-date" data-batch-idx="${bIdx}" data-row-idx="${rIdx}" data-col-idx="1" data-field="date" value="${r.date || ''}" placeholder=""></td>
-          <td><input type="number" class="dept-nav-input dept-cell-nhap-phoi" data-batch-idx="${bIdx}" data-row-idx="${rIdx}" data-col-idx="2" data-field="nhap_phoi" value="${r.nhap_phoi !== undefined ? r.nhap_phoi : ''}"></td>
-          <td><input type="number" class="dept-nav-input dept-cell-giao-dg" data-batch-idx="${bIdx}" data-row-idx="${rIdx}" data-col-idx="3" data-field="giao_dg" value="${r.giao_dg !== undefined ? r.giao_dg : ''}"></td>
-          <td><input type="number" class="dept-nav-input dept-cell-nhap-kho" data-batch-idx="${bIdx}" data-row-idx="${rIdx}" data-col-idx="4" data-field="nhap_kho" value="${r.nhap_kho !== undefined ? r.nhap_kho : ''}"></td>
-          <td><input type="number" class="dept-nav-input dept-cell-xuat-kho" data-batch-idx="${bIdx}" data-row-idx="${rIdx}" data-col-idx="5" data-field="xuat_kho" value="${r.xuat_kho !== undefined ? r.xuat_kho : ''}"></td>
+          <td><input type="text" class="dept-nav-input txt-date" data-batch-idx="${bIdx}" data-row-idx="${rIdx}" data-col-idx="1" data-field="date" value="${r.date || ''}" placeholder="DD-MMM"></td>
+          <td><input type="number" class="dept-nav-input dept-cell-ton-dau" data-batch-idx="${bIdx}" data-row-idx="${rIdx}" data-col-idx="2" data-field="ton_dau" value="${r.ton_dau !== undefined && r.ton_dau !== null ? r.ton_dau : ''}" placeholder="0"></td>
+          <td><input type="number" class="dept-nav-input dept-cell-nhap font-bold text-sky-800" data-batch-idx="${bIdx}" data-row-idx="${rIdx}" data-col-idx="3" data-field="nhap" value="${r.nhap !== undefined && r.nhap !== null ? r.nhap : ''}" placeholder="0"></td>
+          <td><input type="number" class="dept-nav-input dept-cell-xuat font-bold text-emerald-800" data-batch-idx="${bIdx}" data-row-idx="${rIdx}" data-col-idx="4" data-field="xuat" value="${r.xuat !== undefined && r.xuat !== null ? r.xuat : ''}" placeholder="0"></td>
+          <td><input type="number" class="dept-nav-input dept-cell-ton-cuoi font-bold text-amber-800" data-batch-idx="${bIdx}" data-row-idx="${rIdx}" data-col-idx="5" data-field="ton_cuoi" value="${r.ton_cuoi !== undefined && r.ton_cuoi !== null ? r.ton_cuoi : ''}" placeholder="0"></td>
+          <td><input type="number" class="dept-nav-input dept-cell-nhap-phoi" data-batch-idx="${bIdx}" data-row-idx="${rIdx}" data-col-idx="6" data-field="nhap_phoi" value="${r.nhap_phoi !== undefined && r.nhap_phoi !== null ? r.nhap_phoi : ''}" placeholder="0"></td>
+          <td><input type="number" class="dept-nav-input dept-cell-giao-dg" data-batch-idx="${bIdx}" data-row-idx="${rIdx}" data-col-idx="7" data-field="giao_dg" value="${r.giao_dg !== undefined && r.giao_dg !== null ? r.giao_dg : ''}" placeholder="0"></td>
+          <td><input type="number" class="dept-nav-input dept-cell-nhap-kho" data-batch-idx="${bIdx}" data-row-idx="${rIdx}" data-col-idx="8" data-field="nhap_kho" value="${r.nhap_kho !== undefined && r.nhap_kho !== null ? r.nhap_kho : ''}" placeholder="0"></td>
+          <td><input type="number" class="dept-nav-input dept-cell-xuat-kho font-bold text-emerald-700" data-batch-idx="${bIdx}" data-row-idx="${rIdx}" data-col-idx="9" data-field="xuat_kho" value="${r.xuat_kho !== undefined && r.xuat_kho !== null ? r.xuat_kho : ''}" placeholder="0"></td>
           <td></td>
         </tr>
       `;
     });
 
     blockEl.innerHTML = `
-      <!-- LEFT TABLE: SỔ SÁCH & CÂN ĐỐI LÔ -->
-      <div class="dept-left-col">
-        <table class="dept-left-table">
-          <thead>
-            <tr>
-              <th class="th-dept-batch-name">${bName}</th>
-              <th class="th-dept-tondau">TỒN ĐẦU NGÀY</th>
-              <th class="th-dept-nhap">NHẬP</th>
-              <th class="th-dept-xuat">XUẤT</th>
-              <th class="th-dept-toncuoi">TỒN CUỐI NGÀY</th>
-            </tr>
-            <tr>
-              <td class="sub-dept-header"></td>
-              <td class="sub-dept-header">Luôn bằng 0</td>
-              <td class="sub-dept-header">Vào chuyền may</td>
-              <td class="sub-dept-header">Đã giao KH</td>
-              <td class="sub-dept-header sub-dept-toncuoi">Lấy số Tồn đầu ngày + Nhập - Xuất</td>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="val-dept-batch-plan">${batchPlan.toLocaleString('vi-VN')}</td>
-              <td class="val-dept-tondau">0</td>
-              <td class="val-dept-nhap" id="left_nhap_${bIdx}">${batchPlan.toLocaleString('vi-VN')}</td>
-              <td class="val-dept-xuat" id="left_xuat_${bIdx}">${sumXuatKho.toLocaleString('vi-VN')}</td>
-              <td class="val-dept-toncuoi" id="left_toncuoi_${bIdx}">${tonCuoi.toLocaleString('vi-VN')}</td>
-            </tr>
-          </tbody>
-        </table>
-        <div class="dept-executor-note">Điền tên người Thực Hiện</div>
-      </div>
-
-      <!-- RIGHT TABLE: THEO DÕI SẢN LƯỢNG CÁC BỘ PHẬN (ĐIỀN TAY) -->
-      <div class="dept-right-col">
-        <table class="dept-right-table" id="right_table_${bIdx}">
-          <thead>
-            <tr>
-              <th class="th-dept-col" style="width: 80px;">Ngày</th>
-              <th class="th-dept-col">Nhập phối đôi</th>
-              <th class="th-dept-col">Giao Đóng gói</th>
-              <th class="th-dept-col">Nhập kho TP</th>
-              <th class="th-dept-col">Xuất kho TP</th>
-              <th class="th-dept-col" style="width: 95px;">Trạng Thái</th>
-            </tr>
-          </thead>
-          <tbody id="deptTbody_${bIdx}">
-            ${rowsHtml}
-          </tbody>
-          <tfoot class="dept-table-tfoot">
-            <tr class="tr-dept-total">
-              <td class="td-dept-sum-label"><strong>TỔNG CỘNG</strong></td>
-              <td class="td-dept-sum-val" id="sum_nhap_phoi_${bIdx}">${sumNhapPhoi.toLocaleString('vi-VN')}</td>
-              <td class="td-dept-sum-val" id="sum_giao_dg_${bIdx}">${sumGiaoDG.toLocaleString('vi-VN')}</td>
-              <td class="td-dept-sum-val" id="sum_nhap_kho_${bIdx}">${sumNhapKho.toLocaleString('vi-VN')}</td>
-              <td class="td-dept-sum-val" id="sum_xuat_kho_${bIdx}">${sumXuatKho.toLocaleString('vi-VN')}</td>
-              <td class="td-dept-sum-status" id="status_col_${bIdx}">${statusBadge}</td>
-            </tr>
-          </tfoot>
-        </table>
-        <button type="button" class="btn-add-dept-row" data-batch-idx="${bIdx}" data-batch-name="${bName}">➕ Thêm dòng ngày</button>
+      <table class="dept-unified-table" id="unified_table_${bIdx}">
+        <thead>
+          <!-- HÀNG MERGE CHỒNG LÊN TOÀN BỘ CÁC Ô: LÔ 1 HOẶC LÔ 2 -->
+          <tr>
+            <th colspan="10" class="th-top-batch-banner">
+              🔷 ${bName.toUpperCase()} <span class="plan-tag">Kế hoạch: ${batchPlan.toLocaleString('vi-VN')} đôi</span>
+            </th>
+          </tr>
+          <!-- HÀNG TIÊU ĐỀ 10 CỘT -->
+          <tr>
+            <th rowspan="2" class="th-dept-col th-ngay">Ngày</th>
+            <th class="th-dept-col th-dept-tondau">TỒN ĐẦU NGÀY</th>
+            <th class="th-dept-col th-dept-nhap">NHẬP</th>
+            <th class="th-dept-col th-dept-xuat">XUẤT</th>
+            <th class="th-dept-col th-dept-toncuoi">TỒN CUỐI NGÀY</th>
+            <th rowspan="2" class="th-dept-col">Nhập phối đôi</th>
+            <th rowspan="2" class="th-dept-col">Giao Đóng gói</th>
+            <th rowspan="2" class="th-dept-col">Nhập kho TP</th>
+            <th rowspan="2" class="th-dept-col">Xuất kho TP</th>
+            <th rowspan="2" class="th-dept-col" style="width: 95px;">Trạng Thái</th>
+          </tr>
+          <!-- HÀNG SUBHEADERS GIẢI THÍCH -->
+          <tr>
+            <th class="sub-dept-header">Luôn bằng 0</th>
+            <th class="sub-dept-header">Vào chuyền may</th>
+            <th class="sub-dept-header">Đã giao KH</th>
+            <th class="sub-dept-header sub-dept-toncuoi">Lấy số Tồn đầu ngày + Nhập - Xuất</th>
+          </tr>
+        </thead>
+        <tbody id="deptTbody_${bIdx}">
+          ${rowsHtml}
+        </tbody>
+        <tfoot class="dept-table-tfoot">
+          <tr class="tr-dept-total">
+            <td class="td-dept-sum-label"><strong>TỔNG CỘNG</strong></td>
+            <td class="td-dept-sum-val" id="sum_ton_dau_${bIdx}">${sumTonDau.toLocaleString('vi-VN')}</td>
+            <td class="td-dept-sum-val txt-blue" id="sum_nhap_${bIdx}">${sumNhap.toLocaleString('vi-VN')}</td>
+            <td class="td-dept-sum-val txt-green" id="sum_xuat_${bIdx}">${sumXuat.toLocaleString('vi-VN')}</td>
+            <td class="td-dept-sum-val txt-amber" id="sum_ton_cuoi_${bIdx}">${sumTonCuoi.toLocaleString('vi-VN')}</td>
+            <td class="td-dept-sum-val" id="sum_nhap_phoi_${bIdx}">${sumNhapPhoi.toLocaleString('vi-VN')}</td>
+            <td class="td-dept-sum-val" id="sum_giao_dg_${bIdx}">${sumGiaoDG.toLocaleString('vi-VN')}</td>
+            <td class="td-dept-sum-val" id="sum_nhap_kho_${bIdx}">${sumNhapKho.toLocaleString('vi-VN')}</td>
+            <td class="td-dept-sum-val" id="sum_xuat_kho_${bIdx}">${sumXuatKho.toLocaleString('vi-VN')}</td>
+            <td class="td-dept-sum-status" id="status_col_${bIdx}">${statusBadge}</td>
+          </tr>
+        </tfoot>
+      </table>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">
+        <button type="button" class="btn-add-dept-row" data-batch-idx="${bIdx}" data-batch-name="${bName}">➕ Thêm dòng ngày (${bName})</button>
+        <div class="dept-executor-note">Điền tên người Thực Hiện ở bảng chi tiết</div>
       </div>
     `;
 
@@ -2123,7 +2090,7 @@ function renderDeptLogsUI() {
   const elDebt = document.getElementById("deptSummaryDebt");
   if (elDebt) elDebt.innerText = debt.toLocaleString("vi-VN");
 
-  // 4. Bind listeners to right-table inputs
+  // 4. Bind listeners to unified table inputs
   bindDeptTableInputs();
 }
 
@@ -2139,9 +2106,22 @@ function bindDeptTableInputs() {
       const bName = block.dataset.batchName;
 
       if (!appState.deptLogs[bName]) appState.deptLogs[bName] = [];
-      if (!appState.deptLogs[bName][rIdx]) appState.deptLogs[bName][rIdx] = { date: "", nhap_phoi: "", giao_dg: "", nhap_kho: "", xuat_kho: "" };
+      if (!appState.deptLogs[bName][rIdx]) {
+        appState.deptLogs[bName][rIdx] = { date: "", ton_dau: "", nhap: "", xuat: "", ton_cuoi: "", nhap_phoi: "", giao_dg: "", nhap_kho: "", xuat_kho: "" };
+      }
 
       appState.deptLogs[bName][rIdx][field] = e.target.value;
+
+      // Auto calculate ton_cuoi if ton_dau, nhap, or xuat is updated
+      if (field === "ton_dau" || field === "nhap" || field === "xuat") {
+        const rowObj = appState.deptLogs[bName][rIdx];
+        const calcTC = (Number(rowObj.ton_dau) || 0) + (Number(rowObj.nhap) || 0) - (Number(rowObj.xuat) || 0);
+        rowObj.ton_cuoi = calcTC;
+        const tcInput = document.querySelector(`.dept-cell-ton-cuoi[data-batch-idx="${bIdx}"][data-row-idx="${rIdx}"]`);
+        if (tcInput && document.activeElement !== tcInput) {
+          tcInput.value = calcTC;
+        }
+      }
 
       recalculateDeptSummary();
     });
@@ -2155,19 +2135,22 @@ function bindDeptTableInputs() {
 
       if (!appState.deptLogs[bName]) appState.deptLogs[bName] = [];
       const newRowIdx = appState.deptLogs[bName].length;
-      appState.deptLogs[bName].push({ date: "", nhap_phoi: "", giao_dg: "", nhap_kho: "", xuat_kho: "" });
+      appState.deptLogs[bName].push({ date: "", ton_dau: "", nhap: "", xuat: "", ton_cuoi: "", nhap_phoi: "", giao_dg: "", nhap_kho: "", xuat_kho: "" });
 
       const tbody = document.getElementById(`deptTbody_${bIdx}`);
       if (tbody) {
         const tr = document.createElement("tr");
         tr.innerHTML = `
-          <td><input type="text" class="dept-nav-input txt-date" data-batch-idx="${bIdx}" data-row-idx="${newRowIdx}" data-col-idx="1" data-field="date" value="" placeholder=""></td>
-          <td><input type="number" class="dept-nav-input dept-cell-nhap-phoi" data-batch-idx="${bIdx}" data-row-idx="${newRowIdx}" data-col-idx="2" data-field="nhap_phoi" value=""></td>
-          <td><input type="number" class="dept-nav-input dept-cell-giao-dg" data-batch-idx="${bIdx}" data-row-idx="${newRowIdx}" data-col-idx="3" data-field="giao_dg" value=""></td>
-          <td><input type="number" class="dept-nav-input dept-cell-nhap-kho" data-batch-idx="${bIdx}" data-row-idx="${newRowIdx}" data-col-idx="4" data-field="nhap_kho" value=""></td>
-          <td><input type="number" class="dept-nav-input dept-cell-xuat-kho" data-batch-idx="${bIdx}" data-row-idx="${newRowIdx}" data-col-idx="5" data-field="xuat_kho" value=""></td>
+          <td><input type="text" class="dept-nav-input txt-date" data-batch-idx="${bIdx}" data-row-idx="${newRowIdx}" data-col-idx="1" data-field="date" value="" placeholder="DD-MMM"></td>
+          <td><input type="number" class="dept-nav-input dept-cell-ton-dau" data-batch-idx="${bIdx}" data-row-idx="${newRowIdx}" data-col-idx="2" data-field="ton_dau" value="" placeholder="0"></td>
+          <td><input type="number" class="dept-nav-input dept-cell-nhap font-bold text-sky-800" data-batch-idx="${bIdx}" data-row-idx="${newRowIdx}" data-col-idx="3" data-field="nhap" value="" placeholder="0"></td>
+          <td><input type="number" class="dept-nav-input dept-cell-xuat font-bold text-emerald-800" data-batch-idx="${bIdx}" data-row-idx="${newRowIdx}" data-col-idx="4" data-field="xuat" value="" placeholder="0"></td>
+          <td><input type="number" class="dept-nav-input dept-cell-ton-cuoi font-bold text-amber-800" data-batch-idx="${bIdx}" data-row-idx="${newRowIdx}" data-col-idx="5" data-field="ton_cuoi" value="" placeholder="0"></td>
+          <td><input type="number" class="dept-nav-input dept-cell-nhap-phoi" data-batch-idx="${bIdx}" data-row-idx="${newRowIdx}" data-col-idx="6" data-field="nhap_phoi" value="" placeholder="0"></td>
+          <td><input type="number" class="dept-nav-input dept-cell-giao-dg" data-batch-idx="${bIdx}" data-row-idx="${newRowIdx}" data-col-idx="7" data-field="giao_dg" value="" placeholder="0"></td>
+          <td><input type="number" class="dept-nav-input dept-cell-nhap-kho" data-batch-idx="${bIdx}" data-row-idx="${newRowIdx}" data-col-idx="8" data-field="nhap_kho" value="" placeholder="0"></td>
+          <td><input type="number" class="dept-nav-input dept-cell-xuat-kho font-bold text-emerald-700" data-batch-idx="${bIdx}" data-row-idx="${newRowIdx}" data-col-idx="9" data-field="xuat_kho" value="" placeholder="0"></td>
           <td></td>
-        </tr>
         `;
         tbody.appendChild(tr);
         bindDeptTableInputs();
@@ -2195,8 +2178,11 @@ function recalculateDeptSummary() {
   batches.forEach((b, bIdx) => {
     const bName = b.batch_name;
     const batchPlan = Number(b.into_sewing || b.batch_plan) || 0;
-    totalAllReceived += batchPlan;
 
+    let sumTonDau = 0;
+    let sumNhap = 0;
+    let sumXuat = 0;
+    let sumTonCuoi = 0;
     let sumNhapPhoi = 0;
     let sumGiaoDG = 0;
     let sumNhapKho = 0;
@@ -2204,23 +2190,33 @@ function recalculateDeptSummary() {
 
     const rows = (appState.deptLogs && appState.deptLogs[bName]) ? appState.deptLogs[bName] : [];
     rows.forEach(r => {
+      sumTonDau += Number(r.ton_dau) || 0;
+      sumNhap += Number(r.nhap) || 0;
+      sumXuat += Number(r.xuat) || 0;
+      sumTonCuoi += Number(r.ton_cuoi) || 0;
       sumNhapPhoi += Number(r.nhap_phoi) || 0;
       sumGiaoDG += Number(r.giao_dg) || 0;
       sumNhapKho += Number(r.nhap_kho) || 0;
       sumXuatKho += Number(r.xuat_kho) || 0;
     });
 
+    const targetNhap = sumNhap > 0 ? sumNhap : batchPlan;
+    totalAllReceived += targetNhap;
     totalAllDelivered += sumXuatKho;
-    const tonCuoi = batchPlan - sumXuatKho;
 
-    // Update left table
-    const elXuat = document.getElementById(`left_xuat_${bIdx}`);
-    if (elXuat) elXuat.innerText = sumXuatKho.toLocaleString("vi-VN");
+    // Update tfoot sums
+    const elSumTD = document.getElementById(`sum_ton_dau_${bIdx}`);
+    if (elSumTD) elSumTD.innerText = sumTonDau.toLocaleString("vi-VN");
 
-    const elTon = document.getElementById(`left_toncuoi_${bIdx}`);
-    if (elTon) elTon.innerText = tonCuoi.toLocaleString("vi-VN");
+    const elSumN = document.getElementById(`sum_nhap_${bIdx}`);
+    if (elSumN) elSumN.innerText = sumNhap.toLocaleString("vi-VN");
 
-    // Update right table tfoot sums
+    const elSumX = document.getElementById(`sum_xuat_${bIdx}`);
+    if (elSumX) elSumX.innerText = sumXuat.toLocaleString("vi-VN");
+
+    const elSumTC = document.getElementById(`sum_ton_cuoi_${bIdx}`);
+    if (elSumTC) elSumTC.innerText = sumTonCuoi.toLocaleString("vi-VN");
+
     const elSumNP = document.getElementById(`sum_nhap_phoi_${bIdx}`);
     if (elSumNP) elSumNP.innerText = sumNhapPhoi.toLocaleString("vi-VN");
 
@@ -2233,13 +2229,13 @@ function recalculateDeptSummary() {
     const elSumXK = document.getElementById(`sum_xuat_kho_${bIdx}`);
     if (elSumXK) elSumXK.innerText = sumXuatKho.toLocaleString("vi-VN");
 
-    // Status check
-    const isOk = (batchPlan > 0 && sumNhapPhoi === batchPlan && sumGiaoDG === batchPlan && sumNhapKho === batchPlan && sumXuatKho === batchPlan);
+    // Điều kiện: Đến khi nào dòng tổng cộng mà tổng xuất kho thành phẩm bằng tổng nhập vào thì hiển thị trạng thái oke
+    const isOk = (targetNhap > 0 && sumXuatKho === targetNhap);
     const elStatus = document.getElementById(`status_col_${bIdx}`);
     if (elStatus) {
       elStatus.innerHTML = isOk 
-        ? `<span class="dept-status-badge is-ok">OK</span>`
-        : `<span class="dept-status-badge is-not-ok">Not OKe</span>`;
+        ? `<span class="dept-status-badge is-ok">OKE</span>`
+        : `<span class="dept-status-badge is-not-ok">NOT OKE</span>`;
     }
   });
 
@@ -2289,7 +2285,7 @@ function exportDeptToExcel() {
     ["BÁO CÁO ĐỐI CHIẾU NHẬP XUẤT TỒN + THEO DÕI SẢN LƯỢNG"],
     ["PO:", poNum, "Style:", po ? po.style_code : "", "Kế hoạch:", po ? po.po_plan : 0, "Ngày:", appState.currentDate],
     [],
-    ["Lô Hàng", "Tồn Đầu Ngày", "Nhập (Vào Chuyền)", "Xuất (Đã Giao KH)", "Tồn Cuối Ngày", "", "Ngày", "Nhập Phối Đôi", "Giao Đóng Gói", "Nhập Kho TP", "Xuất Kho TP", "Trạng Thái"]
+    ["Lô Hàng", "Ngày", "Tồn Đầu Ngày", "Nhập (Vào Chuyền)", "Xuất (Đã Giao KH)", "Tồn Cuối Ngày", "Nhập Phối Đôi", "Giao Đóng Gói", "Nhập Kho TP", "Xuất Kho TP", "Trạng Thái"]
   ];
 
   const batches = po && po.default_batches ? po.default_batches : [
@@ -2302,64 +2298,58 @@ function exportDeptToExcel() {
     const bName = b.batch_name;
     const batchPlan = Number(b.into_sewing || b.batch_plan) || 0;
     const deptRows = (appState.deptLogs && appState.deptLogs[bName]) ? appState.deptLogs[bName] : [];
-    let sumNP = 0, sumDG = 0, sumNK = 0, sumXK = 0;
+    let sumTD = 0, sumN = 0, sumX = 0, sumTC = 0, sumNP = 0, sumDG = 0, sumNK = 0, sumXK = 0;
     deptRows.forEach(r => {
+      sumTD += Number(r.ton_dau) || 0;
+      sumN += Number(r.nhap) || 0;
+      sumX += Number(r.xuat) || 0;
+      sumTC += Number(r.ton_cuoi) || 0;
       sumNP += Number(r.nhap_phoi) || 0;
       sumDG += Number(r.giao_dg) || 0;
       sumNK += Number(r.nhap_kho) || 0;
       sumXK += Number(r.xuat_kho) || 0;
     });
-    const tonCuoi = batchPlan - sumXK;
-    const isOk = (batchPlan > 0 && sumNP === batchPlan && sumDG === batchPlan && sumNK === batchPlan && sumXK === batchPlan);
 
-    // First row of batch
-    const firstDept = deptRows[0] || {};
-    rows.push([
-      bName,
-      0,
-      batchPlan,
-      sumXK,
-      tonCuoi,
-      "",
-      firstDept.date || "",
-      firstDept.nhap_phoi || "",
-      firstDept.giao_dg || "",
-      firstDept.nhap_kho || "",
-      firstDept.xuat_kho || "",
-      ""
-    ]);
+    const targetNhap = sumN > 0 ? sumN : batchPlan;
+    const isOk = (targetNhap > 0 && sumXK === targetNhap);
 
-    // Subsequent rows of batch
-    for (let i = 1; i < deptRows.length; i++) {
-      const dr = deptRows[i];
+    deptRows.forEach((r, i) => {
       rows.push([
-        "", "", "", "", "", "",
-        dr.date || "",
-        dr.nhap_phoi || "",
-        dr.giao_dg || "",
-        dr.nhap_kho || "",
-        dr.xuat_kho || "",
+        i === 0 ? bName : "",
+        r.date || "",
+        r.ton_dau !== undefined ? r.ton_dau : "",
+        r.nhap !== undefined ? r.nhap : "",
+        r.xuat !== undefined ? r.xuat : "",
+        r.ton_cuoi !== undefined ? r.ton_cuoi : "",
+        r.nhap_phoi !== undefined ? r.nhap_phoi : "",
+        r.giao_dg !== undefined ? r.giao_dg : "",
+        r.nhap_kho !== undefined ? r.nhap_kho : "",
+        r.xuat_kho !== undefined ? r.xuat_kho : "",
         ""
       ]);
-    }
+    });
 
     // Summary row of batch
     rows.push([
-      "", "", "", "", "", "",
+      bName,
       "TỔNG CỘNG",
+      sumTD,
+      sumN,
+      sumX,
+      sumTC,
       sumNP,
       sumDG,
       sumNK,
       sumXK,
-      isOk ? "OK" : "Not OKe"
+      isOk ? "OKE" : "NOT OKE"
     ]);
 
     rows.push([]);
   });
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
-  XLSX.utils.book_append_sheet(wb, ws, "Theo_Doi_San_Luong");
-  XLSX.writeFile(wb, `Theo_Doi_San_Luong_${poNum}_${appState.currentDate}.xlsx`);
+  XLSX.utils.book_append_sheet(wb, ws, "Doi_Chieu_San_Luong");
+  XLSX.writeFile(wb, `Doi_Chieu_San_Luong_${poNum}_${appState.currentDate}.xlsx`);
 }
 
 // NUMPAD DISPLAY HELPER
