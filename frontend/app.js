@@ -725,8 +725,8 @@ function renderReportUI() {
               <th class="col-ton-cuoi th-ton-cuoi">TỒN LÝ THUYẾT</th>
               <th class="col-ton-thucte th-ton-thucte">TỒN THỰC TẾ</th>
               <th rowspan="2" class="col-thieu th-thieu-cell">THIẾU / LỆCH</th>
-              <th rowspan="2" class="col-arrow-thieu th-arrow-cell">➔</th>
-              <th colspan="4" class="hdr-shortage-breakdown">PHÂN TÍCH NGUYÊN NHÂN THIẾU / LỆCH</th>
+              <th rowspan="2" class="col-arrow-thieu th-arrow-cell-clean"></th>
+              <th colspan="3" class="hdr-shortage-breakdown">PHÂN TÍCH NGUYÊN NHÂN THIẾU / LỆCH</th>
             </tr>
             <tr>
               <th class="sub-ton-dau">Luôn bằng 0</th>
@@ -736,8 +736,12 @@ function renderReportUI() {
               <th class="sub-ton-thucte">Kiểm kê 5 trạm</th>
               <th class="sub-shortage-matxac">1. MẤT XÁC (SL)</th>
               <th class="sub-shortage-hangphe">2. HÀNG PHẾ (SL)</th>
-              <th class="sub-shortage-khac">3. KHÁC (SL)</th>
-              <th class="sub-shortage-note">4. GHI CHÚ LÝ DO KHÁC</th>
+              <th class="sub-shortage-khac">
+                <div class="sub-khac-header-box">
+                  <span class="sub-khac-title">3. KHÁC (SL)</span>
+                  <input type="text" ${isEditing ? '' : 'readonly'} class="th-khac-note-input field-shortage-note grid-nav-input" data-batch="${idx}" data-row="0" data-col="8" value="${batch.shortage_note || ''}" placeholder="✍️ Ghi chú lý do..." data-idx="${idx}" title="Ghi chú trực tiếp lý do khác">
+                </div>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -750,8 +754,12 @@ function renderReportUI() {
               <td class="val-dash">--</td>
               <td class="val-dash">--</td>
               <td class="val-dash">--</td>
-              <td class="val-dash">--</td>
-              <td class="val-dash">--</td>
+              <!-- ARROW VERTICALLY CENTERED ACROSS 3 ROWS WITHOUT BORDERS -->
+              <td rowspan="3" class="cell-arrow-thieu-clean">
+                <svg class="red-right-arrow" viewBox="0 0 28 20" fill="#dc2626">
+                  <path d="M0 7 H16 V0 L28 10 L16 20 V13 H0 Z" />
+                </svg>
+              </td>
               <td class="val-dash">--</td>
               <td class="val-dash">--</td>
               <td class="val-dash">--</td>
@@ -767,8 +775,6 @@ function renderReportUI() {
               <td class="val-today-out">
                 <input type="number" ${isEditing ? '' : 'readonly'} class="wip-num-input wip-num-input-out field-daily-out grid-nav-input font-black text-emerald-900" data-batch="${idx}" data-row="0" data-col="3" value="${batch.daily_out || ''}" placeholder="0" data-idx="${idx}" title="Số lượng xuất giao khách trong ngày hôm nay">
               </td>
-              <td class="val-dash">--</td>
-              <td class="val-dash">--</td>
               <td class="val-dash">--</td>
               <td class="val-dash">--</td>
               <td class="val-dash">--</td>
@@ -793,11 +799,6 @@ function renderReportUI() {
                   ${shortage === 0 ? '<span class="status-ok">0 (OK)</span>' : (shortage > 0 ? ('<span class="status-shortage">-' + Math.abs(shortage).toLocaleString("vi-VN") + '</span>') : ('<span class="status-surplus">+' + Math.abs(shortage).toLocaleString("vi-VN") + '</span>'))}
                 </div>
               </td>
-              <td class="cell-arrow-thieu">
-                <svg class="red-right-arrow" viewBox="0 0 28 20" fill="#dc2626">
-                  <path d="M0 7 H16 V0 L28 10 L16 20 V13 H0 Z" />
-                </svg>
-              </td>
               <td class="cell-shortage-matxac">
                 <input type="number" ${isEditing ? '' : 'readonly'} class="wip-num-input field-shortage-matxac grid-nav-input font-black text-rose-700" data-batch="${idx}" data-row="0" data-col="5" value="${batch.shortage_mat_xac || ''}" placeholder="0" data-idx="${idx}" title="Số lượng thiếu do Mất xác">
               </td>
@@ -806,9 +807,6 @@ function renderReportUI() {
               </td>
               <td class="cell-shortage-khac">
                 <input type="number" ${isEditing ? '' : 'readonly'} class="wip-num-input field-shortage-khac grid-nav-input font-black text-purple-700" data-batch="${idx}" data-row="0" data-col="7" value="${batch.shortage_khac || ''}" placeholder="0" data-idx="${idx}" title="Số lượng thiếu do Lý do khác">
-              </td>
-              <td class="cell-shortage-note">
-                <input type="text" ${isEditing ? '' : 'readonly'} class="wip-executor-input field-shortage-note grid-nav-input" data-batch="${idx}" data-row="0" data-col="8" value="${batch.shortage_note || ''}" placeholder="Nhập lý do khác..." data-idx="${idx}" title="Diễn giải chi tiết lý do khác">
               </td>
             </tr>
           </tbody>
