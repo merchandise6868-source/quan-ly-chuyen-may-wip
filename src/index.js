@@ -954,17 +954,19 @@ export default {
               report = { po_id: poId, report_date: date, status: (repRows && repRows[0] && repRows[0].status) || "DRAFT", batches };
             }
 
-            // Cumulative export calculation: sum of daily_out from prior days strictly before current report date
+            // Cumulative export & import calculation from prior days strictly before current report date
             const { results: allBatchExports } = await env.DB.prepare(
-              "SELECT batch_name, SUM(COALESCE(daily_out, 0)) as total_out FROM report_batches WHERE po_id = ? AND report_date < ? GROUP BY batch_name"
+              "SELECT batch_name, SUM(COALESCE(daily_out, 0)) as total_out, SUM(COALESCE(into_sewing, 0)) as total_in FROM report_batches WHERE po_id = ? AND report_date < ? GROUP BY batch_name"
             ).bind(poId, date).all();
 
             const cumExportsByBatch = {};
+            const cumImportsByBatch = {};
             (allBatchExports || []).forEach(r => {
               cumExportsByBatch[r.batch_name] = Number(r.total_out) || 0;
+              cumImportsByBatch[r.batch_name] = Number(r.total_in) || 0;
             });
 
-            return Response.json({ success: true, report, cumExportsByBatch }, { headers });
+            return Response.json({ success: true, report, cumExportsByBatch, cumImportsByBatch }, { headers });
           } catch (err) {
             console.error("D1 Report Query Error:", err);
           }
@@ -998,6 +1000,7 @@ export default {
 
         const allKeys = Object.keys(memoryDB.reports).filter(k => k.startsWith(poId + '_')).sort();
         const cumExportsByBatch = {};
+        const cumImportsByBatch = {};
         allKeys.forEach(k => {
           const repDate = k.replace(poId + '_', '');
           if (repDate < date) {
@@ -1005,12 +1008,13 @@ export default {
             if (rep && rep.batches) {
               rep.batches.forEach(b => {
                 cumExportsByBatch[b.batch_name] = (cumExportsByBatch[b.batch_name] || 0) + (Number(b.daily_out) || 0);
+                cumImportsByBatch[b.batch_name] = (cumImportsByBatch[b.batch_name] || 0) + (Number(b.into_sewing) || 0);
               });
             }
           }
         });
 
-        return Response.json({ success: true, report, cumExportsByBatch }, { headers });
+        return Response.json({ success: true, report, cumExportsByBatch, cumImportsByBatch }, { headers });
       }
 
       // Save Report

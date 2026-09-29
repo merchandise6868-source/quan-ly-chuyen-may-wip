@@ -15,6 +15,7 @@ let appState = {
     batches: []
   },
   cumExportsByBatch: {},
+  cumImportsByBatch: {},
   editingBatches: {},
   flowLogs: [],
   historyLogs: [],
@@ -682,11 +683,22 @@ function renderReportUI() {
 
   batches.forEach((batch, idx) => {
     const isEditing = Boolean(appState.editingBatches && appState.editingBatches[idx]);
-    const intoSewing = Number(batch.into_sewing) || 0;
-    const delivered = Number(appState.cumExportsByBatch[batch.batch_name]) || Number(batch.daily_out) || 0;
-    batch.delivered = delivered;
+    
+    // Previous days cumulative
+    const prevIn = Number(appState.cumImportsByBatch && appState.cumImportsByBatch[batch.batch_name]) || 0;
+    const prevOut = Number(appState.cumExportsByBatch && appState.cumExportsByBatch[batch.batch_name]) || 0;
 
-    const tonLyThuyet = intoSewing - delivered;
+    // Today's activity
+    const todayIn = Number(batch.into_sewing) || 0;
+    const todayOut = Number(batch.daily_out) || 0;
+
+    // Cumulative totals up to today
+    const cumIn = prevIn + todayIn;
+    const cumOut = prevOut + todayOut;
+    batch.delivered = cumOut;
+    batch.cum_into_sewing = cumIn;
+
+    const tonLyThuyet = cumIn - cumOut;
     const actualWip = (Number(batch.wip_sewing) || 0) + (Number(batch.wip_qc) || 0) + (Number(batch.wip_pairing) || 0) + (Number(batch.wip_packing) || 0) + (Number(batch.wip_warehouse) || 0);
     const shortage = tonLyThuyet - actualWip;
 
@@ -701,40 +713,70 @@ function renderReportUI() {
     wrapper.innerHTML = `
       <div class="batch-date-tag">📅 ${formatDateDisplay(appState.currentDate)}</div>
       
-      <!-- TABLE 1: TẦNG 1 (HÌNH 1 - CÔNG THỨC TỰ ĐỘNG) -->
+      <!-- TABLE 1: TẦNG 1 (CẤU TRÚC 3 DÒNG: TRƯỚC ĐÓ, HÔM NAY, TÍCH LŨY LÔ) -->
       <div class="table-card-1">
         <table class="batch-table-1">
           <thead>
             <tr>
-              <th rowspan="2" class="col-batch-name th-batch-title">${batch.batch_name}</th>
+              <th rowspan="2" class="col-batch-name th-batch-title">PHÂN LOẠI DÒNG</th>
               <th class="col-ton-dau th-ton-dau">TỒN ĐẦU<br>NGÀY</th>
               <th class="col-nhap th-nhap">NHẬP</th>
               <th class="col-xuat th-xuat">XUẤT</th>
               <th class="col-ton-cuoi th-ton-cuoi">TỒN LÝ THUYẾT</th>
               <th class="col-ton-thucte th-ton-thucte">TỒN THỰC TẾ</th>
-              <th rowspan="2" class="col-thieu th-thieu-cell">THIẾU</th>
+              <th rowspan="2" class="col-thieu th-thieu-cell">THIẾU / LỆCH</th>
             </tr>
             <tr>
               <th class="sub-ton-dau">Luôn bằng 0</th>
               <th class="sub-nhap">Vào chuyền may</th>
               <th class="sub-xuat">Đã giao KH</th>
-              <th class="sub-ton-cuoi">Lấy số Nhập - Xuất</th>
-              <th class="sub-ton-thucte">Kiểm kê trên chuyền</th>
+              <th class="sub-ton-cuoi">Nhập TL - Xuất TL</th>
+              <th class="sub-ton-thucte">Kiểm kê 5 trạm</th>
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td class="val-plan-box">${(batch.batch_plan || 0).toLocaleString("vi-VN")}</td>
+            <!-- DÒNG 1: LŨY KẾ ĐẾN TRƯỚC HÔM NAY -->
+            <tr class="row-prev-cumulative">
+              <td class="lbl-row-type">1. Lũy kế trước hôm nay</td>
+              <td class="val-dash">--</td>
+              <td class="val-prev-in font-bold text-sky-700" id="calcPrevIn_${idx}">${prevIn.toLocaleString("vi-VN")}</td>
+              <td class="val-prev-out font-bold text-emerald-700" id="calcPrevOut_${idx}">${prevOut.toLocaleString("vi-VN")}</td>
+              <td class="val-dash">--</td>
+              <td class="val-dash">--</td>
+              <td class="val-dash">--</td>
+            </tr>
+
+            <!-- DÒNG 2: PHÁT SINH TRONG HÔM NAY -->
+            <tr class="row-today-activity">
+              <td class="lbl-row-type font-semibold text-amber-900">2. Phát sinh trong hôm nay</td>
+              <td class="val-dash">--</td>
+              <td class="val-today-in">
+                <input type="number" ${isEditing ? '' : 'readonly'} class="wip-num-input field-daily-in field-into-sewing grid-nav-input font-black text-sky-900" data-batch="${idx}" data-row="0" data-col="2" value="${batch.into_sewing || ''}" placeholder="0" data-idx="${idx}" title="Số phôi nhập vào chuyền hôm nay">
+              </td>
+              <td class="val-today-out font-black text-emerald-800" id="calcTodayOut_${idx}">${todayOut.toLocaleString("vi-VN")}</td>
+              <td class="val-dash">--</td>
+              <td class="val-dash">--</td>
+              <td class="val-dash">--</td>
+            </tr>
+
+            <!-- DÒNG 3: HÀNG LÔ TỔNG TÍCH LŨY -->
+            <tr class="row-batch-cumulative">
+              <td class="val-plan-box font-extrabold text-slate-900">
+                ${batch.batch_name}
+                <span class="sub-batch-plan block text-xs font-bold text-slate-500">KH: ${(batch.batch_plan || 0).toLocaleString("vi-VN")}</span>
+              </td>
               <td class="val-ton-dau-box">0</td>
-              <td class="val-nhap-box" id="calcIntoSewing_${idx}">${intoSewing.toLocaleString("vi-VN")}</td>
-              <td class="val-xuat-box" id="calcDelivered_${idx}">${delivered.toLocaleString("vi-VN")}</td>
-              <td class="val-ton-cuoi-box" id="calcTheoWip_${idx}">${tonLyThuyet.toLocaleString("vi-VN")}</td>
-              <td class="val-ton-thucte-box" id="calcActualWip_${idx}">${actualWip.toLocaleString("vi-VN")}</td>
+              <td class="val-nhap-box font-black text-sky-800" id="calcIntoSewing_${idx}">${cumIn.toLocaleString("vi-VN")}</td>
+              <td class="val-xuat-box font-black text-emerald-800" id="calcDelivered_${idx}">${cumOut.toLocaleString("vi-VN")}</td>
+              <td class="val-ton-cuoi-box font-black text-amber-900" id="calcTheoWip_${idx}">${tonLyThuyet.toLocaleString("vi-VN")}</td>
+              <td class="val-ton-thucte-box font-black text-cyan-900" id="calcActualWip_${idx}">${actualWip.toLocaleString("vi-VN")}</td>
               <td class="cell-thieu-data">
-                <div class="thieu-num-display" id="calcShortage_${idx}">${shortage.toLocaleString("vi-VN")}</div>
+                <div class="thieu-num-display" id="calcShortage_${idx}">
+                  ${shortage === 0 ? '<span class="status-ok">0 (OK)</span>' : (shortage > 0 ? ('<span class="status-shortage">-' + Math.abs(shortage).toLocaleString("vi-VN") + '</span>') : ('<span class="status-surplus">+' + Math.abs(shortage).toLocaleString("vi-VN") + '</span>'))}
+                </div>
                 <div class="thieu-dropdown-container">
                   <select class="thieu-select field-reason-type grid-nav-input" data-batch="${idx}" data-row="0" data-col="6" data-idx="${idx}" ${isEditing ? '' : 'disabled'}>
-                    <option value="" ${!reasonType ? 'selected' : ''}>(Chọn)</option>
+                    <option value="" ${!reasonType ? 'selected' : ''}>(Lý do)</option>
                     <option value="Mất xác" ${reasonType === 'Mất xác' ? 'selected' : ''}>Mất xác</option>
                     <option value="Hàng phế" ${reasonType === 'Hàng phế' ? 'selected' : ''}>Hàng phế</option>
                     <option value="Khác" ${reasonType === 'Khác' ? 'selected' : ''}>Khác</option>
@@ -853,25 +895,39 @@ function recalculateAllInPlace() {
   let totalActualWip = 0;
 
   batches.forEach((b, idx) => {
-    const into = Number(b.into_sewing) || 0;
-    totalReceived += into;
+    const prevIn = Number(appState.cumImportsByBatch && appState.cumImportsByBatch[b.batch_name]) || 0;
+    const prevOut = Number(appState.cumExportsByBatch && appState.cumExportsByBatch[b.batch_name]) || 0;
+    const todayIn = Number(b.into_sewing) || 0;
+    const todayOut = Number(b.daily_out) || 0;
 
-    // Prior days cumulative export strictly before current report date
-    const priorExports = Number(appState.cumExportsByBatch && appState.cumExportsByBatch[b.batch_name]) || 0;
-    const currentDaily = Number(b.daily_out) || 0;
-    // Total delivered up to current date = prior days export + today's daily export
-    const delivered = priorExports + currentDaily;
-    b.delivered = delivered;
-    totalDelivered += delivered;
+    const cumIn = prevIn + todayIn;
+    const cumOut = prevOut + todayOut;
+    b.delivered = cumOut;
+    b.cum_into_sewing = cumIn;
+
+    totalReceived += cumIn;
+    totalDelivered += cumOut;
 
     const actWip = (Number(b.wip_sewing) || 0) + (Number(b.wip_qc) || 0) + (Number(b.wip_pairing) || 0) + (Number(b.wip_packing) || 0) + (Number(b.wip_warehouse) || 0);
     totalActualWip += actWip;
 
-    const tonLyThuyet = into - delivered;
+    const tonLyThuyet = cumIn - cumOut;
     const shortage = tonLyThuyet - actWip;
 
+    const elPrevIn = document.getElementById(`calcPrevIn_${idx}`);
+    if (elPrevIn) elPrevIn.innerText = prevIn.toLocaleString("vi-VN");
+
+    const elPrevOut = document.getElementById(`calcPrevOut_${idx}`);
+    if (elPrevOut) elPrevOut.innerText = prevOut.toLocaleString("vi-VN");
+
+    const elTodayOut = document.getElementById(`calcTodayOut_${idx}`);
+    if (elTodayOut) elTodayOut.innerText = todayOut.toLocaleString("vi-VN");
+
+    const elCumIn = document.getElementById(`calcIntoSewing_${idx}`);
+    if (elCumIn) elCumIn.innerText = cumIn.toLocaleString("vi-VN");
+
     const elDelivered = document.getElementById(`calcDelivered_${idx}`);
-    if (elDelivered) elDelivered.innerText = delivered.toLocaleString("vi-VN");
+    if (elDelivered) elDelivered.innerText = cumOut.toLocaleString("vi-VN");
 
     const elTheo = document.getElementById(`calcTheoWip_${idx}`);
     if (elTheo) elTheo.innerText = tonLyThuyet.toLocaleString("vi-VN");
@@ -880,7 +936,13 @@ function recalculateAllInPlace() {
     if (elAct) elAct.innerText = actWip.toLocaleString("vi-VN");
 
     const elShortage = document.getElementById(`calcShortage_${idx}`);
-    if (elShortage) elShortage.innerText = shortage.toLocaleString("vi-VN");
+    if (elShortage) {
+      elShortage.innerHTML = shortage === 0 
+        ? '<span class="status-ok font-black text-emerald-600">0 (OK)</span>' 
+        : (shortage > 0 
+            ? '<span class="status-shortage font-black text-rose-600">-' + Math.abs(shortage).toLocaleString("vi-VN") + '</span>' 
+            : '<span class="status-surplus font-black text-amber-600">+' + Math.abs(shortage).toLocaleString("vi-VN") + '</span>');
+    }
   });
 
   const prepDebt = Math.max(0, poPlan - totalReceived);
@@ -940,6 +1002,9 @@ function bindCardInputs() {
       const b = appState.report.batches[idx];
       if (!b) return;
 
+      if (e.target.classList.contains("field-daily-in") || e.target.classList.contains("field-into-sewing")) {
+        b.into_sewing = Number(e.target.value) || 0;
+      }
       if (e.target.classList.contains("field-wip-sewing")) b.wip_sewing = Number(e.target.value) || 0;
       if (e.target.classList.contains("field-wip-qc")) b.wip_qc = Number(e.target.value) || 0;
       if (e.target.classList.contains("field-wip-pairing")) b.wip_pairing = Number(e.target.value) || 0;

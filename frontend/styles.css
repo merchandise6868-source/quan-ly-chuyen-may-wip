@@ -559,12 +559,114 @@ body {
 .sub-ton-cuoi { background-color: #fffdf5; font-size: 11px; font-style: italic; font-weight: 700; color: #b45309; line-height: 1.2; }
 .sub-ton-thucte { background-color: #f0fdfa; font-size: 11px; font-style: italic; font-weight: 700; color: #0891b2; }
 
-.val-plan-box { background-color: #ffffff; font-size: 18px; font-weight: 800; color: #0f172a; }
-.val-ton-dau-box { font-size: 16px; font-weight: 800; color: #64748b; background-color: #f8fafc; }
-.val-nhap-box { font-size: 16px; font-weight: 800; color: #2563eb; background-color: #f0f7ff; }
-.val-xuat-box { font-size: 16px; font-weight: 800; color: #16a34a; background-color: #f4fcf6; }
-.val-ton-cuoi-box { font-size: 16px; font-weight: 800; color: #0f172a; background-color: #fffbeb; }
-.val-ton-thucte-box { font-size: 16px; font-weight: 800; color: #0891b2; background-color: #ecfeff; }
+.val-plan-box { background-color: #ffffff; font-size: 16px; font-weight: 800; color: #0f172a; text-align: center; }
+.val-ton-dau-box { font-size: 15px; font-weight: 800; color: #64748b; background-color: #f8fafc; }
+.val-nhap-box { font-size: 15px; font-weight: 800; color: #0284c7; background-color: #f0f9ff; }
+.val-xuat-box { font-size: 15px; font-weight: 800; color: #16a34a; background-color: #f0fdf4; }
+.val-ton-cuoi-box { font-size: 15px; font-weight: 800; color: #b45309; background-color: #fffbeb; }
+.val-ton-thucte-box { font-size: 15px; font-weight: 800; color: #0e7490; background-color: #ecfeff; }
+
+/* 3-ROW LAYOUT STYLES FOR TABLE 1 */
+.row-prev-cumulative {
+  background-color: #f8fafc !important;
+  color: #64748b;
+  font-size: 12.5px;
+}
+
+.row-prev-cumulative td {
+  border-bottom: 1px dashed #cbd5e1 !important;
+  padding: 5px 8px !important;
+}
+
+.row-today-activity {
+  background-color: #fffdf5 !important;
+  font-size: 13px;
+}
+
+.row-today-activity td {
+  border-bottom: 2px solid #94a3b8 !important;
+  padding: 4px 6px !important;
+}
+
+.row-batch-cumulative {
+  background-color: #ffffff !important;
+  font-size: 13.5px;
+}
+
+.row-batch-cumulative td {
+  padding: 6px 8px !important;
+}
+
+.lbl-row-type {
+  text-align: left !important;
+  padding-left: 10px !important;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  color: #475569;
+}
+
+.row-today-activity .lbl-row-type {
+  color: #92400e !important;
+  font-weight: 800;
+}
+
+.val-dash {
+  color: #94a3b8 !important;
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+
+.val-prev-in {
+  font-size: 14px;
+  font-weight: 800;
+  color: #0369a1;
+}
+
+.val-prev-out {
+  font-size: 14px;
+  font-weight: 800;
+  color: #15803d;
+}
+
+.val-today-in {
+  background-color: #ffffff !important;
+  padding: 2px 4px !important;
+}
+
+.val-today-in input {
+  width: 100%;
+  border: 1px solid #93c5fd;
+  border-radius: 4px;
+  padding: 4px;
+  font-size: 14px;
+  font-weight: 800;
+  text-align: center;
+  color: #0c4a6e;
+  background: #f0f9ff;
+  outline: none;
+}
+
+.val-today-in input:focus {
+  background: #ffffff;
+  border-color: #0284c7;
+  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.2);
+}
+
+.val-today-out {
+  font-size: 14px;
+  font-weight: 800;
+  color: #c2410c;
+  background-color: #fff7ed;
+}
+
+.sub-batch-plan {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  margin-top: 2px;
+}
 
 /* THIẾU DATA CELL & DROPDOWN */
 .cell-thieu-data {
