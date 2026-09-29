@@ -853,25 +853,25 @@ function renderReportUI() {
             </thead>
             <tbody>
               <!-- ROW 1: SỐ LƯỢNG KIỂM KÊ 5 TRẠM -->
-              <tr class="batch-row-editing">
-                <td><input type="number" class="wip-num-input field-wip-sewing grid-nav-input" data-batch="${idx}" data-row="1" data-col="0" value="${batch.wip_sewing || ''}" placeholder="0" data-idx="${idx}"></td>
-                <td><input type="number" class="wip-num-input field-wip-qc grid-nav-input" data-batch="${idx}" data-row="1" data-col="1" value="${batch.wip_qc || ''}" placeholder="0" data-idx="${idx}"></td>
-                <td><input type="number" class="wip-num-input field-wip-pairing grid-nav-input" data-batch="${idx}" data-row="1" data-col="2" value="${batch.wip_pairing || ''}" placeholder="0" data-idx="${idx}"></td>
-                <td><input type="number" class="wip-num-input field-wip-packing grid-nav-input" data-batch="${idx}" data-row="1" data-col="3" value="${batch.wip_packing || ''}" placeholder="0" data-idx="${idx}"></td>
-                <td><input type="number" class="wip-num-input field-wip-warehouse grid-nav-input" data-batch="${idx}" data-row="1" data-col="4" value="${batch.wip_warehouse || ''}" placeholder="0" data-idx="${idx}"></td>
+              <tr class="${isEditing ? 'batch-row-editing' : 'batch-row-locked'}">
+                <td><input type="number" ${isEditing ? '' : 'readonly'} class="wip-num-input field-wip-sewing grid-nav-input" data-batch="${idx}" data-row="1" data-col="0" value="${batch.wip_sewing || ''}" placeholder="0" data-idx="${idx}"></td>
+                <td><input type="number" ${isEditing ? '' : 'readonly'} class="wip-num-input field-wip-qc grid-nav-input" data-batch="${idx}" data-row="1" data-col="1" value="${batch.wip_qc || ''}" placeholder="0" data-idx="${idx}"></td>
+                <td><input type="number" ${isEditing ? '' : 'readonly'} class="wip-num-input field-wip-pairing grid-nav-input" data-batch="${idx}" data-row="1" data-col="2" value="${batch.wip_pairing || ''}" placeholder="0" data-idx="${idx}"></td>
+                <td><input type="number" ${isEditing ? '' : 'readonly'} class="wip-num-input field-wip-packing grid-nav-input" data-batch="${idx}" data-row="1" data-col="3" value="${batch.wip_packing || ''}" placeholder="0" data-idx="${idx}"></td>
+                <td><input type="number" ${isEditing ? '' : 'readonly'} class="wip-num-input field-wip-warehouse grid-nav-input" data-batch="${idx}" data-row="1" data-col="4" value="${batch.wip_warehouse || ''}" placeholder="0" data-idx="${idx}"></td>
                 <td rowspan="2" class="cell-batch-actions">
-                  <button type="button" class="btn-batch-toggle is-editing btn-toggle-batch" data-batch="${idx}" title="Lưu số liệu lô này">
-                    💾 Lưu
+                  <button type="button" class="btn-batch-toggle ${isEditing ? 'is-editing' : 'is-locked'} btn-toggle-batch" data-batch="${idx}" title="${isEditing ? 'Nhấn để lưu số liệu và khóa bảng kiểm kê' : 'Nhấn để mở khóa chỉnh sửa số liệu kiểm kê'}">
+                    ${isEditing ? '💾 Lưu' : '✏️ Sửa'}
                   </button>
                 </td>
               </tr>
               <!-- ROW 2: TÊN NGƯỜI THỰC HIỆN (5 TRẠM) -->
-              <tr class="batch-row-editing">
-                <td><input type="text" class="wip-executor-input field-note-sewing grid-nav-input" data-batch="${idx}" data-row="2" data-col="0" value="${batch.note_sewing || ''}" placeholder="Người thực hiện..." data-idx="${idx}"></td>
-                <td><input type="text" class="wip-executor-input field-note-qc grid-nav-input" data-batch="${idx}" data-row="2" data-col="1" value="${batch.note_qc || ''}" placeholder="Người thực hiện..." data-idx="${idx}"></td>
-                <td><input type="text" class="wip-executor-input field-note-pairing grid-nav-input" data-batch="${idx}" data-row="2" data-col="2" value="${batch.note_pairing || ''}" placeholder="Người thực hiện..." data-idx="${idx}"></td>
-                <td><input type="text" class="wip-executor-input field-note-packing grid-nav-input" data-batch="${idx}" data-row="2" data-col="3" value="${batch.note_packing || ''}" placeholder="Người thực hiện..." data-idx="${idx}"></td>
-                <td><input type="text" class="wip-executor-input field-note-warehouse grid-nav-input" data-batch="${idx}" data-row="2" data-col="4" value="${batch.note_warehouse || ''}" placeholder="Người thực hiện..." data-idx="${idx}"></td>
+              <tr class="${isEditing ? 'batch-row-editing' : 'batch-row-locked'}">
+                <td><input type="text" ${isEditing ? '' : 'readonly'} class="wip-executor-input field-note-sewing grid-nav-input" data-batch="${idx}" data-row="2" data-col="0" value="${batch.note_sewing || ''}" placeholder="${isEditing ? 'Người thực hiện...' : ''}" data-idx="${idx}"></td>
+                <td><input type="text" ${isEditing ? '' : 'readonly'} class="wip-executor-input field-note-qc grid-nav-input" data-batch="${idx}" data-row="2" data-col="1" value="${batch.note_qc || ''}" placeholder="${isEditing ? 'Người thực hiện...' : ''}" data-idx="${idx}"></td>
+                <td><input type="text" ${isEditing ? '' : 'readonly'} class="wip-executor-input field-note-pairing grid-nav-input" data-batch="${idx}" data-row="2" data-col="2" value="${batch.note_pairing || ''}" placeholder="${isEditing ? 'Người thực hiện...' : ''}" data-idx="${idx}"></td>
+                <td><input type="text" ${isEditing ? '' : 'readonly'} class="wip-executor-input field-note-packing grid-nav-input" data-batch="${idx}" data-row="2" data-col="3" value="${batch.note_packing || ''}" placeholder="${isEditing ? 'Người thực hiện...' : ''}" data-idx="${idx}"></td>
+                <td><input type="text" ${isEditing ? '' : 'readonly'} class="wip-executor-input field-note-warehouse grid-nav-input" data-batch="${idx}" data-row="2" data-col="4" value="${batch.note_warehouse || ''}" placeholder="${isEditing ? 'Người thực hiện...' : ''}" data-idx="${idx}"></td>
               </tr>
             </tbody>
           </table>
@@ -978,15 +978,40 @@ function recalculateAllInPlace() {
 
 // BIND CARD INPUT LISTENERS
 function bindCardInputs() {
-  // Batch Save Button
+  // Batch Save/Edit Toggle Button (Rotating cycle per batch)
   document.querySelectorAll(".btn-toggle-batch").forEach(btn => {
     btn.addEventListener("click", async (e) => {
       e.preventDefault();
       const bIdx = parseInt(btn.dataset.batch, 10);
       if (isNaN(bIdx)) return;
-      await saveReport(appState.report.status || "DRAFT", true);
-      const b = appState.report.batches[bIdx];
-      showToast(`💾 Đã lưu thành công ${b ? b.batch_name : 'Lô'} ngày ${formatDateDisplay(appState.currentDate)}!`);
+      
+      const currentlyEditing = Boolean(appState.editingBatches && appState.editingBatches[bIdx]);
+      if (currentlyEditing) {
+        // Switch to Locked mode & save to DB
+        if (!appState.editingBatches) appState.editingBatches = {};
+        appState.editingBatches[bIdx] = false;
+        
+        const scrollY = window.scrollY;
+        await saveReport(appState.report.status || "DRAFT", true);
+        const b = appState.report.batches[bIdx];
+        showToast(`💾 Đã lưu và khóa bảng kiểm kê ${b ? b.batch_name : 'Lô'} ngày ${formatDateDisplay(appState.currentDate)}!`);
+        renderReportUI();
+        window.scrollTo(0, scrollY);
+      } else {
+        // Switch to Editing mode & focus
+        if (!appState.editingBatches) appState.editingBatches = {};
+        appState.editingBatches[bIdx] = true;
+        
+        const scrollY = window.scrollY;
+        renderReportUI();
+        window.scrollTo(0, scrollY);
+        
+        const firstWipInput = document.querySelector(`.field-wip-sewing[data-batch="${bIdx}"]`);
+        if (firstWipInput) {
+          firstWipInput.focus();
+          firstWipInput.select();
+        }
+      }
     });
   });
 
@@ -1031,6 +1056,7 @@ function bindCardInputs() {
     });
 
     input.addEventListener("dblclick", (e) => {
+      if (e.target.readOnly) return;
       if (e.target.type === "number") {
         showNumpad(e.target);
       }
