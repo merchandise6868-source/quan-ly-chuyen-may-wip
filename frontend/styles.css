@@ -3729,7 +3729,7 @@ input[type=number] {
 
 .dual-arrow-col.left-col {
   justify-content: flex-end !important;
-  padding-right: 18px !important;
+  padding-right: 24% !important;
   gap: 6px !important;
 }
 
