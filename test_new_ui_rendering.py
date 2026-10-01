@@ -91,15 +91,24 @@ class TestNewUIRendering(unittest.TestCase):
         self.driver.execute_script(init_script)
         time.sleep(1)
 
+        self.driver.set_window_size(1200, 1400)
+        time.sleep(0.5)
+
         # Scroll to batch card
         batch_card = self.driver.find_element(By.ID, "batchCard_0")
-        self.driver.execute_script("arguments[0].scrollIntoView({ behavior: 'instant', block: 'center' });", batch_card)
+        self.driver.execute_script("arguments[0].scrollIntoView({ behavior: 'instant', block: 'start' });", batch_card)
         time.sleep(0.5)
 
         # Chụp riêng phần card lô hàng
         screenshot_card = os.path.join(self.screenshot_dir, "Hinh1_Batch_Card_Chuan_Desktop.png")
         batch_card.screenshot(screenshot_card)
         print(f"✅ Đã chụp card Lô 1: {screenshot_card}")
+
+        # Chụp riêng phần Bảng 1 Nhập Xuất
+        table1 = self.driver.find_element(By.CSS_SELECTOR, "#batchCard_0 .h1-table-card")
+        screenshot_t1 = os.path.join(self.screenshot_dir, "Table1_NX_Desktop.png")
+        table1.screenshot(screenshot_t1)
+        print(f"✅ Đã chụp Bảng 1: {screenshot_t1}")
 
     def test_02_render_batch_card_mobile(self):
         """Chụp ảnh chi tiết Card Lô Hàng trên Mobile (iOS / Android)"""

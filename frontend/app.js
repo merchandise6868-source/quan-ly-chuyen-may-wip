@@ -716,9 +716,15 @@ function renderReportUI() {
           </div>
           <div class="h1-table-card">
             <table class="h1-table-nx">
+              <colgroup>
+                <col style="width: 36%;">
+                <col style="width: 16%;">
+                <col style="width: 24%;">
+                <col style="width: 24%;">
+              </colgroup>
               <thead>
                 <tr>
-                  <th class="col-target text-left">Chỉ tiêu</th>
+                  <th class="col-target text-left" style="padding-left: 10px;">Chỉ tiêu</th>
                   <th class="col-prev text-center">Lũy kế<br>trước</th>
                   <th class="col-today text-center">Phát sinh<br>hôm nay</th>
                   <th class="col-total text-center">Tổng</th>
@@ -743,12 +749,16 @@ function renderReportUI() {
                   </td>
                   <td class="cell-prev-val text-center font-bold text-sky-700" id="calcPrevIn_${idx}">${prevIn.toLocaleString("vi-VN")}</td>
                   <td class="cell-calc-group text-center">
-                    <span class="op-sym op-plus">+</span>
-                    <input type="number" class="wip-num-input field-daily-in field-into-sewing grid-nav-input inp-blue" data-batch="${idx}" data-row="0" data-col="2" value="${batch.into_sewing || ''}" placeholder="0" data-idx="${idx}" title="Phát sinh nhập hôm nay">
+                    <div class="h1-calc-inline-wrap">
+                      <span class="op-sym op-plus">+</span>
+                      <input type="number" class="wip-num-input field-daily-in field-into-sewing grid-nav-input inp-blue" data-batch="${idx}" data-row="0" data-col="2" value="${batch.into_sewing || ''}" placeholder="0" data-idx="${idx}" title="Phát sinh nhập hôm nay">
+                    </div>
                   </td>
                   <td class="cell-total-val text-center text-blue">
-                    <span class="op-sym op-eq">=</span>
-                    <span class="val-num font-black text-sky-800" id="calcIntoSewing_${idx}">${cumIn.toLocaleString("vi-VN")}</span>
+                    <div class="h1-calc-inline-wrap">
+                      <span class="op-sym op-eq">=</span>
+                      <span class="val-num font-black text-sky-800" id="calcIntoSewing_${idx}">${cumIn.toLocaleString("vi-VN")}</span>
+                    </div>
                   </td>
                 </tr>
                 <!-- ROW 3: XUẤT -->
@@ -759,12 +769,16 @@ function renderReportUI() {
                   </td>
                   <td class="cell-prev-val text-center font-bold text-emerald-700" id="calcPrevOut_${idx}">${prevOut.toLocaleString("vi-VN")}</td>
                   <td class="cell-calc-group text-center">
-                    <span class="op-sym op-plus">+</span>
-                    <input type="number" class="wip-num-input wip-num-input-out field-daily-out grid-nav-input inp-green" data-batch="${idx}" data-row="0" data-col="3" value="${batch.daily_out || ''}" placeholder="0" data-idx="${idx}" title="Phát sinh xuất hôm nay">
+                    <div class="h1-calc-inline-wrap">
+                      <span class="op-sym op-plus">+</span>
+                      <input type="number" class="wip-num-input wip-num-input-out field-daily-out grid-nav-input inp-green" data-batch="${idx}" data-row="0" data-col="3" value="${batch.daily_out || ''}" placeholder="0" data-idx="${idx}" title="Phát sinh xuất hôm nay">
+                    </div>
                   </td>
                   <td class="cell-total-val text-center text-green">
-                    <span class="op-sym op-eq">=</span>
-                    <span class="val-num font-black text-emerald-800" id="calcDelivered_${idx}">${cumOut.toLocaleString("vi-VN")}</span>
+                    <div class="h1-calc-inline-wrap">
+                      <span class="op-sym op-eq">=</span>
+                      <span class="val-num font-black text-emerald-800" id="calcDelivered_${idx}">${cumOut.toLocaleString("vi-VN")}</span>
+                    </div>
                   </td>
                 </tr>
               </tbody>
@@ -820,10 +834,22 @@ function renderReportUI() {
         <!-- 5. DUAL ARROW ROW -->
         <div class="h1-dual-arrows-row">
           <div class="dual-arrow-col left-col">
-            <span class="arrow-text-blue">Tổng 5 trạm ⬇</span>
+            <div class="arrow-text-wrap text-blue-wrap">
+              <span>Tổng</span>
+              <span>5 trạm</span>
+            </div>
+            <svg class="h1-arrow-svg" viewBox="0 0 24 28" fill="#0284c7">
+              <path d="M7 0 H17 V14 H24 L12 28 L0 14 H7 Z" />
+            </svg>
           </div>
           <div class="dual-arrow-col right-col">
-            <span class="arrow-text-red">Phân tích nguyên nhân ⬇</span>
+            <svg class="h1-arrow-svg" viewBox="0 0 24 28" fill="#dc2626">
+              <path d="M7 0 H17 V14 H24 L12 28 L0 14 H7 Z" />
+            </svg>
+            <div class="arrow-text-wrap text-red-wrap">
+              <span>Phân tích</span>
+              <span>nguyên nhân</span>
+            </div>
           </div>
         </div>
 
@@ -2775,12 +2801,13 @@ function applyUserRole(role, user = null) {
   const tabHistoryBtn = document.getElementById("tabBtnHistory");
   const tabUsersBtn = document.getElementById("tabBtnUsers");
 
-  const displayName = user ? (user.full_name || user.email || user.phone) : (role === "admin" ? "Sếp Tổng" : (role === "manager" ? "Quản lý" : "Công nhân"));
+  let rawName = user ? (user.full_name || user.email || user.phone) : (role === "admin" ? "Sếp Tổng" : (role === "manager" ? "Quản lý" : "Công nhân"));
+  const cleanName = String(rawName).replace(/\s*\(Admin\)/gi, '').replace(/\s*\(Quản lý\)/gi, '').replace(/\s*\(Công nhân\)/gi, '').trim();
 
   if (role === "admin") {
     if (badge) {
       badge.className = "role-badge is-admin";
-      badge.innerHTML = `👑 ${displayName} (Admin)`;
+      badge.innerHTML = `👑 ${cleanName} (Admin)`;
     }
     if (tabManageBtn) tabManageBtn.classList.remove("hidden");
     if (tabHistoryBtn) tabHistoryBtn.classList.remove("hidden");
