@@ -833,22 +833,29 @@ function renderReportUI() {
 
         <!-- 5. DUAL ARROW ROW -->
         <div class="h1-dual-arrows-row">
-          <div class="dual-arrow-col left-col">
-            <div class="arrow-text-wrap text-blue-wrap">
-              <span>Tổng</span>
-              <span>5 trạm</span>
+          <div class="arrow-spacer-1"></div>
+          <div class="arrow-op-spacer"></div>
+          <div class="dual-arrow-cell cell-blue">
+            <div class="arrow-group-blue">
+              <div class="arrow-text-wrap text-blue-wrap">
+                <span>Tổng</span>
+                <span>5 trạm</span>
+              </div>
+              <svg class="h1-arrow-svg h1-arrow-blue" viewBox="0 0 24 32">
+                <path d="M7 0 H17 V18 H24 L12 32 L0 18 H7 Z" />
+              </svg>
             </div>
-            <svg class="h1-arrow-svg" viewBox="0 0 24 28" fill="#0284c7">
-              <path d="M7 0 H17 V14 H24 L12 28 L0 14 H7 Z" />
-            </svg>
           </div>
-          <div class="dual-arrow-col right-col">
-            <svg class="h1-arrow-svg" viewBox="0 0 24 28" fill="#dc2626">
-              <path d="M7 0 H17 V14 H24 L12 28 L0 14 H7 Z" />
-            </svg>
-            <div class="arrow-text-wrap text-red-wrap">
-              <span>Phân tích</span>
-              <span>nguyên nhân</span>
+          <div class="arrow-op-spacer"></div>
+          <div class="dual-arrow-cell cell-red">
+            <div class="arrow-group-red">
+              <svg class="h1-arrow-svg h1-arrow-red" viewBox="0 0 24 32">
+                <path d="M7 0 H17 V18 H24 L12 32 L0 18 H7 Z" />
+              </svg>
+              <div class="arrow-text-wrap text-red-wrap">
+                <span>Phân tích</span>
+                <span>nguyên nhân</span>
+              </div>
             </div>
           </div>
         </div>
