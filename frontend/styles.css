@@ -3715,43 +3715,27 @@ input[type=number] {
 
 /* Dual Arrow Row */
 .h1-dual-arrows-row {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  gap: 6px !important;
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 10px !important;
   margin: 6px 0 6px 0 !important;
 }
 
-.h1-dual-arrows-row .arrow-spacer-1 {
-  flex: 1 !important;
-}
-
-.h1-dual-arrows-row .arrow-op-spacer {
-  width: 20px !important;
-  flex-shrink: 0 !important;
-}
-
-.h1-dual-arrows-row .dual-arrow-cell {
-  flex: 1 !important;
+.dual-arrow-col {
   display: flex !important;
   align-items: center !important;
   min-width: 0 !important;
 }
 
-.h1-dual-arrows-row .dual-arrow-cell.cell-blue {
+.dual-arrow-col.left-col {
   justify-content: flex-end !important;
-  padding-right: 10px !important;
+  padding-right: 18px !important;
+  gap: 6px !important;
 }
 
-.h1-dual-arrows-row .dual-arrow-cell.cell-red {
+.dual-arrow-col.right-col {
   justify-content: flex-start !important;
-  padding-left: 10px !important;
-}
-
-.arrow-group-blue,
-.arrow-group-red {
-  display: flex !important;
-  align-items: center !important;
+  padding-left: 45% !important;
   gap: 6px !important;
 }
 
