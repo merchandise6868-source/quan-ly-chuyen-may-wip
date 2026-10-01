@@ -305,6 +305,11 @@ function bindEvents() {
   const btnCancelUser = document.getElementById("btnCancelEditUser");
   if (btnCancelUser) btnCancelUser.addEventListener("click", resetUserForm);
 
+  const inputUserPhone = document.getElementById("userPhone");
+  if (inputUserPhone) inputUserPhone.addEventListener("input", handleUserFormPhoneInput);
+  const inputUserEmail = document.getElementById("userEmail");
+  if (inputUserEmail) inputUserEmail.addEventListener("input", handleUserFormPhoneInput);
+
   // Header Selects & Filters
   const selCust = document.getElementById("selectCustomer");
   if (selCust) {
@@ -3114,12 +3119,24 @@ function renderUsersTable() {
       document.getElementById("editUserId").value = user.id;
       if (document.getElementById("userEmail")) document.getElementById("userEmail").value = user.email || "";
       document.getElementById("userPhone").value = user.phone || "";
-      document.getElementById("userFullName").value = user.full_name;
-      document.getElementById("userRoleSelect").value = user.role;
+      document.getElementById("userFullName").value = user.full_name || "";
+      document.getElementById("userRoleSelect").value = user.role || "worker";
       if (document.getElementById("userPassword")) document.getElementById("userPassword").value = user.password || "Admin@123456";
       document.getElementById("userPinCode").value = user.pin_code || "1234";
       document.getElementById("btnSubmitUser").innerText = "💾 Cập Nhật Quyền";
       document.getElementById("btnCancelEditUser").style.display = "inline-block";
+
+      const hintEl = document.getElementById("userFormHint");
+      if (hintEl) {
+        hintEl.style.display = "block";
+        hintEl.innerHTML = `✏️ Đang chỉnh sửa tài khoản: <strong>${user.full_name}</strong> (${user.phone || user.email || id}).`;
+      }
+
+      const formUser = document.getElementById("formAddUser");
+      if (formUser) {
+        formUser.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+      document.getElementById("userFullName")?.focus();
     });
   });
 
@@ -3142,6 +3159,43 @@ function renderUsersTable() {
   });
 }
 
+function handleUserFormPhoneInput() {
+  const elId = document.getElementById("editUserId");
+  // Nếu đang ở chế độ ấn nút "Sửa" thủ công thì giữ nguyên
+  if (elId && elId.value) return;
+
+  const phoneVal = document.getElementById("userPhone")?.value.trim() || "";
+  const emailVal = document.getElementById("userEmail")?.value.trim().toLowerCase() || "";
+  const cleanPhone = normalizePhone(phoneVal);
+  const hintEl = document.getElementById("userFormHint");
+  const btnSubmit = document.getElementById("btnSubmitUser");
+
+  if (!cleanPhone && !emailVal) {
+    if (hintEl) hintEl.style.display = "none";
+    if (btnSubmit) btnSubmit.innerText = "💾 Lưu Tài Khoản & Phân Quyền";
+    return;
+  }
+
+  const existing = Array.isArray(appState.usersList) ? appState.usersList.find(u => 
+    (cleanPhone && normalizePhone(u.phone) === cleanPhone) ||
+    (emailVal && u.email && u.email.toLowerCase() === emailVal)
+  ) : null;
+
+  if (existing) {
+    const roleText = existing.role === 'admin' ? 'Admin (Sếp Tổng)' : existing.role === 'manager' ? 'Manager (Quản Lý)' : 'Worker (Công Nhân)';
+    if (hintEl) {
+      hintEl.style.display = "block";
+      hintEl.innerHTML = `ℹ️ Số điện thoại/Email này đã có tài khoản: <strong>${existing.full_name}</strong> (Vai trò hiện tại: <em>${roleText}</em>). Khi bạn bấm Lưu, hệ thống sẽ tự động cập nhật phân quyền và thông tin cho tài khoản này.`;
+    }
+    if (btnSubmit) {
+      btnSubmit.innerText = `💾 Cập Nhật Quyền (${existing.full_name})`;
+    }
+  } else {
+    if (hintEl) hintEl.style.display = "none";
+    if (btnSubmit) btnSubmit.innerText = "💾 Lưu Tài Khoản & Phân Quyền";
+  }
+}
+
 function resetUserForm() {
   const elId = document.getElementById("editUserId");
   if (elId) elId.value = "";
@@ -3161,11 +3215,16 @@ function resetUserForm() {
   if (elSubmit) elSubmit.innerText = "💾 Lưu Tài Khoản & Phân Quyền";
   const elCancel = document.getElementById("btnCancelEditUser");
   if (elCancel) elCancel.style.display = "none";
+  const hintEl = document.getElementById("userFormHint");
+  if (hintEl) {
+    hintEl.style.display = "none";
+    hintEl.innerHTML = "";
+  }
 }
 
 async function handleAddUser(e) {
   e.preventDefault();
-  const id = document.getElementById("editUserId").value;
+  let id = document.getElementById("editUserId")?.value || "";
   const email = document.getElementById("userEmail")?.value.trim() || "";
   const phone = document.getElementById("userPhone")?.value.trim() || "";
   const fullName = document.getElementById("userFullName")?.value.trim() || "";
@@ -3180,6 +3239,19 @@ async function handleAddUser(e) {
   if (!fullName) {
     alert("Vui lòng điền họ và tên.");
     return;
+  }
+
+  // Tự động gán ID nếu người dùng tự nhập SĐT hoặc Email đã tồn tại trong danh sách
+  const cleanPhone = normalizePhone(phone);
+  const cleanEmail = email.toLowerCase();
+  if (!id && Array.isArray(appState.usersList)) {
+    const existing = appState.usersList.find(u => 
+      (cleanPhone && normalizePhone(u.phone) === cleanPhone) ||
+      (cleanEmail && u.email && u.email.toLowerCase() === cleanEmail)
+    );
+    if (existing) {
+      id = existing.id;
+    }
   }
 
   try {

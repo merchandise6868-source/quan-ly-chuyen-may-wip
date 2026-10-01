@@ -685,32 +685,124 @@ export default {
       if (url.pathname === '/api/admin/users' && request.method === 'POST') {
         try {
           const body = await request.json();
-          const { id, email, phone, full_name, role, password, pin_code, is_active } = body;
-          const cleanPhone = normalizePhone(phone);
-          const cleanEmail = (email || "").trim().toLowerCase();
-          const userId = id || ('usr-' + Date.now());
+          let { id, email, phone, full_name, role, password, pin_code, is_active } = body;
+          const cleanPhone = phone ? normalizePhone(phone) : null;
+          const cleanEmail = (email || "").trim().toLowerCase() || null;
+
+          if (!cleanPhone && !cleanEmail) {
+            return Response.json({ success: false, error: "Vui lòng nhập Số điện thoại hoặc Email." }, { status: 400, headers });
+          }
 
           if (env && env.DB) {
-            await env.DB.prepare(`
-              INSERT INTO users (id, email, phone, full_name, role, password, pin_code, is_active)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-              ON CONFLICT(id) DO UPDATE SET
-                email=excluded.email,
-                phone=excluded.phone,
-                full_name=excluded.full_name,
-                role=excluded.role,
-                password=excluded.password,
-                pin_code=excluded.pin_code,
-                is_active=excluded.is_active,
-                updated_at=CURRENT_TIMESTAMP
-            `).bind(userId, cleanEmail, cleanPhone, full_name || 'Nhân Viên', role || 'worker', password || 'Admin@123456', pin_code || '1234', is_active !== undefined ? is_active : 1).run();
+            let targetUserId = id ? String(id).trim() : null;
+
+            // Nếu chưa có ID (người dùng tự nhập SĐT/Email ở form mà không ấn nút Sửa):
+            // Tự động tìm xem SĐT hoặc Email này đã tồn tại trong DB chưa để cập nhật
+            if (!targetUserId) {
+              if (cleanPhone) {
+                const { results: phoneMatch } = await env.DB.prepare("SELECT * FROM users WHERE phone = ?").bind(cleanPhone).all();
+                if (phoneMatch && phoneMatch.length > 0) {
+                  targetUserId = phoneMatch[0].id;
+                }
+              }
+              if (!targetUserId && cleanEmail) {
+                const { results: emailMatch } = await env.DB.prepare("SELECT * FROM users WHERE LOWER(email) = ?").bind(cleanEmail).all();
+                if (emailMatch && emailMatch.length > 0) {
+                  targetUserId = emailMatch[0].id;
+                }
+              }
+            }
+
+            // Kiểm tra trùng lặp với tài khoản khác trong hệ thống
+            if (targetUserId) {
+              if (cleanPhone) {
+                const { results: phoneConflict } = await env.DB.prepare("SELECT id, full_name FROM users WHERE phone = ? AND id != ?").bind(cleanPhone, targetUserId).all();
+                if (phoneConflict && phoneConflict.length > 0) {
+                  return Response.json({
+                    success: false,
+                    error: `Số điện thoại "${cleanPhone}" đã được sử dụng bởi tài khoản "${phoneConflict[0].full_name}". Vui lòng kiểm tra lại.`
+                  }, { status: 400, headers });
+                }
+              }
+              if (cleanEmail) {
+                const { results: emailConflict } = await env.DB.prepare("SELECT id, full_name FROM users WHERE LOWER(email) = ? AND id != ?").bind(cleanEmail, targetUserId).all();
+                if (emailConflict && emailConflict.length > 0) {
+                  return Response.json({
+                    success: false,
+                    error: `Email "${cleanEmail}" đã được sử dụng bởi tài khoản "${emailConflict[0].full_name}". Vui lòng kiểm tra lại.`
+                  }, { status: 400, headers });
+                }
+              }
+
+              // Cập nhật người dùng hiện có
+              await env.DB.prepare(`
+                UPDATE users
+                SET email = ?,
+                    phone = ?,
+                    full_name = ?,
+                    role = ?,
+                    password = ?,
+                    pin_code = ?,
+                    is_active = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+              `).bind(
+                cleanEmail,
+                cleanPhone,
+                full_name || 'Nhân Viên',
+                role || 'worker',
+                password || 'Admin@123456',
+                pin_code || '1234',
+                is_active !== undefined ? is_active : 1,
+                targetUserId
+              ).run();
+            } else {
+              // Thêm người dùng mới
+              targetUserId = 'usr-' + Date.now();
+              await env.DB.prepare(`
+                INSERT INTO users (id, email, phone, full_name, role, password, pin_code, is_active, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+              `).bind(
+                targetUserId,
+                cleanEmail,
+                cleanPhone,
+                full_name || 'Nhân Viên',
+                role || 'worker',
+                password || 'Admin@123456',
+                pin_code || '1234',
+                is_active !== undefined ? is_active : 1
+              ).run();
+            }
 
             const { results: users } = await env.DB.prepare("SELECT id, email, phone, full_name, role, password, pin_code, is_active, created_at FROM users ORDER BY role ASC, created_at DESC").all();
             return Response.json({ success: true, users }, { headers });
           }
 
-          if (id) {
-            const idx = memoryDB.users.findIndex(u => u.id === id);
+          // Memory fallback
+          let targetUserId = id ? String(id).trim() : null;
+          if (!targetUserId) {
+            const existing = memoryDB.users.find(u => 
+              (cleanPhone && normalizePhone(u.phone) === cleanPhone) ||
+              (cleanEmail && u.email && u.email.toLowerCase() === cleanEmail)
+            );
+            if (existing) {
+              targetUserId = existing.id;
+            }
+          }
+
+          if (targetUserId) {
+            const dup = memoryDB.users.find(u => u.id !== targetUserId && (
+              (cleanPhone && normalizePhone(u.phone) === cleanPhone) ||
+              (cleanEmail && u.email && u.email.toLowerCase() === cleanEmail)
+            ));
+            if (dup) {
+              return Response.json({
+                success: false,
+                error: `Số điện thoại hoặc Email đã được sử dụng bởi tài khoản "${dup.full_name}". Vui lòng kiểm tra lại.`
+              }, { status: 400, headers });
+            }
+
+            const idx = memoryDB.users.findIndex(u => u.id === targetUserId);
             if (idx >= 0) {
               memoryDB.users[idx] = {
                 ...memoryDB.users[idx],
@@ -724,8 +816,19 @@ export default {
               };
             }
           } else {
+            const dup = memoryDB.users.find(u => 
+              (cleanPhone && normalizePhone(u.phone) === cleanPhone) ||
+              (cleanEmail && u.email && u.email.toLowerCase() === cleanEmail)
+            );
+            if (dup) {
+              return Response.json({
+                success: false,
+                error: `Số điện thoại hoặc Email đã được sử dụng bởi tài khoản "${dup.full_name}". Vui lòng kiểm tra lại.`
+              }, { status: 400, headers });
+            }
+
             memoryDB.users.push({
-              id: userId,
+              id: 'usr-' + Date.now(),
               email: cleanEmail,
               phone: cleanPhone,
               full_name: full_name || 'Nhân Viên',
@@ -736,9 +839,16 @@ export default {
               created_at: new Date().toISOString()
             });
           }
+
           return Response.json({ success: true, users: memoryDB.users }, { headers });
         } catch (err) {
-          return Response.json({ success: false, error: err.message }, { status: 400, headers });
+          let errorMsg = err.message || "Lỗi không xác định";
+          if (errorMsg.includes("UNIQUE constraint failed: users.phone")) {
+            errorMsg = "Số điện thoại này đã tồn tại trong hệ thống. Vui lòng bấm 'Sửa' ở bảng bên dưới để cập nhật.";
+          } else if (errorMsg.includes("UNIQUE constraint failed: users.email")) {
+            errorMsg = "Email này đã tồn tại trong hệ thống. Vui lòng kiểm tra lại.";
+          }
+          return Response.json({ success: false, error: errorMsg }, { status: 400, headers });
         }
       }
 
