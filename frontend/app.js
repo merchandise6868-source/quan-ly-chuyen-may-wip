@@ -17,6 +17,7 @@ let appState = {
   cumExportsByBatch: {},
   cumImportsByBatch: {},
   editingBatches: {},
+  hasUnsavedChanges: false,
   flowLogs: [],
   historyLogs: [],
   activeInputEl: null
@@ -332,7 +333,7 @@ function bindEvents() {
   const repDate = document.getElementById("reportDate");
   if (repDate) {
     repDate.addEventListener("change", async (e) => {
-      if (appState.currentPO && appState.report && appState.report.batches && appState.report.batches.length > 0) {
+      if (appState.hasUnsavedChanges && appState.currentPO && appState.report && appState.report.batches && appState.report.batches.length > 0) {
         try {
           await saveReport(appState.report.status || "DRAFT", true);
         } catch (err) {
@@ -507,7 +508,7 @@ async function refreshAllTabsData() {
 }
 
 async function changeDateByDays(days) {
-  if (appState.currentPO && appState.report && appState.report.batches && appState.report.batches.length > 0) {
+  if (appState.hasUnsavedChanges && appState.currentPO && appState.report && appState.report.batches && appState.report.batches.length > 0) {
     try {
       await saveReport(appState.report.status || "DRAFT", true);
     } catch (err) {
@@ -620,6 +621,7 @@ async function loadReport() {
         }
       }
 
+      appState.hasUnsavedChanges = false;
       renderReportUI();
     }
   } catch (err) {
@@ -1151,6 +1153,7 @@ function bindCardInputs() {
 
   document.querySelectorAll(".excel-batches-container input, .excel-batches-container select").forEach(input => {
     input.addEventListener("input", (e) => {
+      appState.hasUnsavedChanges = true;
       const idx = e.target.dataset.idx || e.target.dataset.batch;
       const b = appState.report.batches[idx];
       if (!b) return;
@@ -2073,6 +2076,7 @@ async function saveReport(status, silent = false) {
     });
     const data = await res.json();
     if (data.success) {
+      appState.hasUnsavedChanges = false;
       if (!silent) {
         showToast(`✅ Đã lưu báo cáo (${status === 'SUBMITTED' ? 'Đã chốt sổ' : 'Bản nháp'})!`);
       }
