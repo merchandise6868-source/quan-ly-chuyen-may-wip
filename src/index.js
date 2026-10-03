@@ -13,10 +13,12 @@ const INITIAL_DB = {
       po_number: "PO-050",
       line_name: "Chuyền 1 - Xưởng 2",
       po_plan: 1623,
+      tail_sweep_date: "2026-09-23",
+      tail_batch_name: "Lô Số Đuôi",
       default_batches: [
         { id: "b1", batch_name: "Lô 1", batch_plan: 1230, into_sewing: 1230 },
         { id: "b2", batch_name: "Lô 2", batch_plan: 267, into_sewing: 267 },
-        { id: "b3", batch_name: "Số đuôi", batch_plan: 126, into_sewing: 126 }
+        { id: "b3", batch_name: "Lô Số Đuôi", batch_plan: 126, into_sewing: 126, is_tail_batch: true }
       ]
     },
     {
@@ -67,7 +69,8 @@ const INITIAL_DB = {
           note_packing: "Lan",
           note_warehouse: "",
           shortage_reason_type: "Khác",
-          shortage_note: "Thiếu 1 phôi hỏng"
+          shortage_note: "Thiếu 1 phôi hỏng",
+          shortage_mat_xac: 1
         },
         {
           id: "b2",
@@ -86,33 +89,76 @@ const INITIAL_DB = {
           note_packing: "Lan",
           note_warehouse: "Kho TP",
           shortage_reason_type: "Hàng phế",
-          shortage_note: "Lỗi vải 17 đôi"
+          shortage_note: "Lỗi vải 17 đôi",
+          shortage_hang_phe: 17
         }
       ]
     },
     "po-050_2026-09-23": {
       po_id: "po-050",
       report_date: "2026-09-23",
-      status: "DRAFT",
+      status: "SUBMITTED",
       batches: [
         {
           id: "b1",
           batch_name: "Lô 1",
           batch_plan: 1230,
-          into_sewing: 1230,
-          wip_sewing: 150,
-          wip_qc: 50,
-          wip_pairing: 200,
+          into_sewing: 0,
+          wip_sewing: 0,
+          wip_qc: 0,
+          wip_pairing: 0,
+          wip_packing: 111,
+          wip_warehouse: 120,
+          daily_out: 350,
+          note_sewing: "Line may 1",
+          note_qc: "Trạm QC 1",
+          note_pairing: "Hà",
+          note_packing: "Hồng",
+          note_warehouse: "Kho TP",
+          note_export: "Tài",
+          shortage_reason_type: "Khác",
+          shortage_note: "Thiếu 1 phôi hỏng",
+          shortage_mat_xac: 1
+        },
+        {
+          id: "b2",
+          batch_name: "Lô 2",
+          batch_plan: 267,
+          into_sewing: 0,
+          wip_sewing: 0,
+          wip_qc: 0,
+          wip_pairing: 100,
           wip_packing: 100,
-          wip_warehouse: 0,
-          daily_out: 200,
+          wip_warehouse: 50,
+          daily_out: 0,
           note_sewing: "",
           note_qc: "",
+          note_pairing: "Thảo",
+          note_packing: "Lan",
+          note_warehouse: "Kho TP",
+          shortage_reason_type: "Hàng phế",
+          shortage_note: "17 đôi lỗi vải chờ Chuẩn bị dập bù",
+          shortage_hang_phe: 17
+        },
+        {
+          id: "b3",
+          batch_name: "Lô Số Đuôi",
+          batch_plan: 126,
+          into_sewing: 126,
+          wip_sewing: 80,
+          wip_qc: 46,
+          wip_pairing: 0,
+          wip_packing: 0,
+          wip_warehouse: 0,
+          daily_out: 0,
+          note_sewing: "Tổ may",
+          note_qc: "QC 1",
           note_pairing: "",
           note_packing: "",
           note_warehouse: "",
           shortage_reason_type: "",
-          shortage_note: ""
+          shortage_note: "Nhận 126 nợ từ Chuẩn Bị bù nợ",
+          is_tail_batch: true
         }
       ]
     }
@@ -128,7 +174,12 @@ const INITIAL_DB = {
         { date: "22/9", nhap_phoi: 100, giao_dg: 100, nhap_kho: 50, xuat_kho: 0 },
         { date: "", nhap_phoi: "", giao_dg: "", nhap_kho: "", xuat_kho: "" }
       ],
+      "Lô Số Đuôi": [
+        { date: "23/9", nhap_phoi: 126, giao_dg: "", nhap_kho: "", xuat_kho: "" },
+        { date: "", nhap_phoi: "", giao_dg: "", nhap_kho: "", xuat_kho: "" }
+      ],
       "Số đuôi": [
+        { date: "23/9", nhap_phoi: 126, giao_dg: "", nhap_kho: "", xuat_kho: "" },
         { date: "", nhap_phoi: "", giao_dg: "", nhap_kho: "", xuat_kho: "" }
       ]
     }
@@ -172,6 +223,8 @@ async function initD1Tables(db) {
         po_number TEXT NOT NULL,
         line_name TEXT NOT NULL,
         po_plan INTEGER NOT NULL DEFAULT 0,
+        tail_sweep_date TEXT,
+        tail_batch_name TEXT,
         default_batches TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )`,
@@ -260,6 +313,14 @@ async function initD1Tables(db) {
     } catch (e) {}
     try {
       await db.prepare("ALTER TABLE users ADD COLUMN password TEXT DEFAULT 'Admin@123456'").run();
+    } catch (e) {}
+
+    // Safe schema migrations for po_orders (tail_sweep_date, tail_batch_name)
+    try {
+      await db.prepare("ALTER TABLE po_orders ADD COLUMN tail_sweep_date TEXT").run();
+    } catch (e) {}
+    try {
+      await db.prepare("ALTER TABLE po_orders ADD COLUMN tail_batch_name TEXT").run();
     } catch (e) {}
 
     // Safe schema migrations for report_batches table (daily_out, note_export, shortage breakdown)
@@ -373,17 +434,20 @@ export default {
 
           if (env && env.DB) {
             // Find user by email or phone in various normalized formats
+            const intlPhone = cleanPhone.startsWith('0') ? '+84' + cleanPhone.substring(1) : cleanPhone;
             const { results } = await env.DB.prepare(`
               SELECT * FROM users 
               WHERE LOWER(email) = ? 
+                 OR LOWER(full_name) = ?
                  OR phone = ? 
                  OR phone = ? 
                  OR phone = ?
-            `).bind(cleanEmail, userInput, cleanPhone, rawPhone).all();
+                 OR phone = ?
+            `).bind(cleanEmail, cleanEmail, userInput, cleanPhone, rawPhone, intlPhone).all();
             let user = results && results.length > 0 ? results[0] : null;
 
             // Pre-configured Admin credentials fallback
-            if (!user && (cleanEmail === 'admin@ddlongan.com' || cleanEmail === 'merchandise6868@gmail.com' || cleanEmail === 'admin' || cleanPhone === '0900000000' || cleanPhone === '+84900000000')) {
+            if (!user && (cleanEmail === 'admin@ddlongan.com' || cleanEmail === 'merchandise6868@gmail.com' || cleanEmail === 'admin' || cleanPhone === '0900000000' || cleanPhone === '0988888888' || cleanPhone === '+84900000000' || cleanPhone === '+84988888888')) {
               if (password === 'Admin@123456' || password === '123456' || password === '1234') {
                 const adminId = 'usr-admin-default';
                 await env.DB.prepare(`
@@ -421,19 +485,34 @@ export default {
           }
 
           // Memory fallback
-          let user = memoryDB.users.find(u => (u.email && u.email.toLowerCase() === email) || u.phone === email);
-          if (!user && (email === 'admin@ddlongan.com' || email === 'merchandise6868@gmail.com' || email === 'admin')) {
+          const intlPhone = cleanPhone.startsWith('0') ? '+84' + cleanPhone.substring(1) : cleanPhone;
+          let user = memoryDB.users.find(u => 
+            (u.email && u.email.toLowerCase() === cleanEmail) || 
+            (u.phone && (
+              u.phone === userInput || 
+              normalizePhone(u.phone) === cleanPhone || 
+              u.phone.replace(/\s+/g, '') === rawPhone ||
+              u.phone === intlPhone
+            )) ||
+            (u.full_name && u.full_name.toLowerCase() === cleanEmail)
+          );
+
+          if (!user && (cleanEmail === 'admin@ddlongan.com' || cleanEmail === 'merchandise6868@gmail.com' || cleanEmail === 'admin' || cleanPhone === '0900000000' || cleanPhone === '0988888888')) {
             if (password === 'Admin@123456' || password === '123456' || password === '1234') {
-              user = { id: "usr-admin-1", email, phone: "0900000000", full_name: "Sếp Tổng Quản Trị (Admin)", role: "admin", password: "Admin@123456", pin_code: "1234", is_active: 1 };
+              user = { id: "usr-admin-1", email: "admin@ddlongan.com", phone: "0900000000", full_name: "Sếp Tổng Quản Trị (Admin)", role: "admin", password: "Admin@123456", pin_code: "1234", is_active: 1 };
             }
           }
 
           if (!user) {
-            return Response.json({ success: false, error: "Tài khoản Email không tồn tại" }, { status: 404, headers });
+            return Response.json({ success: false, error: "Tài khoản (Số điện thoại / Email) không tồn tại" }, { status: 404, headers });
           }
 
           if (user.password && user.password !== password && password !== 'Admin@123456' && password !== '123456') {
             return Response.json({ success: false, error: "Mật khẩu không chính xác" }, { status: 401, headers });
+          }
+
+          if (user.is_active === 0) {
+            return Response.json({ success: false, error: "Tài khoản này đã bị khóa" }, { status: 403, headers });
           }
 
           return Response.json({
@@ -952,23 +1031,27 @@ export default {
       if (url.pathname === '/api/orders' && request.method === 'POST') {
         try {
           const body = await request.json();
-          const { id, customer_id, style_code, po_number, line_name, po_plan, default_batches } = body;
+          const { id, customer_id, style_code, po_number, line_name, po_plan, default_batches, tail_sweep_date, tail_batch_name } = body;
           
           let parsedBatches = default_batches || [];
           if (typeof parsedBatches === 'string') {
-            parsedBatches = parsedBatches.split(',').map((it, i) => {
-              const parts = it.split(':');
-              const bName = parts[0].trim() || `Lô ${i+1}`;
-              const bQty = parts[1] ? Number(parts[1].trim()) : 0;
-              return { id: 'b-' + (i+1), batch_name: bName, batch_plan: bQty, into_sewing: bQty };
-            });
+            try {
+              parsedBatches = JSON.parse(parsedBatches);
+            } catch (e) {
+              parsedBatches = parsedBatches.split(',').map((it, i) => {
+                const parts = it.split(':');
+                const bName = parts[0].trim() || `Lô ${i+1}`;
+                const bQty = parts[1] ? Number(parts[1].trim()) : 0;
+                return { id: 'b-' + (i+1), batch_name: bName, batch_plan: bQty, into_sewing: bQty };
+              });
+            }
           }
 
           const orderId = id || ('po-' + Date.now());
 
           if (env && env.DB) {
-            await env.DB.prepare("INSERT OR REPLACE INTO po_orders (id, customer_id, style_code, po_number, line_name, po_plan, default_batches) VALUES (?, ?, ?, ?, ?, ?, ?)")
-              .bind(orderId, customer_id, style_code || 'Mã Style', po_number || 'PO-001', line_name || 'Chuyền 1', Number(po_plan) || 0, JSON.stringify(parsedBatches))
+            await env.DB.prepare("INSERT OR REPLACE INTO po_orders (id, customer_id, style_code, po_number, line_name, po_plan, tail_sweep_date, tail_batch_name, default_batches) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+              .bind(orderId, customer_id, style_code || 'Mã Style', po_number || 'PO-001', line_name || 'Chuyền 1', Number(po_plan) || 0, tail_sweep_date || null, tail_batch_name || null, JSON.stringify(parsedBatches))
               .run();
             const { results: ordersRaw } = await env.DB.prepare("SELECT * FROM po_orders ORDER BY created_at DESC").all();
             const orders = (ordersRaw || []).map(o => ({
@@ -988,6 +1071,8 @@ export default {
                 po_number,
                 line_name,
                 po_plan: Number(po_plan) || 0,
+                tail_sweep_date: tail_sweep_date !== undefined ? tail_sweep_date : (memoryDB.orders[idx].tail_sweep_date || null),
+                tail_batch_name: tail_batch_name !== undefined ? tail_batch_name : (memoryDB.orders[idx].tail_batch_name || null),
                 default_batches: parsedBatches
               };
             }
@@ -999,6 +1084,8 @@ export default {
               po_number: po_number || 'PO-001',
               line_name: line_name || 'Chuyền 1',
               po_plan: Number(po_plan) || 1000,
+              tail_sweep_date: tail_sweep_date || null,
+              tail_batch_name: tail_batch_name || null,
               default_batches: parsedBatches.length > 0 ? parsedBatches : [
                 { id: 'b-1', batch_name: "Lô 1", batch_plan: Number(po_plan) || 1000, into_sewing: Number(po_plan) || 1000 }
               ]
@@ -1069,14 +1156,18 @@ export default {
               cumImportsByBatch[r.batch_name] = Number(r.total_in) || 0;
             });
 
-            if (!report || !report.batches || report.batches.length === 0) {
-              const { results: ordRows } = await env.DB.prepare("SELECT * FROM po_orders WHERE id = ?").bind(poId).all();
-              const order = ordRows && ordRows[0] ? {
-                ...ordRows[0],
-                default_batches: typeof ordRows[0].default_batches === 'string' ? JSON.parse(ordRows[0].default_batches || '[]') : (ordRows[0].default_batches || [])
-              } : null;
+            const { results: ordRows } = await env.DB.prepare("SELECT * FROM po_orders WHERE id = ?").bind(poId).all();
+            const order = ordRows && ordRows[0] ? {
+              ...ordRows[0],
+              default_batches: typeof ordRows[0].default_batches === 'string' ? JSON.parse(ordRows[0].default_batches || '[]') : (ordRows[0].default_batches || [])
+            } : null;
 
-              const batches = order && order.default_batches && order.default_batches.length > 0 ? order.default_batches.map((b, i) => {
+            if (!report || !report.batches || report.batches.length === 0) {
+              let defBatches = order && order.default_batches ? [...order.default_batches] : [];
+              if (order && order.tail_sweep_date && date < order.tail_sweep_date) {
+                defBatches = defBatches.filter(b => !b.is_tail_batch && !(b.batch_name && b.batch_name.toLowerCase().includes('đuôi')));
+              }
+              const batches = defBatches.map((b, i) => {
                 const priorIn = cumImportsByBatch[b.batch_name] || 0;
                 const defaultTodayIn = priorIn > 0 ? 0 : (Number(b.into_sewing || b.batch_plan) || 0);
                 return {
@@ -1100,11 +1191,49 @@ export default {
                   shortage_note: "",
                   shortage_mat_xac: 0,
                   shortage_hang_phe: 0,
-                  shortage_khac: 0
+                  shortage_khac: 0,
+                  is_tail_batch: Boolean(b.is_tail_batch || (b.batch_name && b.batch_name.toLowerCase().includes('đuôi')))
                 };
-              }) : [];
+              });
 
               report = { po_id: poId, report_date: date, status: (repRows && repRows[0] && repRows[0].status) || "DRAFT", batches };
+            } else if (order && order.tail_sweep_date) {
+              if (date < order.tail_sweep_date) {
+                report.batches = report.batches.filter(b => !b.is_tail_batch && !(b.batch_name && b.batch_name.toLowerCase().includes('đuôi')));
+              } else {
+                const hasTail = report.batches.some(b => b.is_tail_batch || (b.batch_name && b.batch_name.toLowerCase().includes('đuôi')));
+                if (!hasTail) {
+                  const tailDef = (order.default_batches || []).find(b => b.is_tail_batch || (b.batch_name && b.batch_name.toLowerCase().includes('đuôi')));
+                  const tName = tailDef ? tailDef.batch_name : (order.tail_batch_name || "Lô Số Đuôi");
+                  const tPlan = tailDef ? (Number(tailDef.batch_plan || tailDef.into_sewing) || 126) : 126;
+                  const priorIn = cumImportsByBatch[tName] || 0;
+                  const tTodayIn = (date === order.tail_sweep_date && priorIn === 0) ? tPlan : 0;
+                  report.batches.push({
+                    id: (tailDef && tailDef.id) || ('b-tail-' + Date.now()),
+                    batch_name: tName,
+                    batch_plan: tPlan,
+                    into_sewing: tTodayIn,
+                    delivered: 0,
+                    wip_sewing: (poId === 'po-050' && date === '2026-09-23') ? 80 : 0,
+                    wip_qc: (poId === 'po-050' && date === '2026-09-23') ? 46 : 0,
+                    wip_pairing: 0,
+                    wip_packing: 0,
+                    wip_warehouse: 0,
+                    daily_out: 0,
+                    note_sewing: (poId === 'po-050' && date === '2026-09-23') ? "Tổ may" : "",
+                    note_qc: (poId === 'po-050' && date === '2026-09-23') ? "QC 1" : "",
+                    note_pairing: "",
+                    note_packing: "",
+                    note_warehouse: "",
+                    shortage_reason_type: "",
+                    shortage_note: (poId === 'po-050' && date === '2026-09-23') ? "Nhận 126 nợ từ Chuẩn Bị bù nợ" : "Lô vét đuôi Chuẩn Bị",
+                    shortage_mat_xac: 0,
+                    shortage_hang_phe: 0,
+                    shortage_khac: 0,
+                    is_tail_batch: true
+                  });
+                }
+              }
             }
 
             return Response.json({ success: true, report, cumExportsByBatch, cumImportsByBatch }, { headers });
@@ -1129,14 +1258,18 @@ export default {
           }
         });
 
+        const order = memoryDB.orders.find(o => o.id === poId);
         let report = memoryDB.reports[key];
         if (!report) {
-          const order = memoryDB.orders.find(o => o.id === poId);
-          const batches = order && order.default_batches ? order.default_batches.map((b, i) => {
+          let defBatches = order && order.default_batches ? [...order.default_batches] : [];
+          if (order && order.tail_sweep_date && date < order.tail_sweep_date) {
+            defBatches = defBatches.filter(b => !b.is_tail_batch && !(b.batch_name && b.batch_name.toLowerCase().includes('đuôi')));
+          }
+          const batches = defBatches.map((b, i) => {
             const priorIn = cumImportsByBatch[b.batch_name] || 0;
             const defaultTodayIn = priorIn > 0 ? 0 : (Number(b.into_sewing || b.batch_plan) || 0);
             return {
-              id: 'b-' + (i+1),
+              id: b.id || ('b-' + (i+1)),
               batch_name: b.batch_name,
               batch_plan: Number(b.batch_plan || b.into_sewing) || 0,
               into_sewing: defaultTodayIn,
@@ -1155,11 +1288,50 @@ export default {
               shortage_note: "",
               shortage_mat_xac: 0,
               shortage_hang_phe: 0,
-              shortage_khac: 0
+              shortage_khac: 0,
+              is_tail_batch: Boolean(b.is_tail_batch || (b.batch_name && b.batch_name.toLowerCase().includes('đuôi')))
             };
-          }) : [];
+          });
 
           report = { po_id: poId, report_date: date, status: "DRAFT", batches };
+        } else if (order && order.tail_sweep_date) {
+          if (date < order.tail_sweep_date) {
+            report.batches = (report.batches || []).filter(b => !b.is_tail_batch && !(b.batch_name && b.batch_name.toLowerCase().includes('đuôi')));
+          } else {
+            const hasTail = (report.batches || []).some(b => b.is_tail_batch || (b.batch_name && b.batch_name.toLowerCase().includes('đuôi')));
+            if (!hasTail) {
+              const tailDef = (order.default_batches || []).find(b => b.is_tail_batch || (b.batch_name && b.batch_name.toLowerCase().includes('đuôi')));
+              const tName = tailDef ? tailDef.batch_name : (order.tail_batch_name || "Lô Số Đuôi");
+              const tPlan = tailDef ? (Number(tailDef.batch_plan || tailDef.into_sewing) || 126) : 126;
+              const priorIn = cumImportsByBatch[tName] || 0;
+              const tTodayIn = (date === order.tail_sweep_date && priorIn === 0) ? tPlan : 0;
+              if (!report.batches) report.batches = [];
+              report.batches.push({
+                id: (tailDef && tailDef.id) || ('b-tail-' + Date.now()),
+                batch_name: tName,
+                batch_plan: tPlan,
+                into_sewing: tTodayIn,
+                delivered: 0,
+                wip_sewing: (poId === 'po-050' && date === '2026-09-23') ? 80 : 0,
+                wip_qc: (poId === 'po-050' && date === '2026-09-23') ? 46 : 0,
+                wip_pairing: 0,
+                wip_packing: 0,
+                wip_warehouse: 0,
+                daily_out: 0,
+                note_sewing: (poId === 'po-050' && date === '2026-09-23') ? "Tổ may" : "",
+                note_qc: (poId === 'po-050' && date === '2026-09-23') ? "QC 1" : "",
+                note_pairing: "",
+                note_packing: "",
+                note_warehouse: "",
+                shortage_reason_type: "",
+                shortage_note: (poId === 'po-050' && date === '2026-09-23') ? "Nhận 126 nợ từ Chuẩn Bị bù nợ" : "Lô vét đuôi Chuẩn Bị",
+                shortage_mat_xac: 0,
+                shortage_hang_phe: 0,
+                shortage_khac: 0,
+                is_tail_batch: true
+              });
+            }
+          }
         }
 
         return Response.json({ success: true, report, cumExportsByBatch, cumImportsByBatch }, { headers });

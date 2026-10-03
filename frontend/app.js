@@ -1,3 +1,11 @@
+// HELPER: Lấy ngày hiện tại theo giờ địa phương (YYYY-MM-DD)
+function getLocalDateString(d = new Date()) {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 // STATE MANAGEMENT
 let appState = {
   currentUserRole: null, // Set dynamically upon login
@@ -7,10 +15,10 @@ let appState = {
   usersList: [],
   currentCustomer: null,
   currentPO: null,
-  currentDate: "2026-09-23",
+  currentDate: getLocalDateString(),
   report: {
     po_id: "po-050",
-    report_date: "2026-09-23",
+    report_date: getLocalDateString(),
     status: "DRAFT",
     batches: []
   },
@@ -216,8 +224,14 @@ function checkLoginPortalState() {
 
 function initDate() {
   const dateEl = document.getElementById("reportDate");
-  const todayStr = new Date().toISOString().split("T")[0];
-  dateEl.value = appState.currentDate || todayStr;
+  const todayStr = getLocalDateString();
+  appState.currentDate = todayStr;
+  if (appState.report) {
+    appState.report.report_date = todayStr;
+  }
+  if (dateEl) {
+    dateEl.value = todayStr;
+  }
 }
 
 // SHOW TOAST NOTIFICATION
@@ -374,6 +388,21 @@ function bindEvents() {
   const btnAddB = document.getElementById("btnAddBatch");
   if (btnAddB) btnAddB.addEventListener("click", handleAddBatch);
 
+  const btnOpenSweep = document.getElementById("btnOpenSweepTailModal");
+  if (btnOpenSweep) btnOpenSweep.addEventListener("click", openSweepTailModal);
+
+  const btnToolbarSweep = document.getElementById("btnToolbarSweepTail");
+  if (btnToolbarSweep) btnToolbarSweep.addEventListener("click", openSweepTailModal);
+
+  const btnCloseSweep = document.getElementById("btnCloseSweepTailModal");
+  if (btnCloseSweep) btnCloseSweep.addEventListener("click", closeSweepTailModal);
+
+  const btnCancelSweep = document.getElementById("btnCancelSweepTailModal");
+  if (btnCancelSweep) btnCancelSweep.addEventListener("click", closeSweepTailModal);
+
+  const btnConfirmSweep = document.getElementById("btnConfirmSweepTailBatch");
+  if (btnConfirmSweep) btnConfirmSweep.addEventListener("click", handleConfirmSweepTailBatch);
+
   const btnRef = document.getElementById("btnRefresh");
   if (btnRef) btnRef.addEventListener("click", loadReport);
 
@@ -515,11 +544,16 @@ async function changeDateByDays(days) {
       console.warn("Auto-save prior date error:", err);
     }
   }
-  const d = new Date(appState.currentDate);
+  const curStr = appState.currentDate || getLocalDateString();
+  const parts = curStr.split("-");
+  const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
   d.setDate(d.getDate() + days);
-  const newDateStr = d.toISOString().split("T")[0];
+  const newDateStr = getLocalDateString(d);
   appState.currentDate = newDateStr;
-  document.getElementById("reportDate").value = newDateStr;
+  const dateEl = document.getElementById("reportDate");
+  if (dateEl) {
+    dateEl.value = newDateStr;
+  }
   await refreshAllTabsData();
 }
 
@@ -579,6 +613,8 @@ async function loadReport() {
   if (!appState.currentPO) return;
   const poId = appState.currentPO.id;
   const date = appState.currentDate;
+  const po = appState.currentPO;
+  const tailSweepDate = po ? (po.tail_sweep_date || (po.id === 'po-050' ? '2026-09-23' : null)) : null;
 
   try {
     const res = await fetch(`/api/report?po_id=${poId}&date=${date}`);
@@ -590,8 +626,12 @@ async function loadReport() {
 
       // Auto-fallback: if report has no batches, populate immediately from currentPO default_batches
       if (!appState.report.batches || appState.report.batches.length === 0) {
-        if (appState.currentPO && appState.currentPO.default_batches && appState.currentPO.default_batches.length > 0) {
-          appState.report.batches = appState.currentPO.default_batches.map((b, i) => {
+        if (po && po.default_batches && po.default_batches.length > 0) {
+          let defBatches = [...po.default_batches];
+          if (tailSweepDate && date < tailSweepDate) {
+            defBatches = defBatches.filter(b => !b.is_tail_batch && !(b.batch_name && b.batch_name.toLowerCase().includes('đuôi')));
+          }
+          appState.report.batches = defBatches.map((b, i) => {
             const priorIn = Number(appState.cumImportsByBatch && appState.cumImportsByBatch[b.batch_name]) || 0;
             const defaultTodayIn = priorIn > 0 ? 0 : (Number(b.into_sewing || b.batch_plan) || 0);
             return {
@@ -615,8 +655,60 @@ async function loadReport() {
               shortage_note: "",
               shortage_mat_xac: 0,
               shortage_hang_phe: 0,
-              shortage_khac: 0
+              shortage_khac: 0,
+              is_tail_batch: Boolean(b.is_tail_batch || (b.batch_name && b.batch_name.toLowerCase().includes('đuôi')))
             };
+          });
+        }
+      }
+
+      // Enforce Tail Batch Date Rule:
+      // 1. If date < tailSweepDate: Filter out tail batch so prior days strictly show Lô 1 & Lô 2 and Chuẩn Bị nợ!
+      if (tailSweepDate && date < tailSweepDate) {
+        appState.report.batches = (appState.report.batches || []).filter(b => 
+          !b.is_tail_batch && !(b.batch_name && b.batch_name.toLowerCase().includes('đuôi'))
+        );
+      }
+      // 2. If date >= tailSweepDate: Ensure the tail batch is present and displayed side-by-side with Lô 1 and Lô 2!
+      if (tailSweepDate && date >= tailSweepDate) {
+        if (!appState.report.batches) appState.report.batches = [];
+        const hasTail = appState.report.batches.some(b => 
+          b.is_tail_batch || (b.batch_name && b.batch_name.toLowerCase().includes('đuôi'))
+        );
+        if (!hasTail) {
+          const tailDef = (po && po.default_batches || []).find(b => 
+            b.is_tail_batch || (b.batch_name && b.batch_name.toLowerCase().includes('đuôi'))
+          );
+          const tName = tailDef ? tailDef.batch_name : (po.tail_batch_name || "Lô Số Đuôi");
+          const tPlan = tailDef ? (Number(tailDef.batch_plan || tailDef.into_sewing) || 126) : 126;
+          const priorIn = Number(appState.cumImportsByBatch && appState.cumImportsByBatch[tName]) || 0;
+          const tTodayIn = (date === tailSweepDate && priorIn === 0) ? tPlan : 0;
+          
+          const isPo050SweepDay = (po.id === 'po-050' && date === '2026-09-23');
+
+          appState.report.batches.push({
+            id: (tailDef && tailDef.id) || ('b-tail-' + Date.now()),
+            batch_name: tName,
+            batch_plan: tPlan,
+            into_sewing: tTodayIn,
+            delivered: 0,
+            wip_sewing: isPo050SweepDay ? 80 : 0,
+            wip_qc: isPo050SweepDay ? 46 : 0,
+            wip_pairing: 0,
+            wip_packing: 0,
+            wip_warehouse: 0,
+            daily_out: 0,
+            note_sewing: isPo050SweepDay ? "Tổ may" : "",
+            note_qc: isPo050SweepDay ? "QC 1" : "",
+            note_pairing: "",
+            note_packing: "",
+            note_warehouse: "",
+            shortage_reason_type: "",
+            shortage_note: isPo050SweepDay ? "Nhận 126 nợ từ Chuẩn Bị bù nợ" : "Chuẩn bị bàn giao vét đuôi đợt cuối",
+            shortage_mat_xac: 0,
+            shortage_hang_phe: 0,
+            shortage_khac: 0,
+            is_tail_batch: true
           });
         }
       }
@@ -1109,6 +1201,36 @@ function recalculateAllInPlace() {
 
   const elDebt = document.getElementById("summaryPrepDebt");
   if (elDebt) elDebt.innerText = prepDebt.toLocaleString("vi-VN");
+
+  // Dynamic status for Sweep Tail Batch buttons
+  const btnSweep = document.getElementById("btnOpenSweepTailModal");
+  const btnTbSweep = document.getElementById("btnToolbarSweepTail");
+  [btnSweep, btnTbSweep].forEach(b => {
+    if (!b) return;
+    if (prepDebt > 0) {
+      b.disabled = false;
+      b.classList.remove("disabled");
+      b.style.opacity = "1";
+      b.style.cursor = "pointer";
+      if (b.id === "btnOpenSweepTailModal") {
+        b.innerHTML = `⚡ Vét Số Đuôi (${prepDebt.toLocaleString("vi-VN")})`;
+      } else {
+        b.innerHTML = `⚡ Vét Lô Đuôi (${prepDebt.toLocaleString("vi-VN")})`;
+      }
+      b.title = `Chuẩn Bị còn nợ ${prepDebt.toLocaleString("vi-VN")} đôi. Bấm để tạo Lô riêng biệt nhận lượng hàng này vào chuyền!`;
+    } else {
+      b.disabled = true;
+      b.classList.add("disabled");
+      b.style.opacity = "0.7";
+      b.style.cursor = "default";
+      if (b.id === "btnOpenSweepTailModal") {
+        b.innerHTML = `✔ Đã nhận đủ hàng`;
+      } else {
+        b.innerHTML = `✔ Đủ Hàng`;
+      }
+      b.title = `Đã nhận đủ toàn bộ kế hoạch đơn hàng, không còn nợ phôi.`;
+    }
+  });
 }
 
 
@@ -1504,6 +1626,217 @@ function handleAddBatch() {
 
   appState.report.batches.push(newBatch);
   renderReportUI();
+}
+
+// ========================================================
+// VÉT HÀNG CHUẨN BỊ NỢ VÀO LÔ SỐ ĐUÔI RIÊNG BIỆT
+// ========================================================
+function openSweepTailModal() {
+  const modal = document.getElementById("modalSweepTailBatch");
+  if (!modal) return;
+
+  const poPlan = appState.currentPO ? Number(appState.currentPO.po_plan || 0) : 0;
+  const batches = (appState.report && appState.report.batches) ? appState.report.batches : [];
+  const totalReceived = batches.reduce((sum, b) => {
+    const cumIn = Number(appState.cumImportsByBatch && appState.cumImportsByBatch[b.batch_name]) || 0;
+    const todayIn = Number(b.into_sewing) || 0;
+    return sum + (cumIn + todayIn);
+  }, 0);
+  const prepDebt = Math.max(0, poPlan - totalReceived);
+
+  if (prepDebt <= 0) {
+    showToast("ℹ️ Chuẩn Bị đã giao đủ kế hoạch đơn hàng, không còn nợ phôi để vét!");
+    return;
+  }
+
+  // Cập nhật số nợ hiển thị trong modal
+  const elDebtDisplay = document.getElementById("sweepModalDebtDisplay");
+  if (elDebtDisplay) elDebtDisplay.innerText = prepDebt.toLocaleString("vi-VN") + " đôi";
+
+  // Điền số lượng mặc định bằng số nợ lý thuyết
+  const elQty = document.getElementById("numSweepQty");
+  if (elQty) {
+    elQty.value = prepDebt;
+    elQty.max = prepDebt + 1000;
+  }
+
+  // Ngày nhận hàng mặc định là ngày báo cáo hiện hành
+  const elDate = document.getElementById("txtSweepDate");
+  if (elDate) elDate.value = appState.currentDate || getLocalDateString();
+
+  // Đặt tên Lô thông minh nếu đã có Lô Số Đuôi
+  const existingNames = batches.map(b => (b.batch_name || "").toLowerCase().trim());
+  let defaultName = "Lô Số Đuôi";
+  if (existingNames.includes("lô số đuôi") || existingNames.includes("số đuôi")) {
+    let suffix = 2;
+    while (existingNames.includes(`lô số đuôi ${suffix}`) || existingNames.includes(`số đuôi ${suffix}`)) {
+      suffix++;
+    }
+    defaultName = `Lô Số Đuôi ${suffix}`;
+  }
+  const elName = document.getElementById("txtSweepBatchName");
+  if (elName) elName.value = defaultName;
+
+  modal.classList.add("show");
+}
+
+function closeSweepTailModal() {
+  const modal = document.getElementById("modalSweepTailBatch");
+  if (modal) modal.classList.remove("show");
+}
+
+async function handleConfirmSweepTailBatch() {
+  const nameInput = document.getElementById("txtSweepBatchName");
+  const qtyInput = document.getElementById("numSweepQty");
+  const dateInput = document.getElementById("txtSweepDate");
+  const noteInput = document.getElementById("txtSweepNote");
+
+  const batchName = (nameInput?.value || "").trim();
+  const sweepQty = parseInt(qtyInput?.value, 10);
+  const sweepDate = dateInput?.value || appState.currentDate;
+  const sweepNote = (noteInput?.value || "").trim();
+
+  if (!batchName) {
+    alert("❌ Vui lòng nhập tên Lô riêng mới (ví dụ: Lô Số Đuôi).");
+    return;
+  }
+  if (isNaN(sweepQty) || sweepQty <= 0) {
+    alert("❌ Vui lòng nhập số lượng nhận vào chuyền hợp lệ (> 0).");
+    return;
+  }
+
+  if (!appState.report) {
+    appState.report = {
+      po_id: appState.currentPO ? appState.currentPO.id : "",
+      report_date: appState.currentDate,
+      status: "DRAFT",
+      batches: []
+    };
+  }
+  if (!appState.report.batches) {
+    appState.report.batches = [];
+  }
+
+  // 1. Kiểm tra Lô đã tồn tại trong báo cáo ngày này chưa
+  let targetBatch = appState.report.batches.find(b => b.batch_name.toLowerCase() === batchName.toLowerCase());
+
+  if (targetBatch) {
+    targetBatch.into_sewing = Number(targetBatch.into_sewing || 0) + sweepQty;
+    targetBatch.batch_plan = Number(targetBatch.batch_plan || 0) + sweepQty;
+    if (sweepNote) {
+      targetBatch.shortage_note = targetBatch.shortage_note ? `${targetBatch.shortage_note}; ${sweepNote}` : sweepNote;
+    }
+  } else {
+    // 2. Khởi tạo Lô riêng biệt hoàn toàn mới (Đầy đủ 5 trạm WIP như Lô 1 & Lô 2)
+    targetBatch = {
+      id: "b-tail-" + Date.now(),
+      batch_name: batchName,
+      batch_plan: sweepQty,
+      into_sewing: sweepQty,
+      delivered: 0,
+      wip_sewing: 0,
+      wip_qc: 0,
+      wip_pairing: 0,
+      wip_packing: 0,
+      wip_warehouse: 0,
+      daily_out: 0,
+      note_sewing: "",
+      note_qc: "",
+      note_pairing: "",
+      note_packing: "",
+      note_warehouse: "",
+      shortage_reason_type: "",
+      shortage_note: sweepNote || "Chuẩn bị bàn giao vét đuôi đợt cuối"
+    };
+    appState.report.batches.push(targetBatch);
+  }
+
+  // 3. Đăng ký Lô riêng này vào danh sách default_batches của PO để lưu bền vững
+  if (appState.currentPO) {
+    appState.currentPO.tail_sweep_date = sweepDate;
+    appState.currentPO.tail_batch_name = batchName;
+
+    if (!appState.currentPO.default_batches) {
+      appState.currentPO.default_batches = [];
+    }
+    const poBatch = appState.currentPO.default_batches.find(b => b.batch_name.toLowerCase() === batchName.toLowerCase());
+    if (poBatch) {
+      poBatch.batch_plan = (Number(poBatch.batch_plan) || 0) + sweepQty;
+      poBatch.into_sewing = (Number(poBatch.into_sewing) || 0) + sweepQty;
+      poBatch.is_tail_batch = true;
+      poBatch.sweep_date = sweepDate;
+    } else {
+      appState.currentPO.default_batches.push({
+        id: targetBatch.id,
+        batch_name: batchName,
+        batch_plan: sweepQty,
+        into_sewing: sweepQty,
+        is_tail_batch: true,
+        sweep_date: sweepDate
+      });
+    }
+
+    // Persist updated PO to backend & local cache
+    try {
+      await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(appState.currentPO)
+      });
+      const oIdx = (appState.orders || []).findIndex(o => o.id === appState.currentPO.id);
+      if (oIdx >= 0) {
+        appState.orders[oIdx] = { ...appState.currentPO };
+      }
+      localStorage.setItem("dd_orders_cache", JSON.stringify(appState.orders || []));
+    } catch (e) {
+      console.warn("Error persisting PO tail sweep date:", e);
+    }
+  }
+
+  // Ensure current viewed date is aligned with sweep date if created on sweep date
+  if (appState.currentDate !== sweepDate) {
+    appState.currentDate = sweepDate;
+    const dateInputEl = document.getElementById("reportDate");
+    if (dateInputEl) dateInputEl.value = sweepDate;
+  }
+
+  // 4. Khởi tạo Bảng theo dõi dòng chảy sản lượng riêng cho Lô này tại Tab 2
+  if (!appState.deptLogs) {
+    appState.deptLogs = {};
+  }
+  if (!appState.deptLogs[batchName]) {
+    const d = new Date(sweepDate || appState.currentDate);
+    const day = d.getDate();
+    const month = d.getMonth() + 1;
+    const dateShort = `${day}/${month}`;
+    appState.deptLogs[batchName] = [
+      { date: dateShort, nhap_phoi: sweepQty, giao_dg: "", nhap_kho: "", xuat_kho: "" },
+      { date: "", nhap_phoi: "", giao_dg: "", nhap_kho: "", xuat_kho: "" }
+    ];
+  } else {
+    const rows = appState.deptLogs[batchName];
+    if (rows.length > 0 && (!rows[0].nhap_phoi || rows[0].nhap_phoi === 0)) {
+      rows[0].nhap_phoi = sweepQty;
+    }
+  }
+
+  // 5. Cập nhật giao diện tức thì và lưu xuống cơ sở dữ liệu
+  appState.hasUnsavedChanges = true;
+  closeSweepTailModal();
+  recalculateAllInPlace();
+  renderReportUI();
+  renderDeptLogsUI();
+
+  try {
+    await saveReport(appState.report.status || "DRAFT", true);
+    if (typeof saveDeptLogs === "function") {
+      await saveDeptLogs(true);
+    }
+  } catch (err) {
+    console.warn("Auto-save tail batch error:", err);
+  }
+
+  showToast(`⚡ Đã tạo thành công '${batchName}' (${sweepQty.toLocaleString("vi-VN")} đôi) hiển thị song song cùng các lô từ ngày ${formatDateDisplay(sweepDate)}!`);
 }
 
 // TAB 4: CUSTOMER & PO MANAGEMENT FUNCTIONS (MASTER-DETAIL INTERACTIVE)
@@ -2121,13 +2454,29 @@ function renderDeptLogsUI() {
   if (elPlan) elPlan.innerText = poPlan.toLocaleString("vi-VN");
 
   // 2. Get batch list for current PO
-  const batches = po && po.default_batches && po.default_batches.length > 0 
-    ? po.default_batches 
+  let batches = po && po.default_batches && po.default_batches.length > 0 
+    ? [...po.default_batches] 
     : [
         { id: "b-1", batch_name: "Lô 1", batch_plan: 1230, into_sewing: 1230 },
         { id: "b-2", batch_name: "Lô 2", batch_plan: 267, into_sewing: 267 },
-        { id: "b-3", batch_name: "Số đuôi", batch_plan: 126, into_sewing: 126 }
+        { id: "b-3", batch_name: "Lô Số Đuôi", batch_plan: 126, into_sewing: 126, is_tail_batch: true }
       ];
+
+  const tailSweepDate = po ? (po.tail_sweep_date || (po.id === 'po-050' ? '2026-09-23' : null)) : null;
+  if (tailSweepDate && appState.currentDate < tailSweepDate) {
+    batches = batches.filter(b => !b.is_tail_batch && !(b.batch_name && b.batch_name.toLowerCase().includes('đuôi')));
+  } else if (tailSweepDate && appState.currentDate >= tailSweepDate) {
+    const hasTail = batches.some(b => b.is_tail_batch || (b.batch_name && b.batch_name.toLowerCase().includes('đuôi')));
+    if (!hasTail) {
+      batches.push({
+        id: "b-tail",
+        batch_name: po.tail_batch_name || "Lô Số Đuôi",
+        batch_plan: 126,
+        into_sewing: 126,
+        is_tail_batch: true
+      });
+    }
+  }
 
   if (!appState.deptLogs) appState.deptLogs = {};
 
@@ -2137,6 +2486,15 @@ function renderDeptLogsUI() {
   batches.forEach((b, bIdx) => {
     const bName = b.batch_name;
     const batchPlan = Number(b.into_sewing || b.batch_plan) || 0;
+
+    // Harmonize "Số đuôi" vs "Lô Số Đuôi" in deptLogs
+    if (!appState.deptLogs[bName]) {
+      if (appState.deptLogs["Số đuôi"] && (bName === "Lô Số Đuôi" || b.is_tail_batch)) {
+        appState.deptLogs[bName] = appState.deptLogs["Số đuôi"];
+      } else if (appState.deptLogs["Lô Số Đuôi"] && bName === "Số đuôi") {
+        appState.deptLogs[bName] = appState.deptLogs["Lô Số Đuôi"];
+      }
+    }
 
     // Load or initialize rows for this batch (default 6 rows)
     if (!appState.deptLogs[bName] || !Array.isArray(appState.deptLogs[bName]) || appState.deptLogs[bName].length === 0) {
@@ -2813,17 +3171,36 @@ function applyUserRole(role, user = null) {
       badge.className = "role-badge is-admin";
       badge.innerHTML = `👑 ${cleanName} (Admin)`;
     }
-    if (tabManageBtn) tabManageBtn.classList.remove("hidden");
-    if (tabHistoryBtn) tabHistoryBtn.classList.remove("hidden");
-    if (tabUsersBtn) tabUsersBtn.classList.remove("hidden");
+    // Sếp Admin có quyền xem HẾT các tab (Tab 1, Tab 2, Tab 3, Tab 4)
+    if (tabManageBtn) {
+      tabManageBtn.classList.remove("hidden");
+      tabManageBtn.style.setProperty("display", "inline-flex", "important");
+    }
+    if (tabHistoryBtn) {
+      tabHistoryBtn.classList.remove("hidden");
+      tabHistoryBtn.style.setProperty("display", "inline-flex", "important");
+    }
+    if (tabUsersBtn) {
+      tabUsersBtn.classList.remove("hidden");
+      tabUsersBtn.style.setProperty("display", "inline-flex", "important");
+    }
   } else if (role === "manager") {
     if (badge) {
       badge.className = "role-badge is-manager";
-      badge.innerHTML = `⭐ ${displayName} (Quản lý)`;
+      badge.innerHTML = `⭐ ${cleanName} (Quản lý)`;
     }
-    if (tabManageBtn) tabManageBtn.classList.remove("hidden");
-    if (tabHistoryBtn) tabHistoryBtn.classList.remove("hidden");
-    if (tabUsersBtn) tabUsersBtn.classList.add("hidden");
+    if (tabManageBtn) {
+      tabManageBtn.classList.remove("hidden");
+      tabManageBtn.style.setProperty("display", "inline-flex", "important");
+    }
+    if (tabHistoryBtn) {
+      tabHistoryBtn.classList.remove("hidden");
+      tabHistoryBtn.style.setProperty("display", "inline-flex", "important");
+    }
+    if (tabUsersBtn) {
+      tabUsersBtn.classList.add("hidden");
+      tabUsersBtn.style.setProperty("display", "none", "important");
+    }
     
     // If manager is on tab-users, switch to tab-manage
     const activeTab = document.querySelector(".tab-btn.active");
@@ -2831,15 +3208,25 @@ function applyUserRole(role, user = null) {
       if (tabManageBtn) tabManageBtn.click();
     }
   } else {
+    // Công nhân CHỈ XEM Tab 1 và Tab 2
     if (badge) {
       badge.className = "role-badge is-worker";
-      badge.innerHTML = `👤 ${displayName} (Công nhân)`;
+      badge.innerHTML = `👤 ${cleanName} (Công nhân)`;
     }
-    if (tabManageBtn) tabManageBtn.classList.add("hidden");
-    if (tabHistoryBtn) tabHistoryBtn.classList.add("hidden");
-    if (tabUsersBtn) tabUsersBtn.classList.add("hidden");
+    if (tabManageBtn) {
+      tabManageBtn.classList.add("hidden");
+      tabManageBtn.style.setProperty("display", "none", "important");
+    }
+    if (tabHistoryBtn) {
+      tabHistoryBtn.classList.add("hidden");
+      tabHistoryBtn.style.setProperty("display", "none", "important");
+    }
+    if (tabUsersBtn) {
+      tabUsersBtn.classList.add("hidden");
+      tabUsersBtn.style.setProperty("display", "none", "important");
+    }
 
-    // If user is currently on Tab 2, Tab 4, or Tab 5, automatically switch back to Tab 1
+    // Nếu công nhân đang đứng ở Tab 3, 4 hoặc Lịch sử thì tự động chuyển về Tab 1
     const activeTab = document.querySelector(".tab-btn.active");
     if (activeTab && (activeTab.dataset.tab === "tab-manage" || activeTab.dataset.tab === "tab-history" || activeTab.dataset.tab === "tab-users")) {
       const wipTab = document.querySelector('.tab-btn[data-tab="tab-wip"]');
@@ -2852,13 +3239,14 @@ function openRoleModal() {
   const modal = document.getElementById("modalRoleAuth");
   if (!modal) return;
 
-  const txtPhone = document.getElementById("txtAuthPhone");
-  if (txtPhone && appState.currentUser && appState.currentUser.phone) {
-    txtPhone.value = appState.currentUser.phone;
+  const txtEmail = document.getElementById("txtAuthEmail");
+  if (txtEmail && appState.currentUser) {
+    txtEmail.value = appState.currentUser.phone || appState.currentUser.email || "";
   }
-
-  const boxOtp = document.getElementById("boxOtpInput");
-  if (boxOtp) boxOtp.style.display = "none";
+  const txtPass = document.getElementById("txtAuthPassword");
+  if (txtPass) {
+    txtPass.value = "";
+  }
 
   modal.classList.add("show");
 }
@@ -2972,120 +3360,41 @@ function startOtpCountdown() {
   }, 1000);
 }
 
-// 2. Confirm Authentication (Email / OTP / PIN)
+// 2. Confirm Authentication (Email / Phone + Password)
 async function handleConfirmAuth() {
-  const isEmailPane = document.getElementById("authPaneEmail")?.classList.contains("active");
-  const isPhonePane = document.getElementById("authPanePhone")?.classList.contains("active");
+  const emailOrPhone = (document.getElementById("txtAuthEmail")?.value || "").trim();
+  const password = (document.getElementById("txtAuthPassword")?.value || "").trim();
 
-  if (isEmailPane) {
-    // 1. Verify via Email & Password
-    const email = document.getElementById("txtAuthEmail")?.value.trim();
-    const password = document.getElementById("txtAuthPassword")?.value.trim();
+  if (!emailOrPhone || !password) {
+    alert("❌ Vui lòng nhập đầy đủ Số điện thoại/Email và Mật khẩu.");
+    return;
+  }
 
-    if (!email || !password) {
-      alert("Vui lòng nhập đầy đủ Email/SĐT và Mật khẩu.");
-      return;
+  const btnConfirm = document.getElementById("btnConfirmAuth");
+  if (btnConfirm) {
+    btnConfirm.disabled = true;
+    btnConfirm.innerText = "⏳ Đang xác thực...";
+  }
+
+  try {
+    const res = await fetch("/api/auth/email-login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: emailOrPhone, password })
+    });
+
+    const data = await res.json();
+    if (data.success && data.user) {
+      onLoginSuccess(data.user, data.user.role);
+    } else {
+      alert("❌ " + (data.error || "Số điện thoại / Email hoặc Mật khẩu không chính xác!"));
     }
-
-    try {
-      const res = await fetch("/api/auth/email-login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password })
-      });
-
-      const data = await res.json();
-      if (data.success && data.user) {
-        applyUserRole(data.user.role, data.user);
-        closeRoleModal();
-        showToast(`🎉 Đăng nhập thành công: ${data.user.full_name || data.user.email} (Quyền: ${data.user.role === 'admin' ? '👑 Sếp Tổng' : (data.user.role === 'manager' ? '⭐ Quản lý' : '👤 Công nhân')})`);
-      } else {
-        alert("❌ " + (data.error || "Email hoặc Mật khẩu không chính xác!"));
-      }
-    } catch (err) {
-      alert("Lỗi đăng nhập: " + err.message);
-    }
-  } else if (isPhonePane) {
-    // 2. Verify via OTP SMS
-    const rawPhone = document.getElementById("txtAuthPhone")?.value.trim();
-    const otpCode = document.getElementById("txtOtpCode")?.value.trim();
-
-    if (!rawPhone) {
-      alert("❌ Vui lòng nhập số điện thoại.");
-      return;
-    }
-    const boxOtp = document.getElementById("boxOtpInput");
-    if (!boxOtp || boxOtp.style.display === "none") {
-      alert("⚠️ Vui lòng bấm nút '📩 Gửi Mã OTP' để nhận tin nhắn SMS chứa mã xác nhận!");
-      return;
-    }
-    if (!otpCode || otpCode.length !== 6) {
-      alert("❌ Vui lòng nhập đầy đủ 6 chữ số OTP từ tin nhắn SMS.");
-      return;
-    }
-
-    if (!modalConfirmationResult) {
-      alert("❌ Phiên gửi OTP chưa hoàn tất. Vui lòng bấm gửi lại.");
-      return;
-    }
-
-    try {
-      // Verify with Firebase
-      const userCredential = await modalConfirmationResult.confirm(otpCode);
-      const fbUser = userCredential.user;
-
-      const res = await fetch("/api/auth/phone-login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phone: rawPhone,
-          otp_verified: true,
-          firebase_uid: fbUser.uid
-        })
-      });
-
-      const data = await res.json();
-      if (data.success && data.user) {
-        applyUserRole(data.user.role, data.user);
-        closeRoleModal();
-        showToast(`🎉 Xác thực OTP thành công! Vai trò: ${data.user.role === 'admin' ? '👑 Sếp Tổng' : (data.user.role === 'manager' ? '⭐ Quản lý' : '👤 Công nhân')}`);
-      } else {
-        alert("❌ " + (data.error || "Xác thực OTP không thành công!"));
-      }
-    } catch (err) {
-      alert("❌ Lỗi xác thực OTP từ SMS: " + err.message);
-    }
-  } else {
-    // 3. Verify via PIN Code
-    const rawPhone = document.getElementById("txtPinPhone")?.value.trim() || "0900000000";
-    const pin = document.getElementById("txtManagerPin")?.value.trim();
-
-    if (!pin) {
-      alert("Vui lòng nhập mã PIN.");
-      return;
-    }
-
-    try {
-      const res = await fetch("/api/auth/phone-login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phone: rawPhone,
-          pin: pin,
-          otp_verified: false
-        })
-      });
-
-      const data = await res.json();
-      if (data.success && data.user) {
-        applyUserRole(data.user.role, data.user);
-        closeRoleModal();
-        showToast(`✅ Đăng nhập mã PIN thành công: ${data.user.full_name || data.user.phone}`);
-      } else {
-        alert("❌ " + (data.error || "Mã PIN không chính xác!"));
-      }
-    } catch (err) {
-      alert("Lỗi đăng nhập: " + err.message);
+  } catch (err) {
+    alert("Lỗi đăng nhập: " + err.message);
+  } finally {
+    if (btnConfirm) {
+      btnConfirm.disabled = false;
+      btnConfirm.innerText = "🚀 Xác Nhận Đăng Nhập";
     }
   }
 }

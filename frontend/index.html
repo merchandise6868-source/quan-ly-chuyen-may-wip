@@ -174,6 +174,9 @@
           <button class="btn btn-primary" id="btnAddBatch">
             ➕ Thêm Lô Mới
           </button>
+          <button type="button" class="btn btn-warning" id="btnToolbarSweepTail" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff; font-weight: 700; border: none;" title="Vét số lượng Chuẩn Bị còn nợ vào Lô riêng biệt">
+            ⚡ Vét Lô Số Đuôi
+          </button>
           <button class="btn btn-outline" id="btnRefresh">
             🔄 Tải Lại Dữ Liệu
           </button>
@@ -223,7 +226,11 @@
               <td class="val-summary cell-val font-semibold" id="summaryDateVal">--</td>
               <td class="lbl-summary bg-prep-hdr">CHUẨN BỊ còn nợ (đôi)</td>
               <td class="val-summary bg-prep-val" id="summaryPrepDebt">0</td>
-              <td colspan="2" class="blank-cell"></td>
+              <td colspan="2" class="cell-sweep-action" style="padding: 4px 10px; text-align: left; vertical-align: middle;">
+                <button type="button" class="btn-sweep-tail" id="btnOpenSweepTailModal" title="Vét số lượng Chuẩn Bị còn nợ vào một Lô riêng biệt">
+                  ⚡ Vét Số Đuôi Vào Lô Riêng
+                </button>
+              </td>
             </tr>
             <tr>
               <td class="lbl-summary cell-header">PO</td>
@@ -593,6 +600,76 @@
 
   </main>
   </div> <!-- /#appMainWrapper -->
+
+  <!-- MODAL VÉT SỐ ĐUÔI TẠO LÔ RIÊNG BIỆT (QUẢN LÝ NHƯ LÔ 1, LÔ 2) -->
+  <div id="modalSweepTailBatch" class="modal-overlay">
+    <div class="modal-card modal-sweep-card" style="max-width: 520px; border-radius: 14px; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.25);">
+      <div class="modal-header modal-sweep-header" style="background: linear-gradient(135deg, #0f766e, #0369a1); color: #ffffff; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 24px;">⚡</span>
+          <div>
+            <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: #ffffff;">VÉT HÀNG CHUẨN BỊ NỢ VÀO LÔ SỐ ĐUÔI RIÊNG</h3>
+            <span style="font-size: 12px; color: #e0f2fe; display: block; margin-top: 2px;">Khởi tạo một Lô độc lập quản lý đầy đủ 5 công đoạn như Lô 1 & Lô 2</span>
+          </div>
+        </div>
+        <button class="btn-close-modal" id="btnCloseSweepTailModal" style="color: #ffffff; font-size: 22px; cursor: pointer; background: transparent; border: none;">×</button>
+      </div>
+
+      <div class="modal-body" style="padding: 20px 24px; background: #ffffff;">
+        <div class="sweep-info-callout" style="background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 13.5px; font-weight: 700; color: #166534;">📦 Số lượng Chuẩn Bị đang nợ PO:</span>
+            <span id="sweepModalDebtDisplay" style="font-size: 18px; font-weight: 900; color: #15803d;">0 đôi</span>
+          </div>
+          <div style="font-size: 12px; color: #166534; margin-top: 5px; line-height: 1.4;">
+            Toàn bộ lượng hàng nợ này sẽ được xuất vào chuyền may và tạo một <strong>Thẻ Lô riêng biệt</strong> để kiểm kê độc lập.
+          </div>
+        </div>
+
+        <form id="formSweepTailBatch" onsubmit="event.preventDefault();">
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label for="txtSweepBatchName" style="font-weight: 700; color: #1e293b; display: block; margin-bottom: 6px; font-size: 13.5px;">
+              🏷️ Tên Lô Riêng Mới:
+            </label>
+            <input type="text" id="txtSweepBatchName" class="form-control font-bold" value="Lô Số Đuôi" required style="width: 100%; border: 1.5px solid #0f766e; padding: 9px 12px; border-radius: 6px;">
+            <small style="color: #64748b; font-size: 12px; display: block; margin-top: 4px;">Gợi ý: <em>Lô Số Đuôi, Lô 3 - Số Đuôi, Lô Vét...</em></small>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+            <div class="form-group">
+              <label for="numSweepQty" style="font-weight: 700; color: #1e293b; display: block; margin-bottom: 6px; font-size: 13.5px;">
+                📥 Số lượng vào chuyền:
+              </label>
+              <input type="number" id="numSweepQty" class="form-control font-bold text-teal-700" min="1" required style="width: 100%; font-size: 16px; border: 1.5px solid #0f766e; padding: 9px 12px; border-radius: 6px;">
+              <small style="color: #64748b; font-size: 11.5px; display: block; margin-top: 4px;">Có thể chỉnh nếu thực nhận lệch</small>
+            </div>
+
+            <div class="form-group">
+              <label for="txtSweepDate" style="font-weight: 700; color: #1e293b; display: block; margin-bottom: 6px; font-size: 13.5px;">
+                📅 Ngày nhận hàng:
+              </label>
+              <input type="date" id="txtSweepDate" class="form-control font-bold" required style="width: 100%; padding: 9px 12px; border-radius: 6px;">
+              <small style="color: #64748b; font-size: 11.5px; display: block; margin-top: 4px;">Ngày bắt đầu may Lô Đuôi</small>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 6px;">
+            <label for="txtSweepNote" style="font-weight: 700; color: #1e293b; display: block; margin-bottom: 6px; font-size: 13.5px;">
+              📝 Ghi chú bàn giao vét đuôi:
+            </label>
+            <input type="text" id="txtSweepNote" class="form-control" placeholder="Ví dụ: Chuẩn bị giao vét phôi đợt cuối..." value="Chuẩn bị bàn giao vét đuôi đợt cuối" style="width: 100%; padding: 9px 12px; border-radius: 6px;">
+          </div>
+        </form>
+      </div>
+
+      <div class="modal-footer" style="padding: 14px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 10px;">
+        <button type="button" class="btn btn-secondary" id="btnCancelSweepTailModal">Hủy bỏ</button>
+        <button type="button" class="btn btn-success font-bold" id="btnConfirmSweepTailBatch" style="padding: 9px 20px; font-size: 14px; background: #059669; border: none; border-radius: 6px; color: #ffffff; cursor: pointer;">
+          ⚡ Khởi Tạo Lô & Bàn Giao Vào Chuyền
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- AUTH & ROLE MODAL -->
   <div id="modalRoleAuth" class="modal-overlay">

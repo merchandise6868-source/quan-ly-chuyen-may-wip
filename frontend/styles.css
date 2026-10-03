@@ -2013,8 +2013,48 @@ input[type=number] {
   background: rgba(255, 255, 255, 0.28);
 }
 
+.hidden,
+.admin-only-tab.hidden,
 .manager-only-tab.hidden {
   display: none !important;
+}
+
+/* NÚT VÉT SỐ ĐUÔI TẠI HEADER TỔNG HỢP VÀ TOOLBAR */
+.btn-sweep-tail {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #ffffff;
+  border: 1px solid #b45309;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 12.5px;
+  font-weight: 800;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 1px 3px rgba(217, 119, 6, 0.35);
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-sweep-tail:hover:not(:disabled) {
+  background: linear-gradient(135deg, #d97706, #b45309);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 6px rgba(217, 119, 6, 0.45);
+}
+
+.btn-sweep-tail.disabled,
+.btn-sweep-tail:disabled {
+  background: #e2e8f0 !important;
+  color: #64748b !important;
+  border: 1px solid #cbd5e1 !important;
+  cursor: default !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.cell-sweep-action {
+  vertical-align: middle;
 }
 
 /* ========================================================
@@ -3350,10 +3390,10 @@ input[type=number] {
 
 .excel-batches-container {
   display: grid !important;
-  grid-template-columns: repeat(auto-fit, minmax(440px, 520px)) !important;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)) !important;
   justify-content: center !important;
-  gap: 24px !important;
-  max-width: 1600px !important;
+  gap: 16px !important;
+  max-width: 1750px !important;
   margin: 20px auto !important;
   padding: 0 12px !important;
 }
@@ -4069,7 +4109,7 @@ input[type=number] {
 /* Laptop / Màn hình lớn */
 @media (min-width: 1024px) {
   .excel-batches-container {
-    grid-template-columns: repeat(auto-fit, minmax(460px, 500px)) !important;
+    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)) !important;
   }
 }
 
