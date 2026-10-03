@@ -1077,8 +1077,13 @@ function renderReportUI() {
           <!-- LEFT BOX: KIỂM KÊ TỒN THỰC TẾ (5 TRẠM) -->
           <div class="h1-box h1-box-left">
             <div class="h1-box-hdr bg-teal">
-              <div class="box-title">KIỂM KÊ TỒN THỰC TẾ</div>
-              <div class="box-sub">${batch.batch_name} - SL tại từng trạm</div>
+              <div class="box-hdr-text">
+                <div class="box-title">KIỂM KÊ TỒN THỰC TẾ</div>
+                <div class="box-sub">${batch.batch_name} - SL tại từng trạm</div>
+              </div>
+              <button type="button" class="h1-btn-toggle ${isEditing ? 'is-editing' : 'is-locked'} btn-toggle-batch btn-batch-toggle btn-header-toggle" data-batch="${idx}" title="${isEditing ? 'Nhấn để lưu số liệu và khóa bảng kiểm kê' : 'Nhấn để mở khóa chỉnh sửa số liệu kiểm kê'}">
+                ${isEditing ? '💾 Lưu' : '✏️ Sửa'}
+              </button>
             </div>
             <div class="h1-station-list">
               <!-- 1. Đang sản xuất -->
@@ -1198,15 +1203,10 @@ function renderReportUI() {
                 : ('<div class="h1-status-banner banner-surplus">ℹ️ Thừa +' + Math.abs(shortage).toLocaleString("vi-VN") + ' đôi – kiểm tra lại số đếm thực tế</div>'))}
         </div>
 
-        <!-- 8. BOTTOM ACTION BAR: EXECUTOR INPUT & SỬA/LƯU BUTTON -->
+        <!-- 8. BOTTOM ACTION BAR: EXECUTOR INPUT -->
         <div class="h1-bottom-bar">
-          <div class="h1-executor-wrap">
-            <input type="text" ${isEditing ? '' : 'readonly'} class="wip-executor-input field-note-sewing grid-nav-input" data-batch="${idx}" data-row="2" data-col="0" value="${batch.note_sewing || ''}" placeholder="${isEditing ? 'Điền tên người thực hiện...' : 'Điền tên người thực hiện'}" data-idx="${idx}">
-          </div>
-          <div class="h1-action-btn-wrap">
-            <button type="button" class="h1-btn-toggle ${isEditing ? 'is-editing' : 'is-locked'} btn-toggle-batch btn-batch-toggle" data-batch="${idx}" title="${isEditing ? 'Nhấn để lưu số liệu và khóa bảng kiểm kê' : 'Nhấn để mở khóa chỉnh sửa số liệu kiểm kê'}">
-              ${isEditing ? '💾 Lưu' : '✏️ Sửa'}
-            </button>
+          <div class="h1-executor-wrap" style="width: 100%;">
+            <input type="text" ${isEditing ? '' : 'readonly'} class="wip-executor-input field-note-sewing grid-nav-input" data-batch="${idx}" data-row="2" data-col="0" value="${batch.note_sewing || ''}" placeholder="${isEditing ? '✍️ Điền tên người kiểm kê...' : '👤 Người kiểm kê: ' + (batch.note_sewing || 'Chưa ghi')}" data-idx="${idx}">
           </div>
         </div>
 

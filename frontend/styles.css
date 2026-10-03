@@ -4531,9 +4531,22 @@ input[type=number] {
     flex-shrink: 0 !important;
   }
 
+  /* STRICTLY HIDE DESKTOP ROLE BADGES & BUTTONS ON MOBILE */
+  #currentRoleBadge,
+  #btnSwitchRole,
+  #btnLogout,
+  #btnInstallPWA,
   .desktop-only-pwa,
   .desktop-only-role,
-  .desktop-only-btn {
+  .desktop-only-btn,
+  .role-badge,
+  .btn-role-switch,
+  .btn-logout {
+    display: none !important;
+  }
+
+  .top-filters-group .filter-item label,
+  .filter-item label {
     display: none !important;
   }
 
@@ -4601,7 +4614,7 @@ input[type=number] {
     display: block !important;
   }
 
-  /* BATCH CARDS ON MOBILE */
+  /* ULTRA-COMPACT BATCH CARD (FITS SNUGLY ON 1 MOBILE SCREEN) */
   .excel-sheet-wrapper {
     padding: 0 !important;
     background: transparent !important;
@@ -4612,17 +4625,225 @@ input[type=number] {
   .excel-batches-container {
     grid-template-columns: 1fr !important;
     padding: 0 4px !important;
-    gap: 14px !important;
+    gap: 10px !important;
   }
 
   .h1-batch-card {
-    padding: 12px 10px !important;
-    border-radius: 14px !important;
+    padding: 8px 8px !important;
+    border-radius: 12px !important;
     max-width: 100% !important;
+    margin-bottom: 10px !important;
   }
 
+  .h1-batch-header {
+    margin-bottom: 6px !important;
+    padding-bottom: 0 !important;
+  }
+
+  .h1-date-badge {
+    padding: 4px 8px !important;
+    font-size: 11.5px !important;
+  }
+
+  .h1-batch-badge {
+    padding: 3px 12px !important;
+  }
+
+  .h1-batch-badge .b-name {
+    font-size: 13.5px !important;
+  }
+
+  .h1-batch-badge .b-plan {
+    font-size: 10px !important;
+  }
+
+  /* Section Titles */
+  .h1-sec-title {
+    font-size: 11px !important;
+    margin-bottom: 2px !important;
+    padding-left: 2px !important;
+  }
+
+  /* Table Nx (Nhập - Xuất) */
+  .h1-table-nx th {
+    padding: 2px 4px !important;
+    font-size: 10px !important;
+  }
+
+  .h1-table-nx td {
+    padding: 2px 4px !important;
+    font-size: 11px !important;
+  }
+
+  .h1-table-nx .sub-lbl {
+    display: none !important;
+  }
+
+  .h1-table-nx .wip-num-input {
+    height: 26px !important;
+    font-size: 12.5px !important;
+    padding: 1px 4px !important;
+  }
+
+  /* Hide Large Decorative Arrows on Mobile to save ~90px vertical height */
+  .h1-calc-flow-arrow,
+  .h1-dual-arrow-wrap,
+  .h1-arrow-connector-1,
+  .h1-dual-arrows-row {
+    display: none !important;
+  }
+
+  /* Trio Cards (Tồn LT, Tồn TT, Thiếu/Lệch) */
+  .h1-trio-grid {
+    gap: 4px !important;
+    margin-top: 4px !important;
+    margin-bottom: 4px !important;
+  }
+
+  .h1-trio-card {
+    padding: 4px 2px !important;
+    border-radius: 8px !important;
+  }
+
+  .h1-trio-card .trio-title {
+    font-size: 9.5px !important;
+    line-height: 1.1 !important;
+  }
+
+  .h1-trio-card .trio-sub {
+    display: none !important;
+  }
+
+  .h1-trio-card .trio-val {
+    font-size: 15px !important;
+    margin-top: 1px !important;
+  }
+
+  .trio-op {
+    display: none !important;
+  }
+
+  /* Split Grid: 5 Trạm & Nguyên nhân */
   .h1-split-grid {
     grid-template-columns: 1fr 1fr !important;
-    gap: 8px !important;
+    gap: 6px !important;
+    margin-top: 4px !important;
+  }
+
+  .h1-box-hdr {
+    padding: 4px 6px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+  }
+
+  .h1-box-hdr .box-title {
+    font-size: 11px !important;
+  }
+
+  .h1-box-hdr .box-sub {
+    display: none !important;
+  }
+
+  .btn-header-toggle {
+    padding: 2px 8px !important;
+    font-size: 11px !important;
+    font-weight: 800 !important;
+    border-radius: 6px !important;
+    border: none !important;
+    cursor: pointer !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
+  }
+
+  .btn-header-toggle.is-locked {
+    background: #ffffff !important;
+    color: #0f766e !important;
+  }
+
+  .btn-header-toggle.is-editing {
+    background: #fef08a !important;
+    color: #854d0e !important;
+    border: 1px solid #eab308 !important;
+  }
+
+  .h1-station-row {
+    padding: 2px 4px !important;
+    min-height: 24px !important;
+  }
+
+  .h1-station-row .st-badge {
+    width: 15px !important;
+    height: 15px !important;
+    font-size: 9px !important;
+  }
+
+  .h1-station-row .st-text {
+    font-size: 10.5px !important;
+  }
+
+  .h1-station-row .wip-num-input {
+    height: 24px !important;
+    font-size: 12px !important;
+    padding: 1px 4px !important;
+    width: 50px !important;
+  }
+
+  .h1-reason-row {
+    padding: 2px 4px !important;
+    min-height: 24px !important;
+  }
+
+  .h1-reason-row .rs-title {
+    font-size: 10.5px !important;
+  }
+
+  .h1-reason-row .rs-sub {
+    display: none !important;
+  }
+
+  .h1-reason-row .wip-num-input {
+    height: 24px !important;
+    font-size: 12px !important;
+    padding: 1px 4px !important;
+    width: 48px !important;
+  }
+
+  .h1-reason-note-row {
+    padding: 2px 4px !important;
+  }
+
+  .h1-reason-note-row input {
+    height: 22px !important;
+    font-size: 10px !important;
+    padding: 1px 4px !important;
+  }
+
+  .h1-box-footer {
+    padding: 2px 6px !important;
+    font-size: 10px !important;
+  }
+
+  .h1-box-footer .ft-val {
+    font-size: 12px !important;
+  }
+
+  .h1-status-banner-wrap {
+    margin-top: 3px !important;
+  }
+
+  .h1-status-banner {
+    padding: 2px 6px !important;
+    font-size: 10px !important;
+  }
+
+  .h1-bottom-bar {
+    margin-top: 3px !important;
+    padding: 0 !important;
+  }
+
+  .wip-executor-input {
+    height: 24px !important;
+    font-size: 10.5px !important;
+    padding: 1px 6px !important;
   }
 }
