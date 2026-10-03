@@ -632,8 +632,7 @@ async function loadReport() {
             defBatches = defBatches.filter(b => !b.is_tail_batch && !(b.batch_name && b.batch_name.toLowerCase().includes('đuôi')));
           }
           appState.report.batches = defBatches.map((b, i) => {
-            const priorIn = Number(appState.cumImportsByBatch && appState.cumImportsByBatch[b.batch_name]) || 0;
-            const defaultTodayIn = priorIn > 0 ? 0 : (Number(b.into_sewing || b.batch_plan) || 0);
+            const defaultTodayIn = 0; // New report dates must always start with 0 into_sewing (no fake auto-fill)
             return {
               id: b.id || `b-${i+1}`,
               batch_name: b.batch_name,
@@ -2362,7 +2361,7 @@ async function handleAddPO(e) {
         id: "b-" + (i + 1),
         batch_name: bName,
         batch_plan: qty,
-        into_sewing: qty
+        into_sewing: 0
       });
     }
   });

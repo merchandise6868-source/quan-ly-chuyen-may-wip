@@ -1042,7 +1042,7 @@ export default {
                 const parts = it.split(':');
                 const bName = parts[0].trim() || `Lô ${i+1}`;
                 const bQty = parts[1] ? Number(parts[1].trim()) : 0;
-                return { id: 'b-' + (i+1), batch_name: bName, batch_plan: bQty, into_sewing: bQty };
+                return { id: 'b-' + (i+1), batch_name: bName, batch_plan: bQty, into_sewing: 0 };
               });
             }
           }
@@ -1087,7 +1087,7 @@ export default {
               tail_sweep_date: tail_sweep_date || null,
               tail_batch_name: tail_batch_name || null,
               default_batches: parsedBatches.length > 0 ? parsedBatches : [
-                { id: 'b-1', batch_name: "Lô 1", batch_plan: Number(po_plan) || 1000, into_sewing: Number(po_plan) || 1000 }
+                { id: 'b-1', batch_name: "Lô 1", batch_plan: Number(po_plan) || 1000, into_sewing: 0 }
               ]
             };
             memoryDB.orders.push(newOrder);
@@ -1168,8 +1168,7 @@ export default {
                 defBatches = defBatches.filter(b => !b.is_tail_batch && !(b.batch_name && b.batch_name.toLowerCase().includes('đuôi')));
               }
               const batches = defBatches.map((b, i) => {
-                const priorIn = cumImportsByBatch[b.batch_name] || 0;
-                const defaultTodayIn = priorIn > 0 ? 0 : (Number(b.into_sewing || b.batch_plan) || 0);
+                const defaultTodayIn = 0; // New report dates must always start with 0 into_sewing (no fake auto-fill)
                 return {
                   id: b.id || ('b-' + (i+1)),
                   batch_name: b.batch_name,
@@ -1266,8 +1265,7 @@ export default {
             defBatches = defBatches.filter(b => !b.is_tail_batch && !(b.batch_name && b.batch_name.toLowerCase().includes('đuôi')));
           }
           const batches = defBatches.map((b, i) => {
-            const priorIn = cumImportsByBatch[b.batch_name] || 0;
-            const defaultTodayIn = priorIn > 0 ? 0 : (Number(b.into_sewing || b.batch_plan) || 0);
+            const defaultTodayIn = 0; // New report dates must always start with 0 into_sewing (no fake auto-fill)
             return {
               id: b.id || ('b-' + (i+1)),
               batch_name: b.batch_name,
