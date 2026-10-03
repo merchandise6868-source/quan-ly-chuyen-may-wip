@@ -117,18 +117,20 @@
 
     <!-- STICKY HEADER WRAPPER (FREEZE TOP AREA: FILTERS, ACCOUNT & TABS AS IN HÌNH 2) -->
     <div class="sticky-header-wrapper">
-      <!-- TOP APP BAR WITH FILTERS & USER AUTHENTICATION (NO LOGO / COMPANY NAME) -->
+      <!-- TOP APP BAR WITH FILTERS & USER AUTHENTICATION -->
       <header class="top-app-bar compact-header">
         <div class="top-bar-inner">
           <div class="top-filters-group">
-            <div class="filter-item">
-              <label for="selectCustomer">KHÁCH HÀNG:</label>
+            <div class="filter-item pill-filter-customer">
+              <span class="pill-prefix">KH</span>
+              <label for="selectCustomer" class="sr-only-mobile">KHÁCH HÀNG:</label>
               <select id="selectCustomer" class="form-control select-customer-styled">
                 <!-- Dynamically populated -->
               </select>
             </div>
-            <div class="filter-item">
-              <label for="selectPO">ĐƠN HÀNG / PO:</label>
+            <div class="filter-item pill-filter-po">
+              <span class="pill-prefix">PO</span>
+              <label for="selectPO" class="sr-only-mobile">ĐƠN HÀNG / PO:</label>
               <select id="selectPO" class="form-control select-po-styled">
                 <!-- Dynamically populated -->
               </select>
@@ -136,10 +138,30 @@
           </div>
 
           <div class="user-action-cluster">
-            <button type="button" id="btnInstallPWA" class="btn-install-pwa" style="display: none;" title="Cài đặt ứng dụng về thiết bị">📲 Cài App</button>
-            <span class="role-badge is-admin" id="currentRoleBadge">👑 Sếp Tổng Quản Trị (Admin)</span>
-            <button class="btn-role-switch" id="btnSwitchRole" title="Đổi quyền hoặc đăng nhập tài khoản khác">🔄 Đổi Quyền</button>
-            <button class="btn-logout" id="btnLogout" title="Đăng xuất khỏi hệ thống">🚪 Đăng Xuất</button>
+            <button type="button" id="btnInstallPWA" class="btn-install-pwa desktop-only-pwa" style="display: none;" title="Cài đặt ứng dụng về thiết bị">📲 Cài App</button>
+            <span class="role-badge is-admin desktop-only-role" id="currentRoleBadge">👑 Sếp Tổng Quản Trị (Admin)</span>
+            <button class="btn-role-switch desktop-only-btn" id="btnSwitchRole" title="Đổi quyền hoặc đăng nhập tài khoản khác">🔄 Đổi Quyền</button>
+            <button class="btn-logout desktop-only-btn" id="btnLogout" title="Đăng xuất khỏi hệ thống">🚪 Đăng Xuất</button>
+
+            <!-- AVATAR BUTTON (BẤM ICON NGƯỜI) -->
+            <button type="button" class="btn-user-avatar" id="btnUserAvatar" title="Thông tin người dùng & Quyền hạn">
+              <span class="avatar-icon">👤</span>
+            </button>
+
+            <!-- USER POPOVER MENU (MÀN 2 KHI BẤM ICON NGƯỜI) -->
+            <div class="user-popover-menu" id="userPopoverMenu" style="display: none;">
+              <div class="user-popover-header">
+                <div class="user-popover-name" id="popoverUserName">Công Nhân Kiểm Kê</div>
+                <div class="user-popover-role" id="popoverUserRole">Vai trò: Công nhân</div>
+              </div>
+              <div class="user-popover-divider"></div>
+              <button type="button" class="popover-item" id="btnPopoverSwitchRole">
+                <span class="p-icon">🔄</span> Đổi quyền
+              </button>
+              <button type="button" class="popover-item text-danger" id="btnPopoverLogout">
+                <span class="p-icon">🚪</span> Đăng xuất
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -147,16 +169,20 @@
       <!-- TAB NAVIGATION -->
       <nav class="nav-tabs">
         <button class="tab-btn active" data-tab="tab-wip">
-          📊 1. Báo Cáo Đối Chiếu Nhập Xuất Tồn
+          <span class="tab-txt-desktop">📊 1. Báo Cáo Đối Chiếu Nhập Xuất Tồn</span>
+          <span class="tab-txt-mobile">📊 Đối chiếu NXT</span>
         </button>
         <button class="tab-btn" id="tabBtnDeptLogs" data-tab="tab-flow-log">
-          📜 2. Báo Cáo Đối Chiếu & Theo Dõi Sản Lượng
+          <span class="tab-txt-desktop">📜 2. Báo Cáo Đối Chiếu & Theo Dõi Sản Lượng</span>
+          <span class="tab-txt-mobile">📜 Báo cáo lô</span>
         </button>
         <button class="tab-btn manager-only-tab" id="tabBtnManage" data-tab="tab-manage">
-          ⚙️ 3. Quản Lý Khách Hàng & Đơn Hàng PO
+          <span class="tab-txt-desktop">⚙️ 3. Quản Lý Khách Hàng & Đơn Hàng PO</span>
+          <span class="tab-txt-mobile">📦 Tồn kho</span>
         </button>
         <button class="tab-btn admin-only-tab" id="tabBtnUsers" data-tab="tab-users">
-          👑 4. Phân Quyền & Quản Lý SĐT / Tài Khoản
+          <span class="tab-txt-desktop">👑 4. Phân Quyền & Quản Lý SĐT / Tài Khoản</span>
+          <span class="tab-txt-mobile">👑 Phân quyền</span>
         </button>
         <div class="status-tag" id="reportStatusTag">TRẠNG THÁI: BẢN NHÁP</div>
       </nav>
@@ -196,6 +222,71 @@
             🖨️ In Báo Cáo
           </button>
         </div>
+      </div>
+
+      <!-- MOBILE ACTION BAR (1 HÀNG DUY NHẤT: VÉT LÔ [BADGE] - ◀ NGÀY ▶ - ...) -->
+      <div class="mobile-action-bar">
+        <!-- Nút Vét Lô với Badge Đỏ nợ -->
+        <button type="button" class="btn-mobile-vet-lo" id="btnMobileVetLo" title="Vét số lượng Chuẩn Bị còn nợ vào Lô riêng">
+          <span class="vet-lo-badge" id="mobileVetLoBadge">0</span>
+          <span class="vet-lo-text">Vét lô</span>
+        </button>
+
+        <!-- Cụm chọn ngày -->
+        <div class="mobile-date-cluster">
+          <button type="button" class="btn-mobile-date-nav" id="btnMobilePrevDay" title="Hôm trước">◀</button>
+          <div class="mobile-date-box" id="mobileDateBox" title="Chạm để chọn ngày">
+            <span id="mobileDateDisplay">03/10/2026</span>
+            <span class="cal-ico">📅</span>
+            <input type="date" id="reportDateMobile" class="mobile-date-hidden-input">
+          </div>
+          <button type="button" class="btn-mobile-date-nav" id="btnMobileNextDay" title="Hôm sau">▶</button>
+        </div>
+
+        <!-- Nút ... với Popover Menu (MÀN 3 KHI BẤM NÚT ...) -->
+        <div class="mobile-more-cluster">
+          <button type="button" class="btn-mobile-more" id="btnMobileMore" title="Tùy chọn tác vụ">···</button>
+          <div class="more-popover-menu" id="morePopoverMenu" style="display: none;">
+            <button type="button" class="popover-item" id="btnMoreRefresh">
+              <span class="p-icon">🔄</span> Tải lại dữ liệu
+            </button>
+            <button type="button" class="popover-item" id="btnMoreExport">
+              <span class="p-icon">📊</span> Xuất Excel
+            </button>
+            <button type="button" class="popover-item" id="btnMorePrint">
+              <span class="p-icon">🖨️</span> In báo cáo
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MOBILE KPI CARD (BÁO CÁO ĐỐI CHIẾU NHẬP XUẤT TỒN 4 DÒNG CHUẨN MOCKUP) -->
+      <div class="mobile-kpi-card">
+        <div class="mobile-kpi-title">BÁO CÁO ĐỐI CHIẾU NHẬP XUẤT TỒN</div>
+        <table class="mobile-kpi-table">
+          <tr>
+            <td class="mkpi-hdr">Ngày</td>
+            <td class="mkpi-val" id="mkpiDate">--</td>
+            <td class="mkpi-hdr mkpi-debt-hdr">Chuẩn bị còn nợ</td>
+            <td class="mkpi-val mkpi-debt-val" id="mkpiPrepDebt">0</td>
+          </tr>
+          <tr>
+            <td class="mkpi-hdr">PO</td>
+            <td class="mkpi-val mkpi-bold" id="mkpiPoNum">--</td>
+            <td class="mkpi-hdr">Tổng đơn</td>
+            <td class="mkpi-val mkpi-bold" id="mkpiTotalPlan">0</td>
+          </tr>
+          <tr>
+            <td class="mkpi-hdr">Tổng nhận</td>
+            <td class="mkpi-val mkpi-blue" id="mkpiTotalReceived">0</td>
+            <td class="mkpi-hdr">Xuất KH</td>
+            <td class="mkpi-val mkpi-blue" id="mkpiTotalDelivered">0</td>
+          </tr>
+          <tr>
+            <td class="mkpi-hdr" colspan="2">Tồn thực tế (đôi)</td>
+            <td class="mkpi-val mkpi-blue" colspan="2" id="mkpiTotalActualWip">0</td>
+          </tr>
+        </table>
       </div>
 
       <!-- MAIN EXCEL SHEET CONTAINER -->

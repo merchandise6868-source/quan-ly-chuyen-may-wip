@@ -232,6 +232,17 @@ function initDate() {
   if (dateEl) {
     dateEl.value = todayStr;
   }
+  const mobInput = document.getElementById("reportDateMobile");
+  if (mobInput) {
+    mobInput.value = todayStr;
+  }
+  const mobDisp = document.getElementById("mobileDateDisplay");
+  if (mobDisp && todayStr) {
+    const parts = todayStr.split("-");
+    if (parts.length === 3) {
+      mobDisp.innerText = `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+  }
 }
 
 // SHOW TOAST NOTIFICATION
@@ -515,6 +526,114 @@ function bindEvents() {
   // Global Keyboard Navigation (4 Arrow keys & Enter & Paste from Excel)
   document.addEventListener("keydown", handleGlobalKeyNavigation);
   document.addEventListener("paste", handleExcelPaste);
+
+  // App-Like Mobile UI & Popover Events (Android & iOS)
+  const btnUserAvatar = document.getElementById("btnUserAvatar");
+  const userPopoverMenu = document.getElementById("userPopoverMenu");
+  const btnMobileMore = document.getElementById("btnMobileMore");
+  const morePopoverMenu = document.getElementById("morePopoverMenu");
+
+  if (btnUserAvatar) {
+    btnUserAvatar.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (morePopoverMenu) morePopoverMenu.style.display = "none";
+      if (userPopoverMenu) {
+        userPopoverMenu.style.display = userPopoverMenu.style.display === "block" ? "none" : "block";
+      }
+    });
+  }
+
+  if (btnMobileMore) {
+    btnMobileMore.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (userPopoverMenu) userPopoverMenu.style.display = "none";
+      if (morePopoverMenu) {
+        morePopoverMenu.style.display = morePopoverMenu.style.display === "block" ? "none" : "block";
+      }
+    });
+  }
+
+  // Popover Action Buttons
+  const btnPopSwitch = document.getElementById("btnPopoverSwitchRole");
+  if (btnPopSwitch) {
+    btnPopSwitch.addEventListener("click", () => {
+      if (userPopoverMenu) userPopoverMenu.style.display = "none";
+      const btn = document.getElementById("btnSwitchRole");
+      if (btn) btn.click();
+    });
+  }
+
+  const btnPopLogout = document.getElementById("btnPopoverLogout");
+  if (btnPopLogout) {
+    btnPopLogout.addEventListener("click", () => {
+      if (userPopoverMenu) userPopoverMenu.style.display = "none";
+      const btn = document.getElementById("btnLogout");
+      if (btn) btn.click();
+    });
+  }
+
+  const btnMoreRef = document.getElementById("btnMoreRefresh");
+  if (btnMoreRef) {
+    btnMoreRef.addEventListener("click", () => {
+      if (morePopoverMenu) morePopoverMenu.style.display = "none";
+      loadReport();
+    });
+  }
+
+  const btnMoreExp = document.getElementById("btnMoreExport");
+  if (btnMoreExp) {
+    btnMoreExp.addEventListener("click", () => {
+      if (morePopoverMenu) morePopoverMenu.style.display = "none";
+      exportToExcel();
+    });
+  }
+
+  const btnMorePrn = document.getElementById("btnMorePrint");
+  if (btnMorePrn) {
+    btnMorePrn.addEventListener("click", () => {
+      if (morePopoverMenu) morePopoverMenu.style.display = "none";
+      window.print();
+    });
+  }
+
+  // Mobile Action Bar: Vét Lô & Date Nav
+  const btnMobVet = document.getElementById("btnMobileVetLo");
+  if (btnMobVet) {
+    btnMobVet.addEventListener("click", () => {
+      openSweepTailModal();
+    });
+  }
+
+  const btnMobPrev = document.getElementById("btnMobilePrevDay");
+  if (btnMobPrev) {
+    btnMobPrev.addEventListener("click", () => changeDateByDays(-1));
+  }
+
+  const btnMobNext = document.getElementById("btnMobileNextDay");
+  if (btnMobNext) {
+    btnMobNext.addEventListener("click", () => changeDateByDays(1));
+  }
+
+  const dateMob = document.getElementById("reportDateMobile");
+  if (dateMob) {
+    dateMob.addEventListener("change", (e) => {
+      const repD = document.getElementById("reportDate");
+      if (repD) {
+        repD.value = e.target.value;
+        repD.dispatchEvent(new Event("change"));
+      }
+    });
+  }
+
+  // Close popovers on click outside
+  document.addEventListener("click", (e) => {
+    if (userPopoverMenu && !userPopoverMenu.contains(e.target) && (!btnUserAvatar || !btnUserAvatar.contains(e.target))) {
+      userPopoverMenu.style.display = "none";
+    }
+    if (morePopoverMenu && !morePopoverMenu.contains(e.target) && (!btnMobileMore || !btnMobileMore.contains(e.target))) {
+      morePopoverMenu.style.display = "none";
+    }
+  });
 }
 
 // MASTER SYNC: REFRESH ALL TABS DATA FOR CURRENT PO & DATE
@@ -553,6 +672,13 @@ async function changeDateByDays(days) {
   const dateEl = document.getElementById("reportDate");
   if (dateEl) {
     dateEl.value = newDateStr;
+  }
+  const mobInput = document.getElementById("reportDateMobile");
+  if (mobInput) mobInput.value = newDateStr;
+  const mobDisp = document.getElementById("mobileDateDisplay");
+  if (mobDisp && newDateStr) {
+    const p = newDateStr.split("-");
+    if (p.length === 3) mobDisp.innerText = `${p[2]}/${p[1]}/${p[0]}`;
   }
   await refreshAllTabsData();
 }
@@ -1201,10 +1327,52 @@ function recalculateAllInPlace() {
   const elDebt = document.getElementById("summaryPrepDebt");
   if (elDebt) elDebt.innerText = prepDebt.toLocaleString("vi-VN");
 
+  // Mobile KPI Card elements (4 hàng theo chuẩn Mockup)
+  const mkDate = document.getElementById("mkpiDate");
+  if (mkDate) mkDate.innerText = formatDateDisplay(appState.currentDate);
+
+  const mkDebt = document.getElementById("mkpiPrepDebt");
+  if (mkDebt) mkDebt.innerText = prepDebt.toLocaleString("vi-VN");
+
+  const mkPO = document.getElementById("mkpiPoNum");
+  if (mkPO) mkPO.innerText = appState.currentPO ? appState.currentPO.po_number : "--";
+
+  const mkPlan = document.getElementById("mkpiTotalPlan");
+  if (mkPlan) mkPlan.innerText = poPlan.toLocaleString("vi-VN");
+
+  const mkRec = document.getElementById("mkpiTotalReceived");
+  if (mkRec) mkRec.innerText = totalReceived.toLocaleString("vi-VN");
+
+  const mkDel = document.getElementById("mkpiTotalDelivered");
+  if (mkDel) mkDel.innerText = totalDelivered.toLocaleString("vi-VN");
+
+  const mkAct = document.getElementById("mkpiTotalActualWip");
+  if (mkAct) mkAct.innerText = totalActualWip.toLocaleString("vi-VN");
+
+  // Mobile Action Bar: Vét lô badge and Date
+  const mobBadge = document.getElementById("mobileVetLoBadge");
+  if (mobBadge) {
+    mobBadge.innerText = prepDebt.toLocaleString("vi-VN");
+  }
+
+  const mobDateDisp = document.getElementById("mobileDateDisplay");
+  if (mobDateDisp && appState.currentDate) {
+    const parts = appState.currentDate.split("-");
+    if (parts.length === 3) {
+      mobDateDisp.innerText = `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+  }
+
+  const mobDateInput = document.getElementById("reportDateMobile");
+  if (mobDateInput && appState.currentDate) {
+    mobDateInput.value = appState.currentDate;
+  }
+
   // Dynamic status for Sweep Tail Batch buttons
   const btnSweep = document.getElementById("btnOpenSweepTailModal");
   const btnTbSweep = document.getElementById("btnToolbarSweepTail");
-  [btnSweep, btnTbSweep].forEach(b => {
+  const btnMobSweep = document.getElementById("btnMobileVetLo");
+  [btnSweep, btnTbSweep, btnMobSweep].forEach(b => {
     if (!b) return;
     if (prepDebt > 0) {
       b.disabled = false;
@@ -1213,7 +1381,7 @@ function recalculateAllInPlace() {
       b.style.cursor = "pointer";
       if (b.id === "btnOpenSweepTailModal") {
         b.innerHTML = `⚡ Vét Số Đuôi (${prepDebt.toLocaleString("vi-VN")})`;
-      } else {
+      } else if (b.id === "btnToolbarSweepTail") {
         b.innerHTML = `⚡ Vét Lô Đuôi (${prepDebt.toLocaleString("vi-VN")})`;
       }
       b.title = `Chuẩn Bị còn nợ ${prepDebt.toLocaleString("vi-VN")} đôi. Bấm để tạo Lô riêng biệt nhận lượng hàng này vào chuyền!`;
@@ -1224,7 +1392,7 @@ function recalculateAllInPlace() {
       b.style.cursor = "default";
       if (b.id === "btnOpenSweepTailModal") {
         b.innerHTML = `✔ Đã nhận đủ hàng`;
-      } else {
+      } else if (b.id === "btnToolbarSweepTail") {
         b.innerHTML = `✔ Đủ Hàng`;
       }
       b.title = `Đã nhận đủ toàn bộ kế hoạch đơn hàng, không còn nợ phôi.`;
@@ -3164,6 +3332,16 @@ function applyUserRole(role, user = null) {
 
   let rawName = user ? (user.full_name || user.email || user.phone) : (role === "admin" ? "Sếp Tổng" : (role === "manager" ? "Quản lý" : "Công nhân"));
   const cleanName = String(rawName).replace(/\s*\(Admin\)/gi, '').replace(/\s*\(Quản lý\)/gi, '').replace(/\s*\(Công nhân\)/gi, '').trim();
+
+  // Update Avatar Popover Menu (Mockup Màn 2)
+  const popName = document.getElementById("popoverUserName");
+  const popRole = document.getElementById("popoverUserRole");
+  if (popName) {
+    popName.innerText = cleanName || (role === "admin" ? "Sếp Tổng" : (role === "manager" ? "Quản Lý" : "Công Nhân Kiểm Kê"));
+  }
+  if (popRole) {
+    popRole.innerText = role === "admin" ? "Vai trò: Sếp Tổng (Admin)" : (role === "manager" ? "Vai trò: Quản lý" : "Vai trò: Công nhân");
+  }
 
   if (role === "admin") {
     if (badge) {
