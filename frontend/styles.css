@@ -4714,14 +4714,16 @@ input[type=number] {
   }
 
   .dual-arrow-col.left-col {
-    justify-content: center !important;
+    justify-content: flex-end !important;
     gap: 6px !important;
-    padding-right: 0 !important;
+    padding-right: 25px !important;
   }
 
   .dual-arrow-col.right-col {
-    justify-content: center !important;
+    flex-direction: row-reverse !important;
+    justify-content: flex-start !important;
     gap: 6px !important;
+    padding-right: 32px !important;
     padding-left: 0 !important;
   }
 
