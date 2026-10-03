@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wip-flow-cache-v7';
+const CACHE_NAME = 'wip-flow-cache-v8';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -44,8 +44,9 @@ self.addEventListener('activate', event => {
 });
 
 // Fetch Strategy:
-// 1. API calls (/api/*) -> Network Only (Always fresh)
-// 2. Static Assets -> Stale-While-Revalidate (Fast load + background update)
+// 1. API calls (/api/*, Firebase, Google APIs) -> Network Only (Always fresh)
+// 2. HTML navigation & App .css/.js -> Network-First (lấy mạng trước, lỗi mạng mới dùng cache)
+// 3. Icons, images & CDN libraries -> Cache-First
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
@@ -61,10 +62,44 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Stale-While-Revalidate for static resources
+  const isNavigation = event.request.mode === 'navigate';
+  const isAppScriptOrStyle = url.origin === self.location.origin && (
+    url.pathname.endsWith('.css') || 
+    url.pathname.endsWith('.js') || 
+    url.pathname === '/' || 
+    url.pathname.endsWith('.html')
+  );
+
+  // Network-First for HTML navigation and app CSS/JS (tránh kẹt cache trên điện thoại)
+  if (isNavigation || isAppScriptOrStyle) {
+    event.respondWith(
+      fetch(event.request)
+        .then(networkResponse => {
+          if (networkResponse && networkResponse.status === 200 && event.request.method === 'GET') {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then(cache => {
+              cache.put(event.request, responseToCache);
+            });
+          }
+          return networkResponse;
+        })
+        .catch(() => {
+          return caches.match(event.request).then(cachedResponse => {
+            if (cachedResponse) return cachedResponse;
+            if (isNavigation) return caches.match('/index.html');
+          });
+        })
+    );
+    return;
+  }
+
+  // Cache-First for icons, images, manifest, and CDN libraries
   event.respondWith(
     caches.match(event.request).then(cachedResponse => {
-      const fetchPromise = fetch(event.request).then(networkResponse => {
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+      return fetch(event.request).then(networkResponse => {
         if (networkResponse && networkResponse.status === 200 && event.request.method === 'GET') {
           const responseToCache = networkResponse.clone();
           caches.open(CACHE_NAME).then(cache => {
@@ -72,9 +107,7 @@ self.addEventListener('fetch', event => {
           });
         }
         return networkResponse;
-      }).catch(() => cachedResponse);
-
-      return cachedResponse || fetchPromise;
+      });
     })
   );
 });
