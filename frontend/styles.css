@@ -4692,12 +4692,53 @@ input[type=number] {
     padding: 1px 4px !important;
   }
 
-  /* Hide Large Decorative Arrows on Mobile to save ~90px vertical height */
-  .h1-calc-flow-arrow,
-  .h1-dual-arrow-wrap,
+  /* Connecting arrow between Nx and Trio */
   .h1-arrow-connector-1,
-  .h1-dual-arrows-row {
+  .h1-calc-flow-arrow,
+  .h1-dual-arrow-wrap {
     display: none !important;
+  }
+
+  /* Dual Arrows Row between Trio and Boxes (Tổng 5 trạm ⬇ & ⬇ Phân tích nguyên nhân) */
+  .h1-dual-arrows-row {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+    margin: 6px 0 4px 0 !important;
+    align-items: center !important;
+  }
+
+  .dual-arrow-col {
+    display: flex !important;
+    align-items: center !important;
+  }
+
+  .dual-arrow-col.left-col {
+    justify-content: center !important;
+    gap: 6px !important;
+    padding-right: 0 !important;
+  }
+
+  .dual-arrow-col.right-col {
+    justify-content: center !important;
+    gap: 6px !important;
+    padding-left: 0 !important;
+  }
+
+  .arrow-text-wrap {
+    display: flex !important;
+    flex-direction: column !important;
+    font-size: 11px !important;
+    font-style: italic !important;
+    font-weight: 800 !important;
+    line-height: 1.15 !important;
+    white-space: nowrap !important;
+  }
+
+  .h1-arrow-svg {
+    width: 18px !important;
+    height: 24px !important;
+    flex-shrink: 0 !important;
   }
 
   /* Trio Cards (Tồn LT, Tồn TT, Thiếu/Lệch) */
