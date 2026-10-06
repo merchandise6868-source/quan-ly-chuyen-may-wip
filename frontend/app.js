@@ -1074,53 +1074,53 @@ function renderReportUI() {
             </div>
             <div class="h1-station-list">
               <!-- 1. Đang sản xuất -->
-              <div class="h1-station-row ${isEditing ? 'is-editing' : 'is-locked'}">
+              <div class="h1-station-row is-editing">
                 <div class="st-tag-name">
                   <span class="st-badge badge-yellow">1</span>
                   <span class="st-text">Đang sản xuất</span>
                 </div>
                 <div class="st-val-wrap">
-                  <input type="number" ${isEditing ? '' : 'readonly'} class="wip-num-input field-wip-sewing grid-nav-input" data-batch="${idx}" data-row="1" data-col="0" value="${batch.wip_sewing || ''}" placeholder="0" data-idx="${idx}">
+                  <input type="number" class="wip-num-input field-wip-sewing grid-nav-input input-yellow" data-batch="${idx}" data-row="1" data-col="0" value="${batch.wip_sewing || ''}" placeholder="0" data-idx="${idx}">
                 </div>
               </div>
               <!-- 2. Tồn kiểm QC -->
-              <div class="h1-station-row ${isEditing ? 'is-editing' : 'is-locked'}">
+              <div class="h1-station-row is-editing">
                 <div class="st-tag-name">
                   <span class="st-badge badge-gray">2</span>
                   <span class="st-text">Tồn kiểm QC</span>
                 </div>
                 <div class="st-val-wrap">
-                  <input type="number" ${isEditing ? '' : 'readonly'} class="wip-num-input field-wip-qc grid-nav-input" data-batch="${idx}" data-row="1" data-col="1" value="${batch.wip_qc || ''}" placeholder="0" data-idx="${idx}">
+                  <input type="number" class="wip-num-input field-wip-qc grid-nav-input input-yellow" data-batch="${idx}" data-row="1" data-col="1" value="${batch.wip_qc || ''}" placeholder="0" data-idx="${idx}">
                 </div>
               </div>
               <!-- 3. Tồn phối đôi -->
-              <div class="h1-station-row ${isEditing ? 'is-editing' : 'is-locked'}">
+              <div class="h1-station-row is-editing">
                 <div class="st-tag-name">
                   <span class="st-badge badge-orange">3</span>
                   <span class="st-text">Tồn phối đôi</span>
                 </div>
                 <div class="st-val-wrap">
-                  <input type="number" ${isEditing ? '' : 'readonly'} class="wip-num-input field-wip-pairing grid-nav-input" data-batch="${idx}" data-row="1" data-col="2" value="${batch.wip_pairing || ''}" placeholder="0" data-idx="${idx}">
+                  <input type="number" class="wip-num-input field-wip-pairing grid-nav-input input-yellow" data-batch="${idx}" data-row="1" data-col="2" value="${batch.wip_pairing || ''}" placeholder="0" data-idx="${idx}">
                 </div>
               </div>
               <!-- 4. Tồn đóng gói -->
-              <div class="h1-station-row ${isEditing ? 'is-editing' : 'is-locked'}">
+              <div class="h1-station-row is-editing">
                 <div class="st-tag-name">
                   <span class="st-badge badge-slate">4</span>
                   <span class="st-text">Tồn đóng gói</span>
                 </div>
                 <div class="st-val-wrap">
-                  <input type="number" ${isEditing ? '' : 'readonly'} class="wip-num-input field-wip-packing grid-nav-input" data-batch="${idx}" data-row="1" data-col="3" value="${batch.wip_packing || ''}" placeholder="0" data-idx="${idx}">
+                  <input type="number" class="wip-num-input field-wip-packing grid-nav-input input-yellow" data-batch="${idx}" data-row="1" data-col="3" value="${batch.wip_packing || ''}" placeholder="0" data-idx="${idx}">
                 </div>
               </div>
               <!-- 5. Tồn kho TP -->
-              <div class="h1-station-row ${isEditing ? 'is-editing' : 'is-locked'}">
+              <div class="h1-station-row is-editing">
                 <div class="st-tag-name">
                   <span class="st-badge badge-green">5</span>
                   <span class="st-text">Tồn kho TP</span>
                 </div>
                 <div class="st-val-wrap">
-                  <input type="number" ${isEditing ? '' : 'readonly'} class="wip-num-input field-wip-warehouse grid-nav-input" data-batch="${idx}" data-row="1" data-col="4" value="${batch.wip_warehouse || ''}" placeholder="0" data-idx="${idx}">
+                  <input type="number" class="wip-num-input field-wip-warehouse grid-nav-input input-yellow" data-batch="${idx}" data-row="1" data-col="4" value="${batch.wip_warehouse || ''}" placeholder="0" data-idx="${idx}">
                 </div>
               </div>
             </div>
@@ -1139,33 +1139,33 @@ function renderReportUI() {
             </div>
             <div class="h1-reason-list">
               <!-- 1. Mất xác -->
-              <div class="h1-reason-row">
+              <div class="h1-reason-row is-editing">
                 <div class="rs-label-wrap">
                   <span class="rs-title text-rose">1. Mất xác</span>
                   <span class="rs-sub">LK: --</span>
                 </div>
                 <div class="rs-input-wrap">
-                  <input type="number" class="wip-num-input field-shortage-matxac grid-nav-input inp-rose" data-batch="${idx}" data-row="0" data-col="5" value="${batch.shortage_mat_xac || ''}" placeholder="0" data-idx="${idx}">
+                  <input type="number" class="wip-num-input field-shortage-matxac grid-nav-input inp-rose input-yellow" data-batch="${idx}" data-row="0" data-col="5" value="${batch.shortage_mat_xac || ''}" placeholder="0" data-idx="${idx}">
                 </div>
               </div>
               <!-- 2. Hàng phế -->
-              <div class="h1-reason-row">
+              <div class="h1-reason-row is-editing">
                 <div class="rs-label-wrap">
                   <span class="rs-title text-amber">2. Hàng phế</span>
                   <span class="rs-sub">LK: --</span>
                 </div>
                 <div class="rs-input-wrap">
-                  <input type="number" class="wip-num-input field-shortage-hangphe grid-nav-input inp-amber" data-batch="${idx}" data-row="0" data-col="6" value="${batch.shortage_hang_phe || ''}" placeholder="0" data-idx="${idx}">
+                  <input type="number" class="wip-num-input field-shortage-hangphe grid-nav-input inp-amber input-yellow" data-batch="${idx}" data-row="0" data-col="6" value="${batch.shortage_hang_phe || ''}" placeholder="0" data-idx="${idx}">
                 </div>
               </div>
               <!-- 3. Khác -->
-              <div class="h1-reason-row">
+              <div class="h1-reason-row is-editing">
                 <div class="rs-label-wrap">
                   <span class="rs-title text-purple">3. Khác</span>
                   <span class="rs-sub">LK: --</span>
                 </div>
                 <div class="rs-input-wrap">
-                  <input type="number" class="wip-num-input field-shortage-khac grid-nav-input inp-purple" data-batch="${idx}" data-row="0" data-col="7" value="${batch.shortage_khac || ''}" placeholder="0" data-idx="${idx}">
+                  <input type="number" class="wip-num-input field-shortage-khac grid-nav-input inp-purple input-yellow" data-batch="${idx}" data-row="0" data-col="7" value="${batch.shortage_khac || ''}" placeholder="0" data-idx="${idx}">
                 </div>
               </div>
               <!-- Ghi chú lý do khác -->

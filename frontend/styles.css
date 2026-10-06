@@ -3635,9 +3635,24 @@ input[type=number] {
   font-weight: 900 !important;
 }
 
-.h1-table-nx input.inp-blue,
-.h1-table-nx input.inp-green,
 .input-yellow {
+  border: 1.5px solid #eab308 !important;
+  color: #713f12 !important;
+  background: #fef08a !important;
+  outline: none !important;
+  text-align: center !important;
+  font-weight: 800 !important;
+  transition: all 0.2s ease !important;
+}
+
+.input-yellow:focus {
+  background: #fef9c3 !important;
+  border-color: #ca8a04 !important;
+  box-shadow: 0 0 0 2.5px rgba(234, 179, 8, 0.35) !important;
+}
+
+.h1-table-nx input.inp-blue,
+.h1-table-nx input.inp-green {
   width: 62px !important;
   height: 32px !important;
   border: 1.5px solid #eab308 !important;
@@ -3652,8 +3667,7 @@ input[type=number] {
 }
 
 .h1-table-nx input.inp-blue:focus,
-.h1-table-nx input.inp-green:focus,
-.input-yellow:focus {
+.h1-table-nx input.inp-green:focus {
   background: #fef9c3 !important;
   border-color: #ca8a04 !important;
   box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.35) !important;
@@ -3925,27 +3939,30 @@ input[type=number] {
   outline: none !important;
 }
 
-.h1-station-row.is-locked input.wip-num-input {
-  background: #f8fafc !important;
-  color: #0f172a !important;
-  border: 1px solid transparent !important;
-  cursor: default !important;
-}
-
-.h1-station-row.is-editing input.wip-num-input,
-.h1-reason-row.is-editing input.wip-num-input {
-  background: #fef08a !important;
-  color: #713f12 !important;
-  border: 1.5px solid #eab308 !important;
-  box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.25) !important;
+.st-val-wrap input.wip-num-input,
+.rs-input-wrap input.wip-num-input,
+.h1-station-row input.wip-num-input,
+.h1-reason-row input.wip-num-input {
+  width: 58px !important;
+  height: 28px !important;
+  text-align: center !important;
+  border-radius: 6px !important;
+  font-size: 13.5px !important;
   font-weight: 800 !important;
+  outline: none !important;
+  background: #fef08a !important;
+  border: 1.5px solid #eab308 !important;
+  color: #713f12 !important;
+  transition: all 0.2s ease !important;
 }
 
-.h1-station-row.is-editing input.wip-num-input:focus,
-.h1-reason-row.is-editing input.wip-num-input:focus {
+.st-val-wrap input.wip-num-input:focus,
+.rs-input-wrap input.wip-num-input:focus,
+.h1-station-row input.wip-num-input:focus,
+.h1-reason-row input.wip-num-input:focus {
   background: #fef9c3 !important;
   border-color: #ca8a04 !important;
-  box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.4) !important;
+  box-shadow: 0 0 0 2.5px rgba(234, 179, 8, 0.35) !important;
 }
 
 .rs-label-wrap {
@@ -3969,19 +3986,13 @@ input[type=number] {
 .text-amber { color: #b45309 !important; }
 .text-purple { color: #7c3aed !important; }
 
-.rs-input-wrap input.wip-num-input {
-  width: 58px !important;
-  height: 28px !important;
-  text-align: center !important;
-  border-radius: 6px !important;
-  font-size: 13.5px !important;
-  font-weight: 800 !important;
-  outline: none !important;
+.inp-rose,
+.inp-amber,
+.inp-purple {
+  border: 1.5px solid #eab308 !important;
+  color: #713f12 !important;
+  background: #fef08a !important;
 }
-
-.inp-rose { border: 1.5px solid #fecdd3 !important; color: #be123c !important; background: #ffffff !important; }
-.inp-amber { border: 1.5px solid #fde68a !important; color: #b45309 !important; background: #ffffff !important; }
-.inp-purple { border: 1.5px solid #ddd6fe !important; color: #7c3aed !important; background: #ffffff !important; }
 
 .h1-reason-note-row {
   padding: 5px 8px !important;
@@ -4856,6 +4867,10 @@ input[type=number] {
     font-size: 12px !important;
     padding: 1px 4px !important;
     width: 50px !important;
+    background: #fef08a !important;
+    border: 1.5px solid #eab308 !important;
+    color: #713f12 !important;
+    font-weight: 800 !important;
   }
 
   .h1-reason-row {
@@ -4876,6 +4891,10 @@ input[type=number] {
     font-size: 12px !important;
     padding: 1px 4px !important;
     width: 48px !important;
+    background: #fef08a !important;
+    border: 1.5px solid #eab308 !important;
+    color: #713f12 !important;
+    font-weight: 800 !important;
   }
 
   .h1-reason-note-row {
