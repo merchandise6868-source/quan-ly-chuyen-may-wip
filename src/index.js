@@ -336,6 +336,9 @@ async function initD1Tables(db) {
     try {
       await db.prepare("ALTER TABLE report_batches ADD COLUMN shortage_hang_phe INTEGER DEFAULT 0").run();
     } catch (e) {}
+    try {
+      await db.prepare("ALTER TABLE report_batches ADD COLUMN daily_finished INTEGER DEFAULT 0").run();
+    } catch (e) {}
     // Safe schema migrations for dept_logs table (ton_dau, nhap, xuat, ton_cuoi)
     try {
       await db.prepare("ALTER TABLE dept_logs ADD COLUMN ton_dau INTEGER DEFAULT 0").run();
@@ -1156,6 +1159,24 @@ export default {
               cumImportsByBatch[r.batch_name] = Number(r.total_in) || 0;
             });
 
+            // Previous day's WIP for each batch (for QC & Pairing balance check)
+            const { results: prevDateRows } = await env.DB.prepare(
+              "SELECT DISTINCT report_date FROM report_batches WHERE po_id = ? AND report_date < ? ORDER BY report_date DESC LIMIT 1"
+            ).bind(poId, date).all();
+            const prevDayWipByBatch = {};
+            if (prevDateRows && prevDateRows.length > 0) {
+              const prevDate = prevDateRows[0].report_date;
+              const { results: prevBatches } = await env.DB.prepare(
+                "SELECT batch_name, wip_qc, wip_pairing FROM report_batches WHERE po_id = ? AND report_date = ?"
+              ).bind(poId, prevDate).all();
+              (prevBatches || []).forEach(r => {
+                prevDayWipByBatch[r.batch_name] = {
+                  wip_qc: Number(r.wip_qc) || 0,
+                  wip_pairing: Number(r.wip_pairing) || 0
+                };
+              });
+            }
+
             const { results: ordRows } = await env.DB.prepare("SELECT * FROM po_orders WHERE id = ?").bind(poId).all();
             const order = ordRows && ordRows[0] ? {
               ...ordRows[0],
@@ -1235,7 +1256,7 @@ export default {
               }
             }
 
-            return Response.json({ success: true, report, cumExportsByBatch, cumImportsByBatch }, { headers });
+            return Response.json({ success: true, report, cumExportsByBatch, cumImportsByBatch, prevDayWipByBatch }, { headers });
           } catch (err) {
             console.error("D1 Report Query Error:", err);
           }
@@ -1332,7 +1353,22 @@ export default {
           }
         }
 
-        return Response.json({ success: true, report, cumExportsByBatch, cumImportsByBatch }, { headers });
+        const prevDates = allKeys.map(k => k.replace(poId + '_', '')).filter(d => d < date).sort();
+        const prevDayWipByBatch = {};
+        if (prevDates.length > 0) {
+          const lastPrevDate = prevDates[prevDates.length - 1];
+          const prevRep = memoryDB.reports[poId + '_' + lastPrevDate];
+          if (prevRep && prevRep.batches) {
+            prevRep.batches.forEach(b => {
+              prevDayWipByBatch[b.batch_name] = {
+                wip_qc: Number(b.wip_qc) || 0,
+                wip_pairing: Number(b.wip_pairing) || 0
+              };
+            });
+          }
+        }
+
+        return Response.json({ success: true, report, cumExportsByBatch, cumImportsByBatch, prevDayWipByBatch }, { headers });
       }
 
       // Save Report
@@ -1356,15 +1392,16 @@ export default {
               const bId = `rb-${key}-${(b.batch_name || ('b' + (i+1))).replace(/\s+/g, '_')}`;
               const dailyOut = Number(b.daily_out) || 0;
               const delivered = Number(b.delivered) || dailyOut;
+              const dailyFinished = Number(b.daily_finished) || 0;
               await env.DB.prepare(`
                 INSERT INTO report_batches (
-                  id, report_id, po_id, report_date, batch_name, batch_plan, into_sewing, delivered, daily_out,
+                  id, report_id, po_id, report_date, batch_name, batch_plan, into_sewing, delivered, daily_out, daily_finished,
                   wip_sewing, wip_qc, wip_pairing, wip_packing, wip_warehouse,
                   note_sewing, note_qc, note_pairing, note_packing, note_warehouse, note_export,
                   shortage_reason_type, shortage_note, shortage_mat_xac, shortage_hang_phe, shortage_khac
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
               `).bind(
-                bId, key, po_id, report_date, b.batch_name, Number(b.batch_plan) || 0, Number(b.into_sewing) || 0, delivered, dailyOut,
+                bId, key, po_id, report_date, b.batch_name, Number(b.batch_plan) || 0, Number(b.into_sewing) || 0, delivered, dailyOut, dailyFinished,
                 Number(b.wip_sewing) || 0, Number(b.wip_qc) || 0, Number(b.wip_pairing) || 0, Number(b.wip_packing) || 0, Number(b.wip_warehouse) || 0,
                 b.note_sewing || '', b.note_qc || '', b.note_pairing || '', b.note_packing || '', b.note_warehouse || '', b.note_export || '',
                 b.shortage_reason_type || '', b.shortage_note || '', Number(b.shortage_mat_xac) || 0, Number(b.shortage_hang_phe) || 0, Number(b.shortage_khac) || 0

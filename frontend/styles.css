@@ -2526,6 +2526,7 @@ input[type=number] {
     position: sticky;
     top: 0;
     z-index: 1000;
+    background: #0f1d33;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   }
 
@@ -3615,40 +3616,47 @@ input[type=number] {
   color: #94a3b8 !important;
 }
 
-.h1-table-nx input.inp-blue {
+.h1-table-nx-transposed th {
+  padding: 6px 8px !important;
+  background: #f8fafc !important;
+  border-bottom: 1.5px solid #e2e8f0 !important;
+  font-size: 11.5px !important;
+}
+
+.h1-table-nx-transposed td {
+  padding: 6px 6px !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+  vertical-align: middle !important;
+}
+
+.h1-table-nx-transposed tr.row-tong td {
+  background: #f8fafc !important;
+  border-top: 1.5px solid #e2e8f0 !important;
+  font-weight: 900 !important;
+}
+
+.h1-table-nx input.inp-blue,
+.h1-table-nx input.inp-green,
+.input-yellow {
   width: 62px !important;
   height: 32px !important;
-  border: 1.5px solid #0284c7 !important;
+  border: 1.5px solid #eab308 !important;
   border-radius: 8px !important;
   text-align: center !important;
   font-size: 15px !important;
   font-weight: 900 !important;
-  color: #0369a1 !important;
-  background: #ffffff !important;
+  color: #713f12 !important;
+  background: #fef08a !important;
   outline: none !important;
+  transition: all 0.2s ease !important;
 }
 
-.h1-table-nx input.inp-blue:focus {
-  border-color: #0284c7 !important;
-  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.2) !important;
-}
-
-.h1-table-nx input.inp-green {
-  width: 62px !important;
-  height: 32px !important;
-  border: 1.5px solid #16a34a !important;
-  border-radius: 8px !important;
-  text-align: center !important;
-  font-size: 15px !important;
-  font-weight: 900 !important;
-  color: #15803d !important;
-  background: #ffffff !important;
-  outline: none !important;
-}
-
-.h1-table-nx input.inp-green:focus {
-  border-color: #16a34a !important;
-  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.2) !important;
+.h1-table-nx input.inp-blue:focus,
+.h1-table-nx input.inp-green:focus,
+.input-yellow:focus {
+  background: #fef9c3 !important;
+  border-color: #ca8a04 !important;
+  box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.35) !important;
 }
 
 .h1-table-nx .cell-total-val .val-num {
@@ -3924,11 +3932,20 @@ input[type=number] {
   cursor: default !important;
 }
 
-.h1-station-row.is-editing input.wip-num-input {
-  background: #ffffff !important;
-  color: #0284c7 !important;
-  border: 1.5px solid #0284c7 !important;
-  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15) !important;
+.h1-station-row.is-editing input.wip-num-input,
+.h1-reason-row.is-editing input.wip-num-input {
+  background: #fef08a !important;
+  color: #713f12 !important;
+  border: 1.5px solid #eab308 !important;
+  box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.25) !important;
+  font-weight: 800 !important;
+}
+
+.h1-station-row.is-editing input.wip-num-input:focus,
+.h1-reason-row.is-editing input.wip-num-input:focus {
+  background: #fef9c3 !important;
+  border-color: #ca8a04 !important;
+  box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.4) !important;
 }
 
 .rs-label-wrap {
@@ -4450,7 +4467,10 @@ input[type=number] {
   /* TOP BAR ON MOBILE */
   .top-app-bar.compact-header {
     background: #0f1d33 !important;
-    padding: 6px 10px !important;
+    padding-top: max(14px, env(safe-area-inset-top, 14px)) !important;
+    padding-left: max(10px, env(safe-area-inset-left, 10px)) !important;
+    padding-right: max(10px, env(safe-area-inset-right, 10px)) !important;
+    padding-bottom: 6px !important;
     border-bottom: 1px solid #1e293b !important;
   }
 
@@ -4897,3 +4917,174 @@ input[type=number] {
     padding: 1px 6px !important;
   }
 }
+
+/* ========================================================
+   SECTION 3: KIỂM TRA CÂN ĐỐI (QC & PHỐI ĐÔI) - PHƯƠNG ÁN 2
+   Đặt ở cuối lô cuối cùng (Cuối Lô 1 nếu có 1 lô, Cuối Lô 2 nếu có 2 lô)
+   ======================================================== */
+.h1-balance-check-card {
+  margin-top: 8px;
+  background: #ffffff;
+  border: 1.5px solid #c7d2fe;
+  border-radius: 8px;
+  padding: 8px 10px;
+  box-shadow: 0 1px 3px rgba(99, 102, 241, 0.08);
+}
+
+.h1-balance-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.h1-balance-title {
+  font-size: 11px;
+  font-weight: 800;
+  color: #312e81;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.h1-balance-badge {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.badge-balanced {
+  background: #ecfdf5 !important;
+  color: #047857 !important;
+  border: 1px solid #a7f3d0 !important;
+}
+
+.badge-unbalanced {
+  background: #fff1f2 !important;
+  color: #be123c !important;
+  border: 1px solid #fecdd3 !important;
+}
+
+.h1-balance-body {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.h1-balance-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  gap: 6px;
+}
+
+.balance-flow-row {
+  background: #f5f3ff;
+  border: 1px solid #ddd6fe;
+  color: #4338ca;
+}
+
+.balance-actual-row {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+}
+
+.balance-calc-group {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  font-size: 11px;
+  color: #334155;
+}
+
+.balance-calc-group strong {
+  font-size: 11.5px;
+}
+
+.balance-calc-group .op-sym {
+  color: #94a3b8;
+  font-weight: 800;
+  font-size: 11px;
+}
+
+.balance-calc-group .lbl-tp {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: #713f12;
+  font-weight: 700;
+}
+
+.balance-calc-group input.field-daily-finished {
+  width: 58px !important;
+  height: 22px !important;
+  font-size: 11.5px !important;
+  padding: 0 4px !important;
+  margin: 0 2px !important;
+  display: inline-block !important;
+}
+
+.balance-eq-val {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 800;
+  font-size: 11px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  color: #0f172a;
+}
+
+.balance-eq-val .val-bold {
+  font-size: 12px;
+  font-weight: 900;
+}
+
+@media (max-width: 768px) {
+  .h1-balance-check-card {
+    margin-top: 5px !important;
+    padding: 6px 8px !important;
+    border-radius: 7px !important;
+  }
+
+  .h1-balance-title {
+    font-size: 10px !important;
+  }
+
+  .h1-balance-badge {
+    font-size: 9.5px !important;
+    padding: 1.5px 6px !important;
+  }
+
+  .h1-balance-row {
+    padding: 3px 6px !important;
+    font-size: 10px !important;
+  }
+
+  .balance-calc-group {
+    font-size: 10px !important;
+    gap: 3px !important;
+  }
+
+  .balance-calc-group input.field-daily-finished {
+    width: 52px !important;
+    height: 20px !important;
+    font-size: 10.5px !important;
+  }
+
+  .balance-eq-val {
+    font-size: 10px !important;
+  }
+
+  .balance-eq-val .val-bold {
+    font-size: 11px !important;
+  }
+}
+

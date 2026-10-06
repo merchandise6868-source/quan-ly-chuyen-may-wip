@@ -36,6 +36,8 @@ CREATE TABLE IF NOT EXISTS report_batches (
     batch_plan INTEGER NOT NULL DEFAULT 0,
     into_sewing INTEGER NOT NULL DEFAULT 0,
     delivered INTEGER NOT NULL DEFAULT 0,
+    daily_out INTEGER DEFAULT 0,
+    daily_finished INTEGER DEFAULT 0,
     wip_sewing INTEGER NOT NULL DEFAULT 0,
     wip_qc INTEGER NOT NULL DEFAULT 0,
     wip_pairing INTEGER NOT NULL DEFAULT 0,

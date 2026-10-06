@@ -749,6 +749,7 @@ async function loadReport() {
       appState.report = data.report || { po_id: poId, report_date: date, status: "DRAFT", batches: [] };
       appState.cumExportsByBatch = data.cumExportsByBatch || {};
       appState.cumImportsByBatch = data.cumImportsByBatch || {};
+      appState.prevDayWipByBatch = data.prevDayWipByBatch || {};
 
       // Auto-fallback: if report has no batches, populate immediately from currentPO default_batches
       if (!appState.report.batches || appState.report.batches.length === 0) {
@@ -771,6 +772,7 @@ async function loadReport() {
               wip_packing: 0,
               wip_warehouse: 0,
               daily_out: 0,
+              daily_finished: 0,
               note_sewing: "",
               note_qc: "",
               note_pairing: "",
@@ -934,70 +936,55 @@ function renderReportUI() {
             <span class="h1-num-bullet">❶</span> NHẬP - XUẤT TRONG NGÀY
           </div>
           <div class="h1-table-card">
-            <table class="h1-table-nx">
+            <table class="h1-table-nx h1-table-nx-transposed">
               <colgroup>
-                <col style="width: 36%;">
-                <col style="width: 16%;">
-                <col style="width: 24%;">
-                <col style="width: 24%;">
+                <col style="width: 31%;">
+                <col style="width: 23%;">
+                <col style="width: 23%;">
+                <col style="width: 23%;">
               </colgroup>
               <thead>
                 <tr>
-                  <th class="col-target text-left" style="padding-left: 10px;">Chỉ tiêu</th>
-                  <th class="col-prev text-center">Lũy kế<br>trước</th>
-                  <th class="col-today text-center">Phát sinh<br>hôm nay</th>
-                  <th class="col-total text-center">Tổng</th>
+                  <th class="col-target text-left" style="padding-left: 8px;">Chỉ tiêu</th>
+                  <th class="col-ton-dau text-center">Tồn đầu ngày</th>
+                  <th class="col-nhap text-center text-blue">Nhập</th>
+                  <th class="col-xuat text-center text-green">Xuất</th>
                 </tr>
               </thead>
               <tbody>
-                <!-- ROW 1: TỒN ĐẦU NGÀY -->
-                <tr class="row-ton-dau">
+                <!-- ROW 1: LUỸ KẾ HÔM TRƯỚC -->
+                <tr class="row-luy-ke-truoc">
                   <td class="cell-label">
-                    <span class="main-lbl">Tồn đầu ngày</span>
-                    <span class="sub-lbl">Luôn bằng 0</span>
+                    <span class="main-lbl">Luỹ kế hôm trước</span>
                   </td>
                   <td class="cell-dash text-center">--</td>
-                  <td class="cell-dash text-center">--</td>
-                  <td class="cell-val-bold text-center">0</td>
-                </tr>
-                <!-- ROW 2: NHẬP -->
-                <tr class="row-nhap">
-                  <td class="cell-label">
-                    <span class="main-lbl text-blue">Nhập</span>
-                    <span class="sub-lbl">Vào chuyền may</span>
-                  </td>
                   <td class="cell-prev-val text-center font-bold text-sky-700" id="calcPrevIn_${idx}">${prevIn.toLocaleString("vi-VN")}</td>
-                  <td class="cell-calc-group text-center">
-                    <div class="h1-calc-inline-wrap">
-                      <span class="op-sym op-plus">+</span>
-                      <input type="number" class="wip-num-input field-daily-in field-into-sewing grid-nav-input inp-blue" data-batch="${idx}" data-row="0" data-col="2" value="${batch.into_sewing || ''}" placeholder="0" data-idx="${idx}" title="Phát sinh nhập hôm nay">
-                    </div>
+                  <td class="cell-prev-val text-center font-bold text-emerald-700" id="calcPrevOut_${idx}">${prevOut.toLocaleString("vi-VN")}</td>
+                </tr>
+                <!-- ROW 2: PHÁT SINH HÔM NAY -->
+                <tr class="row-phat-sinh-hn">
+                  <td class="cell-label">
+                    <span class="main-lbl">Phát sinh hôm nay</span>
                   </td>
-                  <td class="cell-total-val text-center text-blue">
-                    <div class="h1-calc-inline-wrap">
-                      <span class="op-sym op-eq">=</span>
-                      <span class="val-num font-black text-sky-800" id="calcIntoSewing_${idx}">${cumIn.toLocaleString("vi-VN")}</span>
-                    </div>
+                  <td class="cell-dash text-center">--</td>
+                  <td class="cell-calc-group text-center">
+                    <input type="number" class="wip-num-input field-daily-in field-into-sewing grid-nav-input inp-blue input-yellow" data-batch="${idx}" data-row="0" data-col="2" value="${batch.into_sewing || ''}" placeholder="0" data-idx="${idx}" title="Phát sinh nhập hôm nay">
+                  </td>
+                  <td class="cell-calc-group text-center">
+                    <input type="number" class="wip-num-input wip-num-input-out field-daily-out grid-nav-input inp-green input-yellow" data-batch="${idx}" data-row="0" data-col="3" value="${batch.daily_out || ''}" placeholder="0" data-idx="${idx}" title="Phát sinh xuất hôm nay">
                   </td>
                 </tr>
-                <!-- ROW 3: XUẤT -->
-                <tr class="row-xuat">
+                <!-- ROW 3: TỔNG -->
+                <tr class="row-tong">
                   <td class="cell-label">
-                    <span class="main-lbl text-green">Xuất</span>
-                    <span class="sub-lbl">Đã giao KH</span>
+                    <span class="main-lbl">Tổng</span>
                   </td>
-                  <td class="cell-prev-val text-center font-bold text-emerald-700" id="calcPrevOut_${idx}">${prevOut.toLocaleString("vi-VN")}</td>
-                  <td class="cell-calc-group text-center">
-                    <div class="h1-calc-inline-wrap">
-                      <span class="op-sym op-plus">+</span>
-                      <input type="number" class="wip-num-input wip-num-input-out field-daily-out grid-nav-input inp-green" data-batch="${idx}" data-row="0" data-col="3" value="${batch.daily_out || ''}" placeholder="0" data-idx="${idx}" title="Phát sinh xuất hôm nay">
-                    </div>
+                  <td class="cell-val-bold text-center">0</td>
+                  <td class="cell-total-val text-center text-blue">
+                    <span class="val-num font-black text-sky-800" id="calcIntoSewing_${idx}">${cumIn.toLocaleString("vi-VN")}</span>
                   </td>
                   <td class="cell-total-val text-center text-green">
-                    <div class="h1-calc-inline-wrap">
-                      <span class="op-sym op-eq">=</span>
-                      <span class="val-num font-black text-emerald-800" id="calcDelivered_${idx}">${cumOut.toLocaleString("vi-VN")}</span>
-                    </div>
+                    <span class="val-num font-black text-emerald-800" id="calcDelivered_${idx}">${cumOut.toLocaleString("vi-VN")}</span>
                   </td>
                 </tr>
               </tbody>
@@ -1210,6 +1197,49 @@ function renderReportUI() {
           </div>
         </div>
 
+        ${idx === batches.length - 1 ? `
+        <!-- 9. SECTION 3: KIỂM TRA CÂN ĐỐI (QC & PHỐI ĐÔI) - PHƯƠNG ÁN 2 (DƯỚI CUỐI LÔ CUỐI CÙNG) -->
+        <div class="h1-balance-check-card" id="balanceCheckCard_${idx}">
+          <div class="h1-balance-header">
+            <span class="h1-balance-title">
+              <span class="h1-num-bullet">❸</span> KIỂM TRA CÂN ĐỐI (QC & PHỐI ĐÔI)
+            </span>
+            <span class="h1-balance-badge badge-balanced" id="calcBalanceBadge_${idx}">
+              ✅ Cân đối (0 đôi)
+            </span>
+          </div>
+          <div class="h1-balance-body">
+            <!-- DÒNG 1: LUÂN CHUYỂN -->
+            <div class="h1-balance-row balance-flow-row">
+              <div class="balance-calc-group">
+                <span class="lbl-ton-qua">Tồn qua: <strong id="calcTonQua_${idx}">0</strong></span>
+                <span class="op-sym font-bold text-slate-400">+</span>
+                <span class="lbl-tp font-bold text-amber-900">✨ TP: 
+                  <input type="number" class="wip-num-input field-daily-finished input-yellow" data-batch="${idx}" value="${batch.daily_finished || ''}" placeholder="0" data-idx="${idx}" title="Thành phẩm hôm nay (nhập mới)">
+                </span>
+                <span class="op-sym font-bold text-slate-400">-</span>
+                <span class="lbl-xuat">Xuất: <strong class="text-rose font-bold" id="calcBalanceXuat_${idx}">${todayOut.toLocaleString("vi-VN")}</strong></span>
+              </div>
+              <div class="balance-eq-val">
+                = <span class="val-bold" id="calcBalanceVe1_${idx}">0</span>
+              </div>
+            </div>
+            <!-- DÒNG 2: THỰC TẾ -->
+            <div class="h1-balance-row balance-actual-row">
+              <div class="balance-calc-group">
+                <span>Đếm thực tế:</span>
+                <span>Phối đôi <strong class="text-amber font-bold" id="calcBalancePair_${idx}">${(Number(batch.wip_pairing) || 0).toLocaleString("vi-VN")}</strong></span>
+                <span class="op-sym font-bold text-slate-400">+</span>
+                <span>QC <strong class="text-blue font-bold" id="calcBalanceQc_${idx}">${(Number(batch.wip_qc) || 0).toLocaleString("vi-VN")}</strong></span>
+              </div>
+              <div class="balance-eq-val">
+                = <span class="val-bold" id="calcBalanceVe2_${idx}">0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        ` : ''}
+
       </div>
     `;
 
@@ -1306,6 +1336,42 @@ function recalculateAllInPlace() {
         : (shortage > 0 
             ? ('<div class="h1-status-banner banner-shortage">⚠️ Thiếu -' + Math.abs(shortage).toLocaleString("vi-VN") + ' đôi – vui lòng phân tích nguyên nhân bên trên</div>') 
             : ('<div class="h1-status-banner banner-surplus">ℹ️ Thừa +' + Math.abs(shortage).toLocaleString("vi-VN") + ' đôi – kiểm tra lại số đếm thực tế</div>'));
+    }
+
+    // Section 3: Balance Check (Phương án 2)
+    const elTonQua = document.getElementById(`calcTonQua_${idx}`);
+    if (elTonQua) {
+      const prevBatch = appState.prevDayWipByBatch && appState.prevDayWipByBatch[b.batch_name];
+      const prevQc = prevBatch ? (Number(prevBatch.wip_qc) || 0) : 0;
+      const prevPair = prevBatch ? (Number(prevBatch.wip_pairing) || 0) : 0;
+      const tonQua = prevQc + prevPair;
+      const dailyFinished = Number(b.daily_finished) || 0;
+      const ve1 = (tonQua + dailyFinished) - todayOut;
+      const ve2 = (Number(b.wip_pairing) || 0) + (Number(b.wip_qc) || 0);
+      const diff = ve1 - ve2;
+
+      elTonQua.innerText = tonQua.toLocaleString("vi-VN");
+      const elBalXuat = document.getElementById(`calcBalanceXuat_${idx}`);
+      if (elBalXuat) elBalXuat.innerText = todayOut.toLocaleString("vi-VN");
+      const elBalPair = document.getElementById(`calcBalancePair_${idx}`);
+      if (elBalPair) elBalPair.innerText = (Number(b.wip_pairing) || 0).toLocaleString("vi-VN");
+      const elBalQc = document.getElementById(`calcBalanceQc_${idx}`);
+      if (elBalQc) elBalQc.innerText = (Number(b.wip_qc) || 0).toLocaleString("vi-VN");
+      const elVe1 = document.getElementById(`calcBalanceVe1_${idx}`);
+      if (elVe1) elVe1.innerText = ve1.toLocaleString("vi-VN");
+      const elVe2 = document.getElementById(`calcBalanceVe2_${idx}`);
+      if (elVe2) elVe2.innerText = ve2.toLocaleString("vi-VN");
+
+      const badge = document.getElementById(`calcBalanceBadge_${idx}`);
+      if (badge) {
+        if (diff === 0) {
+          badge.className = "h1-balance-badge badge-balanced";
+          badge.innerText = "✅ Cân đối (0 đôi)";
+        } else {
+          badge.className = "h1-balance-badge badge-unbalanced";
+          badge.innerText = `⚠️ Lệch ${diff > 0 ? '+' : ''}${diff.toLocaleString("vi-VN")} đôi`;
+        }
+      }
     }
   });
 
@@ -1457,6 +1523,9 @@ function bindCardInputs() {
       if (e.target.classList.contains("field-wip-warehouse")) b.wip_warehouse = Number(e.target.value) || 0;
       if (e.target.classList.contains("field-daily-out")) {
         b.daily_out = Number(e.target.value) || 0;
+      }
+      if (e.target.classList.contains("field-daily-finished")) {
+        b.daily_finished = Number(e.target.value) || 0;
       }
 
       if (e.target.classList.contains("field-note-sewing")) b.note_sewing = e.target.value;
