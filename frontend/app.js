@@ -634,6 +634,31 @@ function bindEvents() {
       morePopoverMenu.style.display = "none";
     }
   });
+
+  // Tự động lưu tức thì khi click chuột ra bất kỳ vị trí nào khác trên màn hình
+  document.addEventListener("pointerdown", (e) => {
+    const active = document.activeElement;
+    if (active && (active.tagName === "INPUT" || active.tagName === "SELECT") && active !== e.target && !active.contains(e.target)) {
+      if (appState.hasUnsavedChanges) {
+        saveReport(appState.report.status || "DRAFT", true).then(() => {
+          if (active.classList.contains("field-daily-finished")) {
+            showToast(`💾 Đã lưu thành phẩm hôm nay: ${(Number(active.value) || 0).toLocaleString("vi-VN")} đôi!`);
+          }
+        });
+      }
+    }
+  });
+
+  // Tự động lưu khi người dùng tải lại trang (reload/F5) hoặc thoát
+  window.addEventListener("beforeunload", () => {
+    if (appState.hasUnsavedChanges && appState.currentPO && appState.report) {
+      recalculateAllInPlace();
+      appState.report.po_id = appState.currentPO.id;
+      appState.report.report_date = appState.currentDate;
+      const blob = new Blob([JSON.stringify(appState.report)], { type: "application/json" });
+      navigator.sendBeacon("/api/report", blob);
+    }
+  });
 }
 
 // MASTER SYNC: REFRESH ALL TABS DATA FOR CURRENT PO & DATE
@@ -849,9 +874,8 @@ async function loadReport() {
   }
 }
 
-// RENDER EXCEL REPORT UI (TAB 1)
 function renderReportUI() {
-  const poPlan = appState.currentPO ? appState.currentPO.po_plan : 0;
+  const poPlan = (appState.currentPO && appState.currentPO.po_plan) ? (Number(appState.currentPO.po_plan) || 0) : 0;
   const poNum = appState.currentPO ? appState.currentPO.po_number : "--";
 
   const batches = appState.report.batches || [];
@@ -1216,7 +1240,7 @@ function renderReportUI() {
                 <span class="lbl-ton-qua"><span id="lblTonQuaText_${idx}">Tồn qua:</span> <strong id="calcTonQua_${idx}">0</strong></span>
                 <span class="op-sym font-bold text-slate-400">+</span>
                 <span class="lbl-tp font-bold text-amber-900">✨ TP: 
-                  <input type="number" class="wip-num-input field-daily-finished input-yellow" data-batch="${idx}" value="${batches.reduce((sum, item) => sum + (Number(item.daily_finished) || 0), 0) || ''}" placeholder="0" data-idx="${idx}" title="Thành phẩm hôm nay (nhập mới)">
+                  <input type="number" class="wip-num-input field-daily-finished grid-nav-input input-yellow" data-batch="${idx}" value="${batches.reduce((sum, item) => sum + (Number(item.daily_finished) || 0), 0) || ''}" placeholder="0" data-idx="${idx}" title="Thành phẩm hôm nay (nhập mới)">
                 </span>
                 <span class="op-sym font-bold text-slate-400">-</span>
                 <span class="lbl-xuat">Xuất: <strong class="text-rose font-bold" id="calcBalanceXuat_${idx}">${todayOut.toLocaleString("vi-VN")}</strong></span>
@@ -1264,7 +1288,7 @@ function formatDateDisplay(dateStr) {
 
 // IN-PLACE RECALCULATION
 function recalculateAllInPlace() {
-  const poPlan = appState.currentPO ? appState.currentPO.po_plan : 0;
+  const poPlan = (appState.currentPO && appState.currentPO.po_plan) ? (Number(appState.currentPO.po_plan) || 0) : 0;
   const batches = appState.report.batches || [];
 
   let totalReceived = 0;
@@ -1559,7 +1583,10 @@ function bindCardInputs() {
         b.daily_out = Number(e.target.value) || 0;
       }
       if (e.target.classList.contains("field-daily-finished")) {
-        b.daily_finished = Number(e.target.value) || 0;
+        const val = Number(e.target.value) || 0;
+        appState.report.batches.forEach((bItem, bI) => {
+          bItem.daily_finished = (bI == idx) ? val : 0;
+        });
       }
 
       if (e.target.classList.contains("field-note-sewing")) b.note_sewing = e.target.value;
@@ -1600,6 +1627,24 @@ function bindCardInputs() {
         showNumpad(e.target);
       }
     });
+
+    input.addEventListener("change", async (e) => {
+      if (appState.hasUnsavedChanges) {
+        await saveReport(appState.report.status || "DRAFT", true);
+        if (e.target.classList.contains("field-daily-finished")) {
+          showToast(`💾 Đã lưu thành phẩm hôm nay: ${(Number(e.target.value) || 0).toLocaleString("vi-VN")} đôi!`);
+        }
+      }
+    });
+
+    input.addEventListener("blur", async (e) => {
+      if (appState.hasUnsavedChanges) {
+        await saveReport(appState.report.status || "DRAFT", true);
+        if (e.target.classList.contains("field-daily-finished")) {
+          showToast(`💾 Đã lưu thành phẩm hôm nay: ${(Number(e.target.value) || 0).toLocaleString("vi-VN")} đôi!`);
+        }
+      }
+    });
   });
 }
 
@@ -1617,12 +1662,19 @@ function handleGlobalKeyNavigation(e) {
       e.preventDefault();
       // Auto-save on Enter
       saveReport(appState.report.status || "DRAFT", true).then(() => {
-        const b = appState.report.batches[batchIdx];
-        showToast(`💾 Đã lưu số liệu ${b ? b.batch_name : ''} ngày ${formatDateDisplay(appState.currentDate)}!`);
+        if (active.classList.contains("field-daily-finished")) {
+          showToast(`💾 Đã lưu thành phẩm hôm nay: ${(Number(active.value) || 0).toLocaleString("vi-VN")} đôi!`);
+        } else {
+          const b = appState.report && appState.report.batches && appState.report.batches[batchIdx];
+          showToast(`💾 Đã lưu số liệu ${b ? b.batch_name : ''} ngày ${formatDateDisplay(appState.currentDate)}!`);
+        }
       });
 
-      // Move to next input cell
-      advanceToNextInput(active);
+      active.blur();
+      // Move to next input cell if not TP
+      if (!active.classList.contains("field-daily-finished")) {
+        advanceToNextInput(active);
+      }
       return;
     }
 
