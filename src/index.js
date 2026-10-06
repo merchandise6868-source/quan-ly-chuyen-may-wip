@@ -393,6 +393,51 @@ async function initD1Tables(db) {
   }
 }
 
+function getPreviousWorkingDateInfo(currentDateStr, availablePriorDates) {
+  const [y, m, d] = currentDateStr.split('-').map(Number);
+  const curDate = new Date(y, m - 1, d);
+  const dow = curDate.getDay(); // 0 = CN, 1 = T2, 2 = T3, ..., 6 = T7
+
+  // Quy tắc nghiệp vụ D&D Long An:
+  // Nếu ngày hiện tại là Thứ 2 (1), hôm trước là Chủ nhật -> Đọc số liệu ngày Thứ 7 (-2 ngày)
+  // Nếu ngày hiện tại là Chủ nhật (0) -> Đọc số liệu ngày Thứ 7 (-1 ngày)
+  // Các ngày khác -> Đọc ngày trước đó (-1 ngày)
+  const targetDateObj = new Date(y, m - 1, d);
+  if (dow === 1) {
+    targetDateObj.setDate(targetDateObj.getDate() - 2);
+  } else if (dow === 0) {
+    targetDateObj.setDate(targetDateObj.getDate() - 1);
+  } else {
+    targetDateObj.setDate(targetDateObj.getDate() - 1);
+  }
+  const ty = targetDateObj.getFullYear();
+  const tm = String(targetDateObj.getMonth() + 1).padStart(2, '0');
+  const td = String(targetDateObj.getDate()).padStart(2, '0');
+  const targetDateStr = `${ty}-${tm}-${td}`;
+
+  const prior = (availablePriorDates || []).filter(dateItem => dateItem < currentDateStr).sort().reverse();
+  if (prior.length === 0) {
+    return { targetDate: targetDateStr, actualDate: null };
+  }
+
+  // 1. Ưu tiên ngày làm việc mục tiêu (ví dụ Thứ 7 nếu hôm qua là Chủ nhật)
+  if (prior.includes(targetDateStr)) {
+    return { targetDate: targetDateStr, actualDate: targetDateStr };
+  }
+
+  // 2. Tìm ngày gần nhất trước đó không phải là Chủ nhật
+  for (const pd of prior) {
+    const [py, pm, pday] = pd.split('-').map(Number);
+    const pDow = new Date(py, pm - 1, pday).getDay();
+    if (pDow !== 0) { // Bỏ qua Chủ nhật
+      return { targetDate: targetDateStr, actualDate: pd };
+    }
+  }
+
+  // 3. Fallback ngày gần nhất
+  return { targetDate: targetDateStr, actualDate: prior[0] };
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -1160,19 +1205,26 @@ export default {
             });
 
             // Previous day's WIP for each batch (for QC & Pairing balance check)
+            // Business rule: Trừ TP nhập mới, số liệu tồn qua đọc từ ngày trước đó, nếu hôm trước là Chủ nhật thì đọc Thứ 7!
             const { results: prevDateRows } = await env.DB.prepare(
-              "SELECT DISTINCT report_date FROM report_batches WHERE po_id = ? AND report_date < ? ORDER BY report_date DESC LIMIT 1"
+              "SELECT DISTINCT report_date FROM report_batches WHERE po_id = ? AND report_date < ? ORDER BY report_date DESC"
             ).bind(poId, date).all();
+            const availablePriorDates = (prevDateRows || []).map(r => r.report_date);
+            const { targetDate, actualDate: prevDate } = getPreviousWorkingDateInfo(date, availablePriorDates);
+
             const prevDayWipByBatch = {};
-            if (prevDateRows && prevDateRows.length > 0) {
-              const prevDate = prevDateRows[0].report_date;
+            if (prevDate) {
               const { results: prevBatches } = await env.DB.prepare(
-                "SELECT batch_name, wip_qc, wip_pairing FROM report_batches WHERE po_id = ? AND report_date = ?"
+                "SELECT batch_name, wip_qc, wip_pairing, wip_sewing, wip_packing, wip_warehouse, daily_out FROM report_batches WHERE po_id = ? AND report_date = ?"
               ).bind(poId, prevDate).all();
               (prevBatches || []).forEach(r => {
                 prevDayWipByBatch[r.batch_name] = {
                   wip_qc: Number(r.wip_qc) || 0,
-                  wip_pairing: Number(r.wip_pairing) || 0
+                  wip_pairing: Number(r.wip_pairing) || 0,
+                  wip_sewing: Number(r.wip_sewing) || 0,
+                  wip_packing: Number(r.wip_packing) || 0,
+                  wip_warehouse: Number(r.wip_warehouse) || 0,
+                  daily_out: Number(r.daily_out) || 0
                 };
               });
             }
@@ -1256,7 +1308,7 @@ export default {
               }
             }
 
-            return Response.json({ success: true, report, cumExportsByBatch, cumImportsByBatch, prevDayWipByBatch }, { headers });
+            return Response.json({ success: true, report, cumExportsByBatch, cumImportsByBatch, prevDayWipByBatch, prevReportDate: prevDate || targetDate }, { headers });
           } catch (err) {
             console.error("D1 Report Query Error:", err);
           }
@@ -1354,21 +1406,25 @@ export default {
         }
 
         const prevDates = allKeys.map(k => k.replace(poId + '_', '')).filter(d => d < date).sort();
+        const { targetDate: memTargetDate, actualDate: memPrevDate } = getPreviousWorkingDateInfo(date, prevDates);
         const prevDayWipByBatch = {};
-        if (prevDates.length > 0) {
-          const lastPrevDate = prevDates[prevDates.length - 1];
-          const prevRep = memoryDB.reports[poId + '_' + lastPrevDate];
+        if (memPrevDate) {
+          const prevRep = memoryDB.reports[poId + '_' + memPrevDate];
           if (prevRep && prevRep.batches) {
             prevRep.batches.forEach(b => {
               prevDayWipByBatch[b.batch_name] = {
                 wip_qc: Number(b.wip_qc) || 0,
-                wip_pairing: Number(b.wip_pairing) || 0
+                wip_pairing: Number(b.wip_pairing) || 0,
+                wip_sewing: Number(b.wip_sewing) || 0,
+                wip_packing: Number(b.wip_packing) || 0,
+                wip_warehouse: Number(b.wip_warehouse) || 0,
+                daily_out: Number(b.daily_out) || 0
               };
             });
           }
         }
 
-        return Response.json({ success: true, report, cumExportsByBatch, cumImportsByBatch, prevDayWipByBatch }, { headers });
+        return Response.json({ success: true, report, cumExportsByBatch, cumImportsByBatch, prevDayWipByBatch, prevReportDate: memPrevDate || memTargetDate }, { headers });
       }
 
       // Save Report

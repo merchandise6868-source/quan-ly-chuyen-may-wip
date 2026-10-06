@@ -750,6 +750,7 @@ async function loadReport() {
       appState.cumExportsByBatch = data.cumExportsByBatch || {};
       appState.cumImportsByBatch = data.cumImportsByBatch || {};
       appState.prevDayWipByBatch = data.prevDayWipByBatch || {};
+      appState.prevReportDate = data.prevReportDate || "";
 
       // Auto-fallback: if report has no batches, populate immediately from currentPO default_batches
       if (!appState.report.batches || appState.report.batches.length === 0) {
@@ -979,7 +980,7 @@ function renderReportUI() {
                   <td class="cell-label">
                     <span class="main-lbl">Tổng</span>
                   </td>
-                  <td class="cell-val-bold text-center">0</td>
+                  <td class="cell-val-bold text-center" id="calcTonDauNgay_${idx}">${(Math.max(0, prevIn - prevOut)).toLocaleString("vi-VN")}</td>
                   <td class="cell-total-val text-center text-blue">
                     <span class="val-num font-black text-sky-800" id="calcIntoSewing_${idx}">${cumIn.toLocaleString("vi-VN")}</span>
                   </td>
@@ -1212,10 +1213,10 @@ function renderReportUI() {
             <!-- DÒNG 1: LUÂN CHUYỂN -->
             <div class="h1-balance-row balance-flow-row">
               <div class="balance-calc-group">
-                <span class="lbl-ton-qua">Tồn qua: <strong id="calcTonQua_${idx}">0</strong></span>
+                <span class="lbl-ton-qua"><span id="lblTonQuaText_${idx}">Tồn qua:</span> <strong id="calcTonQua_${idx}">0</strong></span>
                 <span class="op-sym font-bold text-slate-400">+</span>
                 <span class="lbl-tp font-bold text-amber-900">✨ TP: 
-                  <input type="number" class="wip-num-input field-daily-finished input-yellow" data-batch="${idx}" value="${batch.daily_finished || ''}" placeholder="0" data-idx="${idx}" title="Thành phẩm hôm nay (nhập mới)">
+                  <input type="number" class="wip-num-input field-daily-finished input-yellow" data-batch="${idx}" value="${batches.reduce((sum, item) => sum + (Number(item.daily_finished) || 0), 0) || ''}" placeholder="0" data-idx="${idx}" title="Thành phẩm hôm nay (nhập mới)">
                 </span>
                 <span class="op-sym font-bold text-slate-400">-</span>
                 <span class="lbl-xuat">Xuất: <strong class="text-rose font-bold" id="calcBalanceXuat_${idx}">${todayOut.toLocaleString("vi-VN")}</strong></span>
@@ -1338,42 +1339,75 @@ function recalculateAllInPlace() {
             : ('<div class="h1-status-banner banner-surplus">ℹ️ Thừa +' + Math.abs(shortage).toLocaleString("vi-VN") + ' đôi – kiểm tra lại số đếm thực tế</div>'));
     }
 
-    // Section 3: Balance Check (Phương án 2)
-    const elTonQua = document.getElementById(`calcTonQua_${idx}`);
-    if (elTonQua) {
-      const prevBatch = appState.prevDayWipByBatch && appState.prevDayWipByBatch[b.batch_name];
-      const prevQc = prevBatch ? (Number(prevBatch.wip_qc) || 0) : 0;
-      const prevPair = prevBatch ? (Number(prevBatch.wip_pairing) || 0) : 0;
-      const tonQua = prevQc + prevPair;
-      const dailyFinished = Number(b.daily_finished) || 0;
-      const ve1 = (tonQua + dailyFinished) - todayOut;
-      const ve2 = (Number(b.wip_pairing) || 0) + (Number(b.wip_qc) || 0);
-      const diff = ve1 - ve2;
+    const elTonDau = document.getElementById(`calcTonDauNgay_${idx}`);
+    if (elTonDau) elTonDau.innerText = Math.max(0, prevIn - prevOut).toLocaleString("vi-VN");
+  });
 
-      elTonQua.innerText = tonQua.toLocaleString("vi-VN");
-      const elBalXuat = document.getElementById(`calcBalanceXuat_${idx}`);
-      if (elBalXuat) elBalXuat.innerText = todayOut.toLocaleString("vi-VN");
-      const elBalPair = document.getElementById(`calcBalancePair_${idx}`);
-      if (elBalPair) elBalPair.innerText = (Number(b.wip_pairing) || 0).toLocaleString("vi-VN");
-      const elBalQc = document.getElementById(`calcBalanceQc_${idx}`);
-      if (elBalQc) elBalQc.innerText = (Number(b.wip_qc) || 0).toLocaleString("vi-VN");
-      const elVe1 = document.getElementById(`calcBalanceVe1_${idx}`);
-      if (elVe1) elVe1.innerText = ve1.toLocaleString("vi-VN");
-      const elVe2 = document.getElementById(`calcBalanceVe2_${idx}`);
-      if (elVe2) elVe2.innerText = ve2.toLocaleString("vi-VN");
+  // Section 3: Balance Check (Phương án 2) - Nằm ở cuối lô cuối cùng, tính tổng cân đối cho toàn bộ PO
+  const lastIdx = batches.length - 1;
+  const elTonQua = document.getElementById(`calcTonQua_${lastIdx}`);
+  if (elTonQua) {
+    let sumTonQua = 0;
+    let sumTodayOut = 0;
+    let sumWipPairing = 0;
+    let sumWipQc = 0;
+    let sumDailyFinished = 0;
 
-      const badge = document.getElementById(`calcBalanceBadge_${idx}`);
-      if (badge) {
-        if (diff === 0) {
-          badge.className = "h1-balance-badge badge-balanced";
-          badge.innerText = "✅ Cân đối (0 đôi)";
-        } else {
-          badge.className = "h1-balance-badge badge-unbalanced";
-          badge.innerText = `⚠️ Lệch ${diff > 0 ? '+' : ''}${diff.toLocaleString("vi-VN")} đôi`;
-        }
+    batches.forEach((bItem) => {
+      const prevB = appState.prevDayWipByBatch && appState.prevDayWipByBatch[bItem.batch_name];
+      const prevQc = prevB ? (Number(prevB.wip_qc) || 0) : 0;
+      const prevPair = prevB ? (Number(prevB.wip_pairing) || 0) : 0;
+      sumTonQua += (prevQc + prevPair);
+
+      sumTodayOut += (Number(bItem.daily_out) || 0);
+      sumWipPairing += (Number(bItem.wip_pairing) || 0);
+      sumWipQc += (Number(bItem.wip_qc) || 0);
+      sumDailyFinished += (Number(bItem.daily_finished) || 0);
+    });
+
+    const ve1 = (sumTonQua + sumDailyFinished) - sumTodayOut;
+    const ve2 = sumWipPairing + sumWipQc;
+    const diff = ve1 - ve2;
+
+    // Hiển thị nhãn nguồn ngày (Thứ 7 nếu hôm trước là Chủ nhật)
+    let prevDateTag = "";
+    if (appState.prevReportDate) {
+      const pParts = appState.prevReportDate.split("-");
+      if (pParts.length === 3) {
+        const pDateObj = new Date(parseInt(pParts[0], 10), parseInt(pParts[1], 10) - 1, parseInt(pParts[2], 10));
+        const dowNames = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+        const dow = dowNames[pDateObj.getDay()];
+        prevDateTag = ` (${dow} ${pParts[2]}/${pParts[1]})`;
       }
     }
-  });
+    const elTonQuaLbl = document.getElementById(`lblTonQuaText_${lastIdx}`);
+    if (elTonQuaLbl) {
+      elTonQuaLbl.innerText = `Tồn qua${prevDateTag}:`;
+    }
+
+    elTonQua.innerText = sumTonQua.toLocaleString("vi-VN");
+    const elBalXuat = document.getElementById(`calcBalanceXuat_${lastIdx}`);
+    if (elBalXuat) elBalXuat.innerText = sumTodayOut.toLocaleString("vi-VN");
+    const elBalPair = document.getElementById(`calcBalancePair_${lastIdx}`);
+    if (elBalPair) elBalPair.innerText = sumWipPairing.toLocaleString("vi-VN");
+    const elBalQc = document.getElementById(`calcBalanceQc_${lastIdx}`);
+    if (elBalQc) elBalQc.innerText = sumWipQc.toLocaleString("vi-VN");
+    const elVe1 = document.getElementById(`calcBalanceVe1_${lastIdx}`);
+    if (elVe1) elVe1.innerText = ve1.toLocaleString("vi-VN");
+    const elVe2 = document.getElementById(`calcBalanceVe2_${lastIdx}`);
+    if (elVe2) elVe2.innerText = ve2.toLocaleString("vi-VN");
+
+    const badge = document.getElementById(`calcBalanceBadge_${lastIdx}`);
+    if (badge) {
+      if (diff === 0) {
+        badge.className = "h1-balance-badge badge-balanced";
+        badge.innerText = "✅ Cân đối (0 đôi)";
+      } else {
+        badge.className = "h1-balance-badge badge-unbalanced";
+        badge.innerText = `⚠️ Lệch ${diff > 0 ? '+' : ''}${diff.toLocaleString("vi-VN")} đôi`;
+      }
+    }
+  }
 
   const prepDebt = Math.max(0, poPlan - totalReceived);
   const totalShortage = (totalReceived - totalDelivered) - totalActualWip;
