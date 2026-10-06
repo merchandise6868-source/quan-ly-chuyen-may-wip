@@ -4940,79 +4940,87 @@ input[type=number] {
 /* ========================================================
    SECTION 3: KIỂM TRA CÂN ĐỐI (QC & PHỐI ĐÔI) - PHƯƠNG ÁN 2
    Đặt ở cuối lô cuối cùng (Cuối Lô 1 nếu có 1 lô, Cuối Lô 2 nếu có 2 lô)
+   Mở rộng kích thước theo chiều dọc cho cả Laptop & Điện thoại
    ======================================================== */
 .h1-balance-check-card {
-  margin-top: 8px;
+  margin-top: 14px;
+  margin-bottom: 10px;
   background: #ffffff;
   border: 1.5px solid #c7d2fe;
-  border-radius: 8px;
-  padding: 8px 10px;
-  box-shadow: 0 1px 3px rgba(99, 102, 241, 0.08);
+  border-radius: 12px;
+  padding: 12px 16px;
+  box-shadow: 0 2px 6px rgba(99, 102, 241, 0.08);
 }
 
 .h1-balance-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 6px;
+  margin-bottom: 10px;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 8px;
 }
 
 .h1-balance-title {
-  font-size: 11px;
-  font-weight: 800;
+  font-size: 13px;
+  font-weight: 900;
   color: #312e81;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+  letter-spacing: 0.2px;
+}
+
+.h1-balance-title .h1-num-bullet {
+  font-size: 15px;
 }
 
 .h1-balance-badge {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 800;
-  padding: 2px 8px;
-  border-radius: 6px;
+  padding: 4px 12px;
+  border-radius: 8px;
   white-space: nowrap;
 }
 
 .badge-balanced {
   background: #ecfdf5 !important;
   color: #047857 !important;
-  border: 1px solid #a7f3d0 !important;
+  border: 1.5px solid #a7f3d0 !important;
 }
 
 .badge-unbalanced {
   background: #fff1f2 !important;
   color: #be123c !important;
-  border: 1px solid #fecdd3 !important;
+  border: 1.5px solid #fecdd3 !important;
 }
 
 .h1-balance-body {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 8px;
 }
 
 .h1-balance-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 8px;
-  border-radius: 6px;
-  font-size: 11px;
-  gap: 6px;
+  padding: 8px 14px;
+  min-height: 42px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  gap: 8px;
 }
 
 .balance-flow-row {
   background: #f5f3ff;
-  border: 1px solid #ddd6fe;
+  border: 1.5px solid #ddd6fe;
   color: #4338ca;
 }
 
 .balance-actual-row {
   background: #eff6ff;
-  border: 1px solid #bfdbfe;
+  border: 1.5px solid #bfdbfe;
   color: #1e40af;
 }
 
@@ -5020,90 +5028,124 @@ input[type=number] {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 5px;
-  font-size: 11px;
+  gap: 8px;
+  font-size: 12.5px;
   color: #334155;
 }
 
 .balance-calc-group strong {
-  font-size: 11.5px;
+  font-size: 13.5px;
+  font-weight: 900;
 }
 
 .balance-calc-group .op-sym {
   color: #94a3b8;
-  font-weight: 800;
-  font-size: 11px;
+  font-weight: 900;
+  font-size: 13px;
 }
 
 .balance-calc-group .lbl-tp {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   color: #713f12;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .balance-calc-group input.field-daily-finished {
-  width: 58px !important;
-  height: 22px !important;
-  font-size: 11.5px !important;
-  padding: 0 4px !important;
-  margin: 0 2px !important;
+  width: 70px !important;
+  height: 30px !important;
+  font-size: 14px !important;
+  padding: 0 6px !important;
+  margin: 0 4px !important;
   display: inline-block !important;
+  border-radius: 6px !important;
 }
 
 .balance-eq-val {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-weight: 800;
-  font-size: 11px;
+  font-size: 13px;
   white-space: nowrap;
   flex-shrink: 0;
   color: #0f172a;
 }
 
 .balance-eq-val .val-bold {
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 900;
 }
 
 @media (max-width: 768px) {
   .h1-balance-check-card {
-    margin-top: 5px !important;
-    padding: 6px 8px !important;
-    border-radius: 7px !important;
+    margin-top: 8px !important;
+    margin-bottom: 6px !important;
+    padding: 8px 10px !important;
+    border-radius: 10px !important;
+  }
+
+  .h1-balance-header {
+    margin-bottom: 6px !important;
+    gap: 4px !important;
   }
 
   .h1-balance-title {
-    font-size: 10px !important;
+    font-size: 11px !important;
+  }
+
+  .h1-balance-title .h1-num-bullet {
+    font-size: 13px !important;
   }
 
   .h1-balance-badge {
-    font-size: 9.5px !important;
-    padding: 1.5px 6px !important;
+    font-size: 10.5px !important;
+    padding: 2.5px 8px !important;
+    border-radius: 6px !important;
+  }
+
+  .h1-balance-body {
+    gap: 6px !important;
   }
 
   .h1-balance-row {
-    padding: 3px 6px !important;
-    font-size: 10px !important;
+    padding: 6px 10px !important;
+    min-height: 34px !important;
+    font-size: 11px !important;
+    border-radius: 7px !important;
   }
 
   .balance-calc-group {
-    font-size: 10px !important;
+    font-size: 11px !important;
+    gap: 5px !important;
+  }
+
+  .balance-calc-group strong {
+    font-size: 12px !important;
+  }
+
+  .balance-calc-group .op-sym {
+    font-size: 11.5px !important;
+  }
+
+  .balance-calc-group .lbl-tp {
+    font-size: 11px !important;
     gap: 3px !important;
   }
 
   .balance-calc-group input.field-daily-finished {
-    width: 52px !important;
-    height: 20px !important;
-    font-size: 10.5px !important;
+    width: 60px !important;
+    height: 24px !important;
+    font-size: 12px !important;
+    padding: 0 4px !important;
+    margin: 0 2px !important;
   }
 
   .balance-eq-val {
-    font-size: 10px !important;
+    font-size: 11.5px !important;
   }
 
   .balance-eq-val .val-bold {
-    font-size: 11px !important;
+    font-size: 13px !important;
   }
 }
 
