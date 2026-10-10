@@ -5149,3 +5149,468 @@ input[type=number] {
   }
 }
 
+/* ========================================================
+   SECTION 2 LEGEND & DIRECT INPUT STYLING (HÌNH 1 SPEC)
+   - Chú thích: Ô xanh lá = công nhân nhập, Số xanh dương = máy tính
+   - 5 Trạm kiểm kê và 3 Lý do thiếu: Luôn cho nhập trực tiếp
+   - Nút Sửa bỏ, LK bỏ
+   ======================================================== */
+.h1-sec-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.h1-legend-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.legend-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.pill-worker {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+}
+
+.pill-system {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+}
+
+.legend-color-box {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.box-green {
+  background: #10b981;
+  border: 1px solid #059669;
+}
+
+.box-blue {
+  background: #0284c7;
+  border: 1px solid #0369a1;
+}
+
+/* Green border inputs for station checking and reasons (Hình 1) */
+.input-station-green,
+.input-reason-green {
+  background: #ffffff !important;
+  border: 1.5px solid #10b981 !important;
+  color: #065f46 !important;
+  font-weight: 800 !important;
+  border-radius: 6px !important;
+  text-align: center !important;
+  transition: all 0.2s ease !important;
+}
+
+.input-station-green:focus,
+.input-reason-green:focus {
+  background: #f0fdf4 !important;
+  border-color: #059669 !important;
+  box-shadow: 0 0 0 2.5px rgba(16, 185, 129, 0.35) !important;
+}
+
+.btn-mobile-balance-fast {
+  background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  box-shadow: 0 2px 4px rgba(79, 70, 229, 0.3);
+  flex-shrink: 0;
+}
+
+/* ========================================================
+   MODAL: KIỂM TRA CÂN ĐỐI TOÀN NHÀ MÁY (HÌNH 2 MOCKUP)
+   ======================================================== */
+.modal-factory-balance-card {
+  max-width: 760px !important;
+  width: 95% !important;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+}
+
+.modal-factory-balance-hdr {
+  background: linear-gradient(135deg, #312e81 0%, #1e1b4b 100%) !important;
+  color: #ffffff !important;
+  padding: 14px 20px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
+
+.fb-hdr-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fb-hdr-icon {
+  font-size: 26px;
+}
+
+.fb-hdr-title {
+  font-size: 16px;
+  font-weight: 900;
+  color: #ffffff;
+  letter-spacing: 0.3px;
+  margin: 0;
+}
+
+.fb-hdr-sub {
+  font-size: 12px;
+  color: #c7d2fe;
+  font-weight: 500;
+}
+
+.fb-modal-body {
+  padding: 16px 20px !important;
+  background: #f8fafc;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.fb-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  background: #ffffff;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 14px;
+}
+
+.fb-date-picker-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.fb-date-lbl {
+  font-size: 13px;
+  font-weight: 800;
+  color: #334155;
+}
+
+.fb-date-input {
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.fb-prev-date-badge {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.fb-status-badge {
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.badge-pending {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1.5px solid #fde68a;
+}
+
+.fb-cards-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.fb-card {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.fb-card-header {
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #ffffff;
+}
+
+.bg-indigo {
+  background: linear-gradient(135deg, #4338ca 0%, #3730a3 100%);
+}
+
+.fb-ch-title {
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.2px;
+}
+
+.fb-ch-badge {
+  font-size: 10px;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 700;
+}
+
+.fb-card-content {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  justify-content: space-between;
+}
+
+.fb-metric-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #f1f5f9;
+  min-height: 38px;
+}
+
+.fb-metric-input-item {
+  background: #fffbeb;
+  border: 1.5px solid #fde68a;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  padding: 8px 10px;
+}
+
+.fb-m-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #334155;
+}
+
+.fb-m-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.bg-blue { background: #0284c7; }
+.bg-amber { background: #d97706; }
+.bg-rose { background: #e11d48; }
+
+.fb-m-val {
+  font-size: 15px;
+}
+
+.fb-m-input-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.fb-tp-input {
+  width: 100px;
+  height: 32px;
+  font-size: 15px;
+  padding: 0 8px;
+  border-radius: 6px;
+}
+
+.fb-save-hint {
+  font-size: 10.5px;
+  color: #92400e;
+  font-style: italic;
+  font-weight: 600;
+}
+
+.fb-calc-operator {
+  text-align: center;
+  margin: -2px 0;
+}
+
+.fb-op-badge {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.fb-substation-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.fb-sub-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f8fafc;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid #f1f5f9;
+}
+
+.fb-sub-lbl {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.fb-sub-val {
+  font-size: 13.5px;
+  font-weight: 900;
+  color: #0f172a;
+}
+
+.fb-actual-summary-box {
+  background: #f0fdfa;
+  border: 1px dashed #5eead4;
+  padding: 8px 10px;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.fb-as-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #0f766e;
+}
+
+.fb-as-eq {
+  font-size: 12px;
+  font-weight: 800;
+  color: #115e59;
+}
+
+.fb-card-footer {
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 8px;
+  margin-top: 4px;
+}
+
+.footer-indigo {
+  background: #eef2ff;
+  border: 1.5px solid #c7d2fe;
+  color: #3730a3;
+}
+
+.footer-teal {
+  background: #f0fdfa;
+  border: 1.5px solid #99f6e4;
+  color: #0f766e;
+}
+
+.fb-cf-lbl {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+}
+
+.fb-cf-val {
+  font-size: 18px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.fb-diff-box {
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.45;
+  border: 1.5px solid #cbd5e1;
+}
+
+.fb-diff-box.is-pending {
+  background: #fefce8;
+  border-color: #fef08a;
+  color: #854d0e;
+}
+
+.fb-diff-box.is-balanced {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #065f46;
+}
+
+.fb-diff-box.is-unbalanced {
+  background: #fff1f2;
+  border-color: #fecdd3;
+  color: #9f1239;
+}
+
+.fb-modal-footer {
+  padding: 12px 20px !important;
+  background: #f1f5f9 !important;
+  border-top: 1px solid #e2e8f0 !important;
+  display: flex !important;
+  justify-content: space-between !important;
+}
+
+@media (max-width: 768px) {
+  .fb-cards-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .h1-legend-badges {
+    display: none !important;
+  }
+}
+

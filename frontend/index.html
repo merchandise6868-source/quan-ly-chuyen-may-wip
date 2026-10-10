@@ -203,6 +203,9 @@
           <button type="button" class="btn btn-warning" id="btnToolbarSweepTail" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff; font-weight: 700; border: none;" title="Vét số lượng Chuẩn Bị còn nợ vào Lô riêng biệt">
             ⚡ Vét Lô Số Đuôi
           </button>
+          <button type="button" class="btn btn-info font-bold" id="btnOpenGlobalBalanceDesktop" style="background: linear-gradient(135deg, #4f46e5, #4338ca); color: #fff; font-weight: 800; border: none; box-shadow: 0 2px 4px rgba(79, 70, 229, 0.3);" title="Mở Popup kiểm tra cân đối toàn bộ nhà máy">
+            ⚖️ Cân Đối Toàn Nhà Máy
+          </button>
           <button class="btn btn-outline" id="btnRefresh">
             🔄 Tải Lại Dữ Liệu
           </button>
@@ -232,6 +235,11 @@
           <span class="vet-lo-text">Vét lô</span>
         </button>
 
+        <!-- Nút Cân Đối Nhanh trên Mobile -->
+        <button type="button" class="btn-mobile-balance-fast" id="btnOpenGlobalBalanceMobile" title="Kiểm tra cân đối toàn nhà máy">
+          ⚖️ Cân đối
+        </button>
+
         <!-- Cụm chọn ngày -->
         <div class="mobile-date-cluster">
           <button type="button" class="btn-mobile-date-nav" id="btnMobilePrevDay" title="Hôm trước">◀</button>
@@ -247,6 +255,9 @@
         <div class="mobile-more-cluster">
           <button type="button" class="btn-mobile-more" id="btnMobileMore" title="Tùy chọn tác vụ">···</button>
           <div class="more-popover-menu" id="morePopoverMenu" style="display: none;">
+            <button type="button" class="popover-item" id="btnMoreBalance">
+              <span class="p-icon">⚖️</span> Cân đối toàn nhà máy
+            </button>
             <button type="button" class="popover-item" id="btnMoreRefresh">
               <span class="p-icon">🔄</span> Tải lại dữ liệu
             </button>
@@ -836,6 +847,146 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261006_1445"></script>
+  <!-- ========================================================
+       MODAL: KIỂM TRA CÂN ĐỐI TOÀN NHÀ MÁY (HÌNH 2 MOCKUP)
+       Độc lập tất cả PO, tồn tại xuyên suốt toàn ứng dụng
+       ======================================================== -->
+  <div id="modalFactoryBalance" class="modal-overlay" style="display: none;">
+    <div class="modal-card modal-factory-balance-card">
+      <div class="modal-header modal-factory-balance-hdr">
+        <div class="fb-hdr-left">
+          <div class="fb-hdr-icon">⚖️</div>
+          <div>
+            <h3 class="fb-hdr-title">KIỂM TRA CÂN ĐỐI TOÀN NHÀ MÁY</h3>
+            <div class="fb-hdr-sub">Tổng hợp tất cả PO phát sinh trong ngày</div>
+          </div>
+        </div>
+        <button type="button" class="btn-close-modal" id="btnCloseFactoryBalanceModal">×</button>
+      </div>
+
+      <div class="modal-body fb-modal-body">
+        <!-- Date Selector & Status Badge Row -->
+        <div class="fb-top-bar">
+          <div class="fb-date-picker-wrap">
+            <span class="fb-date-lbl">📅 Ngày kiểm tra:</span>
+            <input type="date" id="fbReportDate" class="fb-date-input">
+            <span class="fb-prev-date-badge" id="fbPrevDateBadge" title="Nguồn số liệu tồn trước đó">Tồn qua: --</span>
+          </div>
+          <div class="fb-status-badge-wrap">
+            <span class="fb-status-badge badge-pending" id="fbStatusBadge">⏳ Chờ nhập TP</span>
+          </div>
+        </div>
+
+        <!-- 2 Main Cards: Luân Chuyển Lý Thuyết (Vế 1) & Đếm Thực Tế Hôm Nay (Vế 2) -->
+        <div class="fb-cards-grid">
+          
+          <!-- Card 1: Luân Chuyển Lý Thuyết -->
+          <div class="fb-card fb-card-flow">
+            <div class="fb-card-header bg-indigo">
+              <span class="fb-ch-title">1. LUÂN CHUYỂN LÝ THUYẾT (TẤT CẢ PO)</span>
+              <span class="fb-ch-badge">Tồn qua + TP - Xuất</span>
+            </div>
+            <div class="fb-card-content">
+              
+              <div class="fb-metric-item">
+                <div class="fb-m-label">
+                  <span class="fb-m-dot bg-blue"></span>
+                  <span>Tồn hôm qua (QC + Phối + ĐG + Kho)</span>
+                </div>
+                <div class="fb-m-val text-blue font-black" id="fbTonHomQua">0</div>
+              </div>
+
+              <div class="fb-calc-operator">
+                <span class="fb-op-badge">+ (Cộng thành phẩm nhập mới)</span>
+              </div>
+
+              <div class="fb-metric-item fb-metric-input-item">
+                <div class="fb-m-label">
+                  <span class="fb-m-dot bg-amber"></span>
+                  <span class="font-bold text-amber-900">✨ Thành phẩm hôm nay (toàn nhà máy):</span>
+                </div>
+                <div class="fb-m-input-wrap">
+                  <input type="number" id="fbThanhPhamInput" class="fb-tp-input input-yellow font-black" placeholder="Nhập TP..." title="Nhập thành phẩm hôm nay của tất cả PO">
+                  <span class="fb-save-hint">⚡ Enter hoặc click ra ngoài để lưu</span>
+                </div>
+              </div>
+
+              <div class="fb-calc-operator">
+                <span class="fb-op-badge">- (Trừ xuất hôm nay)</span>
+              </div>
+
+              <div class="fb-metric-item">
+                <div class="fb-m-label">
+                  <span class="fb-m-dot bg-rose"></span>
+                  <span>Xuất hôm nay (tất cả PO)</span>
+                </div>
+                <div class="fb-m-val text-rose font-black" id="fbXuatHomNay">0</div>
+              </div>
+
+              <div class="fb-card-footer footer-indigo">
+                <span class="fb-cf-lbl">= TỒN LÝ THUYẾT (VẾ 1)</span>
+                <span class="fb-cf-val font-black" id="fbVe1Result">0</span>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Card 2: Đếm Thực Tế Hôm Nay -->
+          <div class="fb-card fb-card-actual">
+            <div class="fb-card-header bg-teal">
+              <span class="fb-ch-title">2. ĐẾM THỰC TẾ HÔM NAY (TẤT CẢ PO)</span>
+              <span class="fb-ch-badge">4 Trạm chính</span>
+            </div>
+            <div class="fb-card-content">
+              
+              <div class="fb-substation-grid">
+                <div class="fb-sub-item">
+                  <span class="fb-sub-lbl">Trạm QC:</span>
+                  <span class="fb-sub-val" id="fbDetailQc">0</span>
+                </div>
+                <div class="fb-sub-item">
+                  <span class="fb-sub-lbl">Trạm Phối đôi:</span>
+                  <span class="fb-sub-val" id="fbDetailPairing">0</span>
+                </div>
+                <div class="fb-sub-item">
+                  <span class="fb-sub-lbl">Trạm Đóng gói:</span>
+                  <span class="fb-sub-val" id="fbDetailPacking">0</span>
+                </div>
+                <div class="fb-sub-item">
+                  <span class="fb-sub-lbl">Trạm Kho TP:</span>
+                  <span class="fb-sub-val" id="fbDetailWarehouse">0</span>
+                </div>
+              </div>
+
+              <div class="fb-actual-summary-box">
+                <div class="fb-as-title">Công thức tồn thực tế:</div>
+                <div class="fb-as-eq">QC + Phối đôi + Đóng gói + Kho TP</div>
+              </div>
+
+              <div class="fb-card-footer footer-teal">
+                <span class="fb-cf-lbl">= TỒN THỰC TẾ (VẾ 2)</span>
+                <span class="fb-cf-val font-black" id="fbVe2Result">0</span>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Comparison / Balance Summary Box -->
+        <div class="fb-diff-box" id="fbDiffBox">
+          <div class="fb-diff-text" id="fbDiffText">Đang tải số liệu cân đối...</div>
+        </div>
+
+      </div>
+
+      <div class="modal-footer fb-modal-footer">
+        <button type="button" class="btn btn-outline" id="btnRefreshFactoryBalance">🔄 Làm Mới</button>
+        <button type="button" class="btn btn-primary" id="btnCloseFactoryBalanceModalBtn">Đóng</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js?v=20261010_1130"></script>
 </body>
 </html>

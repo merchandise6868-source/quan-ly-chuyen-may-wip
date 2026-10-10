@@ -604,6 +604,64 @@ function bindEvents() {
     });
   }
 
+  // GLOBAL FACTORY BALANCE POPUP TRIGGERS & ACTIONS
+  const btnFbDesktop = document.getElementById("btnOpenGlobalBalanceDesktop");
+  if (btnFbDesktop) {
+    btnFbDesktop.addEventListener("click", () => openFactoryBalanceModal());
+  }
+
+  const btnFbMobile = document.getElementById("btnOpenGlobalBalanceMobile");
+  if (btnFbMobile) {
+    btnFbMobile.addEventListener("click", () => openFactoryBalanceModal());
+  }
+
+  const btnFbMore = document.getElementById("btnMoreBalance");
+  if (btnFbMore) {
+    btnFbMore.addEventListener("click", () => {
+      if (morePopoverMenu) morePopoverMenu.style.display = "none";
+      openFactoryBalanceModal();
+    });
+  }
+
+  const btnCloseFb = document.getElementById("btnCloseFactoryBalanceModal");
+  if (btnCloseFb) btnCloseFb.addEventListener("click", () => closeFactoryBalanceModal());
+
+  const btnCloseFbBtn = document.getElementById("btnCloseFactoryBalanceModalBtn");
+  if (btnCloseFbBtn) btnCloseFbBtn.addEventListener("click", () => closeFactoryBalanceModal());
+
+  const btnRefFb = document.getElementById("btnRefreshFactoryBalance");
+  if (btnRefFb) btnRefFb.addEventListener("click", () => loadFactoryBalanceData());
+
+  const fbDateInput = document.getElementById("fbReportDate");
+  if (fbDateInput) {
+    fbDateInput.addEventListener("change", (e) => {
+      loadFactoryBalanceData(e.target.value);
+    });
+  }
+
+  const fbTpInput = document.getElementById("fbThanhPhamInput");
+  if (fbTpInput) {
+    fbTpInput.addEventListener("input", () => {
+      recalculateFactoryBalanceModal();
+    });
+
+    fbTpInput.addEventListener("change", async () => {
+      await saveFactoryFinishedGoods();
+    });
+
+    fbTpInput.addEventListener("blur", async () => {
+      await saveFactoryFinishedGoods();
+    });
+
+    fbTpInput.addEventListener("keydown", async (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        await saveFactoryFinishedGoods();
+        fbTpInput.blur();
+      }
+    });
+  }
+
   const btnMobPrev = document.getElementById("btnMobilePrevDay");
   if (btnMobPrev) {
     btnMobPrev.addEventListener("click", () => changeDateByDays(-1));
@@ -1027,8 +1085,21 @@ function renderReportUI() {
 
         <!-- 4. SECTION 2: ĐỐI CHIẾU - KIỂM KÊ - PHÂN TÍCH -->
         <div class="h1-section-block">
-          <div class="h1-sec-title">
-            <span class="h1-num-bullet">❷</span> ĐỐI CHIẾU - KIỂM KÊ - PHÂN TÍCH
+          <div class="h1-sec-title-row">
+            <div class="h1-sec-title">
+              <span class="h1-num-bullet">❷</span> ĐỐI CHIẾU - KIỂM KÊ - PHÂN TÍCH
+            </div>
+            <!-- Chú thích quy ước màu sắc chuẩn Hình 1 -->
+            <div class="h1-legend-badges">
+              <span class="legend-pill pill-worker">
+                <span class="legend-color-box box-green"></span>
+                <span>Ô xanh lá = công nhân nhập</span>
+              </span>
+              <span class="legend-pill pill-system">
+                <span class="legend-color-box box-blue"></span>
+                <span>Số xanh dương = máy tự tính</span>
+              </span>
+            </div>
           </div>
 
           <!-- 3 EQUATION METRIC CARDS -->
@@ -1091,61 +1162,58 @@ function renderReportUI() {
             <div class="h1-box-hdr bg-teal">
               <div class="box-hdr-text">
                 <div class="box-title">KIỂM KÊ TỒN THỰC TẾ</div>
-                <div class="box-sub">${batch.batch_name} - SL tại từng trạm</div>
+                <div class="box-sub">${batch.batch_name} - SL tại từng trạm (nhập trực tiếp)</div>
               </div>
-              <button type="button" class="h1-btn-toggle ${isEditing ? 'is-editing' : 'is-locked'} btn-toggle-batch btn-batch-toggle btn-header-toggle" data-batch="${idx}" title="${isEditing ? 'Nhấn để lưu số liệu và khóa bảng kiểm kê' : 'Nhấn để mở khóa chỉnh sửa số liệu kiểm kê'}">
-                ${isEditing ? '💾 Lưu' : '✏️ Sửa'}
-              </button>
             </div>
             <div class="h1-station-list">
               <!-- 1. Đang sản xuất -->
-              <div class="h1-station-row is-editing">
+              <div class="h1-station-row is-direct-input">
                 <div class="st-tag-name">
                   <span class="st-badge badge-yellow">1</span>
                   <span class="st-text">Đang sản xuất</span>
                 </div>
                 <div class="st-val-wrap">
-                  <input type="number" class="wip-num-input field-wip-sewing grid-nav-input input-yellow" data-batch="${idx}" data-row="1" data-col="0" value="${batch.wip_sewing || ''}" placeholder="0" data-idx="${idx}">
+                  <input type="number" class="wip-num-input field-wip-sewing grid-nav-input input-station-green" data-batch="${idx}" data-row="1" data-col="0" value="${batch.wip_sewing || ''}" placeholder="0" data-idx="${idx}" title="Nhập trực tiếp số lượng trạm 1">
                 </div>
               </div>
               <!-- 2. Tồn kiểm QC -->
-              <div class="h1-station-row is-editing">
+              <div class="h1-station-row is-direct-input">
                 <div class="st-tag-name">
                   <span class="st-badge badge-gray">2</span>
                   <span class="st-text">Tồn kiểm QC</span>
                 </div>
                 <div class="st-val-wrap">
-                  <input type="number" class="wip-num-input field-wip-qc grid-nav-input input-yellow" data-batch="${idx}" data-row="1" data-col="1" value="${batch.wip_qc || ''}" placeholder="0" data-idx="${idx}">
+                  <input type="number" class="wip-num-input field-wip-qc grid-nav-input input-station-green" data-batch="${idx}" data-row="1" data-col="1" value="${batch.wip_qc || ''}" placeholder="0" data-idx="${idx}" title="Nhập trực tiếp số lượng trạm 2">
                 </div>
               </div>
               <!-- 3. Tồn phối đôi -->
-              <div class="h1-station-row is-editing">
+              <div class="h1-station-row is-direct-input">
                 <div class="st-tag-name">
                   <span class="st-badge badge-orange">3</span>
                   <span class="st-text">Tồn phối đôi</span>
                 </div>
                 <div class="st-val-wrap">
-                  <input type="number" class="wip-num-input field-wip-pairing grid-nav-input input-yellow" data-batch="${idx}" data-row="1" data-col="2" value="${batch.wip_pairing || ''}" placeholder="0" data-idx="${idx}">
+                  <input type="number" class="wip-num-input field-wip-pairing grid-nav-input input-station-green" data-batch="${idx}" data-row="1" data-col="2" value="${batch.wip_pairing || ''}" placeholder="0" data-idx="${idx}" title="Nhập trực tiếp số lượng trạm 3">
                 </div>
               </div>
               <!-- 4. Tồn đóng gói -->
-              <div class="h1-station-row is-editing">
+              <div class="h1-station-row is-direct-input">
                 <div class="st-tag-name">
                   <span class="st-badge badge-slate">4</span>
                   <span class="st-text">Tồn đóng gói</span>
                 </div>
                 <div class="st-val-wrap">
-                  <input type="number" class="wip-num-input field-wip-packing grid-nav-input input-yellow" data-batch="${idx}" data-row="1" data-col="3" value="${batch.wip_packing || ''}" placeholder="0" data-idx="${idx}">
+                  <input type="number" class="wip-num-input field-wip-packing grid-nav-input input-station-green" data-batch="${idx}" data-row="1" data-col="3" value="${batch.wip_packing || ''}" placeholder="0" data-idx="${idx}" title="Nhập trực tiếp số lượng trạm 4">
                 </div>
               </div>
               <!-- 5. Tồn kho TP -->
-              <div class="h1-station-row is-editing">
+              <div class="h1-station-row is-direct-input">
                 <div class="st-tag-name">
                   <span class="st-badge badge-green">5</span>
                   <span class="st-text">Tồn kho TP</span>
                 </div>
                 <div class="st-val-wrap">
-                  <input type="number" class="wip-num-input field-wip-warehouse grid-nav-input input-yellow" data-batch="${idx}" data-row="1" data-col="4" value="${batch.wip_warehouse || ''}" placeholder="0" data-idx="${idx}">
+                  <input type="number" class="wip-num-input field-wip-warehouse grid-nav-input input-station-green" data-batch="${idx}" data-row="1" data-col="4" value="${batch.wip_warehouse || ''}" placeholder="0" data-idx="${idx}" title="Nhập trực tiếp số lượng trạm 5">
                 </div>
               </div>
             </div>
@@ -1164,33 +1232,30 @@ function renderReportUI() {
             </div>
             <div class="h1-reason-list">
               <!-- 1. Mất xác -->
-              <div class="h1-reason-row is-editing">
+              <div class="h1-reason-row is-direct-input">
                 <div class="rs-label-wrap">
                   <span class="rs-title text-rose">1. Mất xác</span>
-                  <span class="rs-sub">LK: --</span>
                 </div>
                 <div class="rs-input-wrap">
-                  <input type="number" class="wip-num-input field-shortage-matxac grid-nav-input inp-rose input-yellow" data-batch="${idx}" data-row="0" data-col="5" value="${batch.shortage_mat_xac || ''}" placeholder="0" data-idx="${idx}">
+                  <input type="number" class="wip-num-input field-shortage-matxac grid-nav-input inp-rose input-reason-green" data-batch="${idx}" data-row="0" data-col="5" value="${batch.shortage_mat_xac || ''}" placeholder="0" data-idx="${idx}">
                 </div>
               </div>
               <!-- 2. Hàng phế -->
-              <div class="h1-reason-row is-editing">
+              <div class="h1-reason-row is-direct-input">
                 <div class="rs-label-wrap">
                   <span class="rs-title text-amber">2. Hàng phế</span>
-                  <span class="rs-sub">LK: --</span>
                 </div>
                 <div class="rs-input-wrap">
-                  <input type="number" class="wip-num-input field-shortage-hangphe grid-nav-input inp-amber input-yellow" data-batch="${idx}" data-row="0" data-col="6" value="${batch.shortage_hang_phe || ''}" placeholder="0" data-idx="${idx}">
+                  <input type="number" class="wip-num-input field-shortage-hangphe grid-nav-input inp-amber input-reason-green" data-batch="${idx}" data-row="0" data-col="6" value="${batch.shortage_hang_phe || ''}" placeholder="0" data-idx="${idx}">
                 </div>
               </div>
               <!-- 3. Khác -->
-              <div class="h1-reason-row is-editing">
+              <div class="h1-reason-row is-direct-input">
                 <div class="rs-label-wrap">
                   <span class="rs-title text-purple">3. Khác</span>
-                  <span class="rs-sub">LK: --</span>
                 </div>
                 <div class="rs-input-wrap">
-                  <input type="number" class="wip-num-input field-shortage-khac grid-nav-input inp-purple input-yellow" data-batch="${idx}" data-row="0" data-col="7" value="${batch.shortage_khac || ''}" placeholder="0" data-idx="${idx}">
+                  <input type="number" class="wip-num-input field-shortage-khac grid-nav-input inp-purple input-reason-green" data-batch="${idx}" data-row="0" data-col="7" value="${batch.shortage_khac || ''}" placeholder="0" data-idx="${idx}">
                 </div>
               </div>
               <!-- Ghi chú lý do khác -->
@@ -1218,52 +1283,9 @@ function renderReportUI() {
         <!-- 8. BOTTOM ACTION BAR: EXECUTOR INPUT -->
         <div class="h1-bottom-bar">
           <div class="h1-executor-wrap" style="width: 100%;">
-            <input type="text" ${isEditing ? '' : 'readonly'} class="wip-executor-input field-note-sewing grid-nav-input" data-batch="${idx}" data-row="2" data-col="0" value="${batch.note_sewing || ''}" placeholder="${isEditing ? '✍️ Điền tên người kiểm kê...' : '👤 Người kiểm kê: ' + (batch.note_sewing || 'Chưa ghi')}" data-idx="${idx}">
+            <input type="text" class="wip-executor-input field-note-sewing grid-nav-input" data-batch="${idx}" data-row="2" data-col="0" value="${batch.note_sewing || ''}" placeholder="👤 Người kiểm kê: (nhập tên...)" data-idx="${idx}">
           </div>
         </div>
-
-        ${idx === batches.length - 1 ? `
-        <!-- 9. SECTION 3: KIỂM TRA CÂN ĐỐI (QC & PHỐI ĐÔI) - PHƯƠNG ÁN 2 (DƯỚI CUỐI LÔ CUỐI CÙNG) -->
-        <div class="h1-balance-check-card" id="balanceCheckCard_${idx}">
-          <div class="h1-balance-header">
-            <span class="h1-balance-title">
-              <span class="h1-num-bullet">❸</span> KIỂM TRA CÂN ĐỐI (QC & PHỐI ĐÔI)
-            </span>
-            <span class="h1-balance-badge badge-balanced" id="calcBalanceBadge_${idx}">
-              ✅ Cân đối (0 đôi)
-            </span>
-          </div>
-          <div class="h1-balance-body">
-            <!-- DÒNG 1: LUÂN CHUYỂN -->
-            <div class="h1-balance-row balance-flow-row">
-              <div class="balance-calc-group">
-                <span class="lbl-ton-qua"><span id="lblTonQuaText_${idx}">Tồn qua:</span> <strong id="calcTonQua_${idx}">0</strong></span>
-                <span class="op-sym font-bold text-slate-400">+</span>
-                <span class="lbl-tp font-bold text-amber-900">✨ TP: 
-                  <input type="number" class="wip-num-input field-daily-finished grid-nav-input input-yellow" data-batch="${idx}" value="${batches.reduce((sum, item) => sum + (Number(item.daily_finished) || 0), 0) || ''}" placeholder="0" data-idx="${idx}" title="Thành phẩm hôm nay (nhập mới)">
-                </span>
-                <span class="op-sym font-bold text-slate-400">-</span>
-                <span class="lbl-xuat">Xuất: <strong class="text-rose font-bold" id="calcBalanceXuat_${idx}">${todayOut.toLocaleString("vi-VN")}</strong></span>
-              </div>
-              <div class="balance-eq-val">
-                = <span class="val-bold" id="calcBalanceVe1_${idx}">0</span>
-              </div>
-            </div>
-            <!-- DÒNG 2: THỰC TẾ -->
-            <div class="h1-balance-row balance-actual-row">
-              <div class="balance-calc-group">
-                <span>Đếm thực tế:</span>
-                <span>Phối đôi <strong class="text-amber font-bold" id="calcBalancePair_${idx}">${(Number(batch.wip_pairing) || 0).toLocaleString("vi-VN")}</strong></span>
-                <span class="op-sym font-bold text-slate-400">+</span>
-                <span>QC <strong class="text-blue font-bold" id="calcBalanceQc_${idx}">${(Number(batch.wip_qc) || 0).toLocaleString("vi-VN")}</strong></span>
-              </div>
-              <div class="balance-eq-val">
-                = <span class="val-bold" id="calcBalanceVe2_${idx}">0</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        ` : ''}
 
       </div>
     `;
@@ -1366,72 +1388,6 @@ function recalculateAllInPlace() {
     const elTonDau = document.getElementById(`calcTonDauNgay_${idx}`);
     if (elTonDau) elTonDau.innerText = Math.max(0, prevIn - prevOut).toLocaleString("vi-VN");
   });
-
-  // Section 3: Balance Check (Phương án 2) - Nằm ở cuối lô cuối cùng, tính tổng cân đối cho toàn bộ PO
-  const lastIdx = batches.length - 1;
-  const elTonQua = document.getElementById(`calcTonQua_${lastIdx}`);
-  if (elTonQua) {
-    let sumTonQua = 0;
-    let sumTodayOut = 0;
-    let sumWipPairing = 0;
-    let sumWipQc = 0;
-    let sumDailyFinished = 0;
-
-    batches.forEach((bItem) => {
-      const prevB = appState.prevDayWipByBatch && appState.prevDayWipByBatch[bItem.batch_name];
-      const prevQc = prevB ? (Number(prevB.wip_qc) || 0) : 0;
-      const prevPair = prevB ? (Number(prevB.wip_pairing) || 0) : 0;
-      sumTonQua += (prevQc + prevPair);
-
-      sumTodayOut += (Number(bItem.daily_out) || 0);
-      sumWipPairing += (Number(bItem.wip_pairing) || 0);
-      sumWipQc += (Number(bItem.wip_qc) || 0);
-      sumDailyFinished += (Number(bItem.daily_finished) || 0);
-    });
-
-    const ve1 = (sumTonQua + sumDailyFinished) - sumTodayOut;
-    const ve2 = sumWipPairing + sumWipQc;
-    const diff = ve1 - ve2;
-
-    // Hiển thị nhãn nguồn ngày (Thứ 7 nếu hôm trước là Chủ nhật)
-    let prevDateTag = "";
-    if (appState.prevReportDate) {
-      const pParts = appState.prevReportDate.split("-");
-      if (pParts.length === 3) {
-        const pDateObj = new Date(parseInt(pParts[0], 10), parseInt(pParts[1], 10) - 1, parseInt(pParts[2], 10));
-        const dowNames = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
-        const dow = dowNames[pDateObj.getDay()];
-        prevDateTag = ` (${dow} ${pParts[2]}/${pParts[1]})`;
-      }
-    }
-    const elTonQuaLbl = document.getElementById(`lblTonQuaText_${lastIdx}`);
-    if (elTonQuaLbl) {
-      elTonQuaLbl.innerText = `Tồn qua${prevDateTag}:`;
-    }
-
-    elTonQua.innerText = sumTonQua.toLocaleString("vi-VN");
-    const elBalXuat = document.getElementById(`calcBalanceXuat_${lastIdx}`);
-    if (elBalXuat) elBalXuat.innerText = sumTodayOut.toLocaleString("vi-VN");
-    const elBalPair = document.getElementById(`calcBalancePair_${lastIdx}`);
-    if (elBalPair) elBalPair.innerText = sumWipPairing.toLocaleString("vi-VN");
-    const elBalQc = document.getElementById(`calcBalanceQc_${lastIdx}`);
-    if (elBalQc) elBalQc.innerText = sumWipQc.toLocaleString("vi-VN");
-    const elVe1 = document.getElementById(`calcBalanceVe1_${lastIdx}`);
-    if (elVe1) elVe1.innerText = ve1.toLocaleString("vi-VN");
-    const elVe2 = document.getElementById(`calcBalanceVe2_${lastIdx}`);
-    if (elVe2) elVe2.innerText = ve2.toLocaleString("vi-VN");
-
-    const badge = document.getElementById(`calcBalanceBadge_${lastIdx}`);
-    if (badge) {
-      if (diff === 0) {
-        badge.className = "h1-balance-badge badge-balanced";
-        badge.innerText = "✅ Cân đối (0 đôi)";
-      } else {
-        badge.className = "h1-balance-badge badge-unbalanced";
-        badge.innerText = `⚠️ Lệch ${diff > 0 ? '+' : ''}${diff.toLocaleString("vi-VN")} đôi`;
-      }
-    }
-  }
 
   const prepDebt = Math.max(0, poPlan - totalReceived);
   const totalShortage = (totalReceived - totalDelivered) - totalActualWip;
@@ -4207,5 +4163,190 @@ function exportHistoryToExcel() {
   const ws = XLSX.utils.aoa_to_sheet(rows);
   XLSX.utils.book_append_sheet(wb, ws, "Lich_Su_Kiem_Ke_Lo");
   XLSX.writeFile(wb, `Lich_Su_Kiem_Ke_Lo_${poNum}.xlsx`);
+}
+
+// ========================================================
+// GLOBAL FACTORY BALANCE MODAL (POPUP CÂN ĐỐI TOÀN NHÀ MÁY - HÌNH 2)
+// Độc lập mọi PO - Quản lý kiểm tra cân đối tổng cho toàn xưởng
+// Công thức:
+// Vế 1 = Tồn hôm qua (QC + Phối + ĐG + Kho) + TP hôm nay - Xuất hôm nay
+// Vế 2 = Tồn hôm nay (QC + Phối + ĐG + Kho)
+// ========================================================
+let factoryBalanceState = {
+  date: "",
+  prev_date: "",
+  ton_hom_qua: 0,
+  thanh_pham_hom_nay: 0,
+  xuat_hom_nay: 0,
+  ton_hom_nay: 0,
+  details_today: { qc: 0, pairing: 0, packing: 0, warehouse: 0 }
+};
+
+async function openFactoryBalanceModal() {
+  const modal = document.getElementById("modalFactoryBalance");
+  if (!modal) return;
+  modal.style.display = "flex";
+
+  const targetDate = appState.currentDate || getLocalDateString();
+  const dateInput = document.getElementById("fbReportDate");
+  if (dateInput) {
+    dateInput.value = targetDate;
+  }
+
+  await loadFactoryBalanceData(targetDate);
+}
+
+function closeFactoryBalanceModal() {
+  const modal = document.getElementById("modalFactoryBalance");
+  if (modal) modal.style.display = "none";
+}
+
+async function loadFactoryBalanceData(dateStr) {
+  const date = dateStr || (document.getElementById("fbReportDate") ? document.getElementById("fbReportDate").value : appState.currentDate);
+  if (!date) return;
+
+  const diffText = document.getElementById("fbDiffText");
+  if (diffText) diffText.innerText = "⏳ Đang tổng hợp số liệu toàn nhà máy...";
+
+  try {
+    const res = await fetch(`/api/factory-balance?date=${date}`);
+    const data = await res.json();
+    if (data.success) {
+      factoryBalanceState = {
+        date: data.date,
+        prev_date: data.prev_date,
+        ton_hom_qua: Number(data.ton_hom_qua) || 0,
+        thanh_pham_hom_nay: Number(data.thanh_pham_hom_nay) || 0,
+        xuat_hom_nay: Number(data.xuat_hom_nay) || 0,
+        ton_hom_nay: Number(data.ton_hom_nay) || 0,
+        details_today: data.details_today || { qc: 0, pairing: 0, packing: 0, warehouse: 0 }
+      };
+
+      // Fill values to DOM
+      const elTonQua = document.getElementById("fbTonHomQua");
+      if (elTonQua) elTonQua.innerText = factoryBalanceState.ton_hom_qua.toLocaleString("vi-VN");
+
+      const elXuat = document.getElementById("fbXuatHomNay");
+      if (elXuat) elXuat.innerText = factoryBalanceState.xuat_hom_nay.toLocaleString("vi-VN");
+
+      const elQc = document.getElementById("fbDetailQc");
+      if (elQc) elQc.innerText = factoryBalanceState.details_today.qc.toLocaleString("vi-VN");
+
+      const elPair = document.getElementById("fbDetailPairing");
+      if (elPair) elPair.innerText = factoryBalanceState.details_today.pairing.toLocaleString("vi-VN");
+
+      const elPack = document.getElementById("fbDetailPacking");
+      if (elPack) elPack.innerText = factoryBalanceState.details_today.packing.toLocaleString("vi-VN");
+
+      const elWh = document.getElementById("fbDetailWarehouse");
+      if (elWh) elWh.innerText = factoryBalanceState.details_today.warehouse.toLocaleString("vi-VN");
+
+      const elVe2 = document.getElementById("fbVe2Result");
+      if (elVe2) elVe2.innerText = factoryBalanceState.ton_hom_nay.toLocaleString("vi-VN");
+
+      const tpInput = document.getElementById("fbThanhPhamInput");
+      if (tpInput) {
+        tpInput.value = factoryBalanceState.thanh_pham_hom_nay ? factoryBalanceState.thanh_pham_hom_nay : "";
+      }
+
+      // Display previous date tag (Saturday if Monday)
+      const prevBadge = document.getElementById("fbPrevDateBadge");
+      if (prevBadge) {
+        if (factoryBalanceState.prev_date) {
+          const pParts = factoryBalanceState.prev_date.split("-");
+          if (pParts.length === 3) {
+            const pObj = new Date(parseInt(pParts[0], 10), parseInt(pParts[1], 10) - 1, parseInt(pParts[2], 10));
+            const dowNames = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+            const dow = dowNames[pObj.getDay()];
+            prevBadge.innerText = `Nguồn tồn qua: ${dow} ${pParts[2]}/${pParts[1]}`;
+          } else {
+            prevBadge.innerText = `Nguồn tồn qua: ${factoryBalanceState.prev_date}`;
+          }
+        } else {
+          prevBadge.innerText = "Nguồn tồn qua: Chưa có ngày trước";
+        }
+      }
+
+      recalculateFactoryBalanceModal();
+    }
+  } catch (err) {
+    console.error("Factory Balance Fetch Error:", err);
+    if (diffText) diffText.innerText = "⚠️ Không thể tải dữ liệu: " + err.message;
+  }
+}
+
+function recalculateFactoryBalanceModal() {
+  const tpInput = document.getElementById("fbThanhPhamInput");
+  const rawTp = tpInput ? tpInput.value.trim() : "";
+  const tpVal = rawTp === "" ? null : (Number(rawTp) || 0);
+
+  const tonHomQua = factoryBalanceState.ton_hom_qua || 0;
+  const xuatHomNay = factoryBalanceState.xuat_hom_nay || 0;
+  const tonHomNay = factoryBalanceState.ton_hom_nay || 0;
+
+  const ve1 = (tonHomQua + (tpVal !== null ? tpVal : 0)) - xuatHomNay;
+  const ve2 = tonHomNay;
+  const diff = ve1 - ve2;
+
+  const elVe1 = document.getElementById("fbVe1Result");
+  if (elVe1) elVe1.innerText = (tpVal !== null ? ve1 : (tonHomQua - xuatHomNay)).toLocaleString("vi-VN");
+
+  const statusBadge = document.getElementById("fbStatusBadge");
+  const diffBox = document.getElementById("fbDiffBox");
+  const diffText = document.getElementById("fbDiffText");
+
+  if (tpVal === null) {
+    if (statusBadge) {
+      statusBadge.className = "fb-status-badge badge-pending";
+      statusBadge.innerText = "⏳ Chờ nhập TP hôm nay";
+    }
+    if (diffBox) diffBox.className = "fb-diff-box is-pending";
+    if (diffText) {
+      diffText.innerHTML = `Vui lòng nhập <strong>Thành phẩm hôm nay</strong> để hệ thống đối chiếu cân đối giữa <strong>Vế 1</strong> và <strong>Vế 2</strong>.`;
+    }
+  } else if (diff === 0) {
+    if (statusBadge) {
+      statusBadge.className = "fb-status-badge badge-balanced";
+      statusBadge.innerText = "✅ Cân đối (0 đôi)";
+    }
+    if (diffBox) diffBox.className = "fb-diff-box is-balanced";
+    if (diffText) {
+      diffText.innerHTML = `🎉 <strong>HỆ THỐNG CÂN ĐỐI TUYỆT ĐỐI (0 ĐÔI):</strong><br>Vế 1 (${ve1.toLocaleString("vi-VN")} đôi) = Vế 2 (${ve2.toLocaleString("vi-VN")} đôi). Toàn bộ số lượng nhập xuất và kiểm kê 4 trạm khớp hoàn toàn!`;
+    }
+  } else {
+    const isLechDuong = diff > 0;
+    if (statusBadge) {
+      statusBadge.className = "fb-status-badge badge-unbalanced";
+      statusBadge.innerText = `⚠️ Lệch ${isLechDuong ? '+' : ''}${diff.toLocaleString("vi-VN")} đôi`;
+    }
+    if (diffBox) diffBox.className = "fb-diff-box is-unbalanced";
+    if (diffText) {
+      diffText.innerHTML = `⚠️ <strong>PHÁT HIỆN LỆCH ${Math.abs(diff).toLocaleString("vi-VN")} ĐÔI:</strong><br>Vế 1 (Lý thuyết: ${ve1.toLocaleString("vi-VN")} đôi) so với Vế 2 (Thực tế 4 trạm: ${ve2.toLocaleString("vi-VN")} đôi) đang chênh lệch ${diff > 0 ? '+' : ''}${diff.toLocaleString("vi-VN")} đôi. Vui lòng rà soát lại số kiểm kê các trạm hoặc số lượng thành phẩm.`;
+    }
+  }
+}
+
+async function saveFactoryFinishedGoods() {
+  const dateInput = document.getElementById("fbReportDate");
+  const date = dateInput ? dateInput.value : appState.currentDate;
+  const tpInput = document.getElementById("fbThanhPhamInput");
+  const val = tpInput ? (Number(tpInput.value) || 0) : 0;
+
+  try {
+    const res = await fetch("/api/factory-balance", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date, daily_finished: val })
+    });
+    const data = await res.json();
+    if (data.success) {
+      factoryBalanceState.thanh_pham_hom_nay = val;
+      showToast(`💾 Đã lưu thành phẩm toàn xưởng ngày ${date}: ${val.toLocaleString("vi-VN")} đôi!`);
+      recalculateFactoryBalanceModal();
+    }
+  } catch (err) {
+    console.error("Save Factory Finished Goods Error:", err);
+    showToast("⚠️ Lỗi lưu thành phẩm: " + err.message, "error");
+  }
 }
 

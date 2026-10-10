@@ -296,6 +296,11 @@ async function initD1Tables(db) {
         is_active INTEGER DEFAULT 1,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`,
+      `CREATE TABLE IF NOT EXISTS daily_factory_summary (
+        report_date TEXT PRIMARY KEY,
+        daily_finished INTEGER DEFAULT 0,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )`
     ];
 
@@ -1611,6 +1616,162 @@ export default {
           };
           memoryDB.flow_logs.push(newLog);
           return Response.json({ success: true, log: newLog }, { headers });
+        } catch (err) {
+          return Response.json({ success: false, error: err.message }, { status: 400, headers });
+        }
+      }
+
+      // Factory-wide Balance API (Popup Cân Đối Toàn Nhà Máy)
+      if (url.pathname === '/api/factory-balance' && request.method === 'GET') {
+        const date = url.searchParams.get('date') || new Date().toISOString().split('T')[0];
+
+        try {
+          let prevDate = null;
+          let targetDate = null;
+          let tonHomQua = 0;
+          let xuatHomNay = 0;
+          let tonHomNay = 0;
+          let thanhPhamHomNay = 0;
+
+          if (env && env.DB) {
+            // Find all prior report dates in DB
+            const { results: priorDatesRaw } = await env.DB.prepare(
+              "SELECT DISTINCT report_date FROM report_batches WHERE report_date < ? ORDER BY report_date DESC"
+            ).bind(date).all();
+            const availablePriorDates = (priorDatesRaw || []).map(r => r.report_date);
+            const dateInfo = getPreviousWorkingDateInfo(date, availablePriorDates);
+            prevDate = dateInfo.actualDate;
+            targetDate = dateInfo.targetDate;
+
+            // 1. Tồn hôm qua của tất cả PO phát sinh: QC + Phối đôi + Đóng gói + Kho TP
+            if (prevDate) {
+              const { results: prevSum } = await env.DB.prepare(`
+                SELECT SUM(COALESCE(wip_qc, 0) + COALESCE(wip_pairing, 0) + COALESCE(wip_packing, 0) + COALESCE(wip_warehouse, 0)) as total_prev_wip
+                FROM report_batches
+                WHERE report_date = ?
+              `).bind(prevDate).all();
+              tonHomQua = (prevSum && prevSum[0] && Number(prevSum[0].total_prev_wip)) || 0;
+            }
+
+            // 2. Xuất hôm nay của tất cả PO phát sinh
+            const { results: outSum } = await env.DB.prepare(`
+              SELECT SUM(COALESCE(daily_out, 0)) as total_today_out
+              FROM report_batches
+              WHERE report_date = ?
+            `).bind(date).all();
+            xuatHomNay = (outSum && outSum[0] && Number(outSum[0].total_today_out)) || 0;
+
+            // 3. Tồn hôm nay của tất cả PO phát sinh: QC + Phối đôi + Đóng gói + Kho TP
+            const { results: todayWipSum } = await env.DB.prepare(`
+              SELECT 
+                SUM(COALESCE(wip_qc, 0)) as sum_qc,
+                SUM(COALESCE(wip_pairing, 0)) as sum_pairing,
+                SUM(COALESCE(wip_packing, 0)) as sum_packing,
+                SUM(COALESCE(wip_warehouse, 0)) as sum_warehouse,
+                SUM(COALESCE(wip_qc, 0) + COALESCE(wip_pairing, 0) + COALESCE(wip_packing, 0) + COALESCE(wip_warehouse, 0)) as total_today_wip
+              FROM report_batches
+              WHERE report_date = ?
+            `).bind(date).all();
+            tonHomNay = (todayWipSum && todayWipSum[0] && Number(todayWipSum[0].total_today_wip)) || 0;
+
+            // 4. Thành phẩm hôm nay (nhập trong bảng daily_factory_summary)
+            const { results: finishedSum } = await env.DB.prepare(`
+              SELECT daily_finished FROM daily_factory_summary WHERE report_date = ?
+            `).bind(date).all();
+            if (finishedSum && finishedSum.length > 0) {
+              thanhPhamHomNay = Number(finishedSum[0].daily_finished) || 0;
+            } else {
+              // Fallback to sum of daily_finished in report_batches if any
+              const { results: rbFinished } = await env.DB.prepare(`
+                SELECT SUM(COALESCE(daily_finished, 0)) as sum_finished FROM report_batches WHERE report_date = ?
+              `).bind(date).all();
+              thanhPhamHomNay = (rbFinished && rbFinished[0] && Number(rbFinished[0].sum_finished)) || 0;
+            }
+
+            return Response.json({
+              success: true,
+              date,
+              prev_date: prevDate || targetDate,
+              ton_hom_qua: tonHomQua,
+              thanh_pham_hom_nay: thanhPhamHomNay,
+              xuat_hom_nay: xuatHomNay,
+              ton_hom_nay: tonHomNay,
+              details_today: {
+                qc: (todayWipSum && todayWipSum[0] && Number(todayWipSum[0].sum_qc)) || 0,
+                pairing: (todayWipSum && todayWipSum[0] && Number(todayWipSum[0].sum_pairing)) || 0,
+                packing: (todayWipSum && todayWipSum[0] && Number(todayWipSum[0].sum_packing)) || 0,
+                warehouse: (todayWipSum && todayWipSum[0] && Number(todayWipSum[0].sum_warehouse)) || 0
+              }
+            }, { headers });
+          }
+
+          // In-memory fallback
+          if (!memoryDB.daily_factory_summary) memoryDB.daily_factory_summary = {};
+          thanhPhamHomNay = Number(memoryDB.daily_factory_summary[date]) || 0;
+
+          const allDates = [...new Set(Object.values(memoryDB.reports).map(r => r.report_date))].filter(d => d < date).sort();
+          const dateInfo = getPreviousWorkingDateInfo(date, allDates);
+          prevDate = dateInfo.actualDate;
+          targetDate = dateInfo.targetDate;
+
+          let sumQc = 0, sumPairing = 0, sumPacking = 0, sumWarehouse = 0;
+
+          Object.values(memoryDB.reports).forEach(r => {
+            if (r.report_date === prevDate) {
+              (r.batches || []).forEach(b => {
+                tonHomQua += (Number(b.wip_qc) || 0) + (Number(b.wip_pairing) || 0) + (Number(b.wip_packing) || 0) + (Number(b.wip_warehouse) || 0);
+              });
+            }
+            if (r.report_date === date) {
+              (r.batches || []).forEach(b => {
+                xuatHomNay += Number(b.daily_out) || 0;
+                const q = Number(b.wip_qc) || 0;
+                const pair = Number(b.wip_pairing) || 0;
+                const pack = Number(b.wip_packing) || 0;
+                const wh = Number(b.wip_warehouse) || 0;
+                sumQc += q; sumPairing += pair; sumPacking += pack; sumWarehouse += wh;
+                tonHomNay += (q + pair + pack + wh);
+              });
+            }
+          });
+
+          return Response.json({
+            success: true,
+            date,
+            prev_date: prevDate || targetDate,
+            ton_hom_qua: tonHomQua,
+            thanh_pham_hom_nay: thanhPhamHomNay,
+            xuat_hom_nay: xuatHomNay,
+            ton_hom_nay: tonHomNay,
+            details_today: { qc: sumQc, pairing: sumPairing, packing: sumPacking, warehouse: sumWarehouse }
+          }, { headers });
+        } catch (err) {
+          return Response.json({ success: false, error: err.message }, { status: 500, headers });
+        }
+      }
+
+      // Save Factory-wide Finished Goods API (Lưu Thành Phẩm Hôm Nay)
+      if (url.pathname === '/api/factory-balance' && request.method === 'POST') {
+        try {
+          const body = await request.json();
+          const { date, daily_finished } = body;
+          if (!date) {
+            return Response.json({ success: false, error: "Thiếu thông tin ngày báo cáo" }, { status: 400, headers });
+          }
+          const finishedVal = Number(daily_finished) || 0;
+
+          if (env && env.DB) {
+            await env.DB.prepare(`
+              INSERT INTO daily_factory_summary (report_date, daily_finished, updated_at)
+              VALUES (?, ?, CURRENT_TIMESTAMP)
+              ON CONFLICT(report_date) DO UPDATE SET daily_finished = excluded.daily_finished, updated_at = CURRENT_TIMESTAMP
+            `).bind(date, finishedVal).run();
+            return Response.json({ success: true, message: "Đã lưu thành phẩm toàn nhà máy vào CSDL D1", date, daily_finished: finishedVal }, { headers });
+          }
+
+          if (!memoryDB.daily_factory_summary) memoryDB.daily_factory_summary = {};
+          memoryDB.daily_factory_summary[date] = finishedVal;
+          return Response.json({ success: true, message: "Đã lưu thành phẩm vào bộ nhớ", date, daily_finished: finishedVal }, { headers });
         } catch (err) {
           return Response.json({ success: false, error: err.message }, { status: 400, headers });
         }
