@@ -22,7 +22,7 @@
   <link rel="apple-touch-icon" sizes="192x192" href="icon-192.png">
   <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png">
 
-  <link rel="stylesheet" href="styles.css?v=20261010_1435">
+  <link rel="stylesheet" href="styles.css?v=20261010_1500">
   
   <!-- cdn for sheetjs (xlsx) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -203,7 +203,7 @@
           <button type="button" class="btn btn-warning" id="btnToolbarSweepTail" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff; font-weight: 700; border: none;" title="Vét số lượng Chuẩn Bị còn nợ vào Lô riêng biệt">
             ⚡ Vét Lô Số Đuôi
           </button>
-          <button type="button" class="btn btn-info font-bold" id="btnOpenGlobalBalanceDesktop" onclick="openFactoryBalanceModal()" style="background: linear-gradient(135deg, #4f46e5, #4338ca); color: #fff; font-weight: 800; border: none; box-shadow: 0 2px 4px rgba(79, 70, 229, 0.3); cursor: pointer;" title="Mở Popup kiểm tra cân đối toàn bộ nhà máy">
+          <button type="button" class="btn btn-danger font-bold btn-kiem-tra-pulse" id="btnOpenGlobalBalanceDesktop" onclick="openFactoryBalanceModal()" title="Mở Popup kiểm tra cân đối toàn bộ nhà máy">
             ⚖️ Kiểm tra
           </button>
           <button class="btn btn-outline" id="btnRefresh">
@@ -236,7 +236,7 @@
         </button>
 
         <!-- Nút Kiểm Tra Nhanh trên Mobile -->
-        <button type="button" class="btn-mobile-balance-fast" id="btnOpenGlobalBalanceMobile" onclick="openFactoryBalanceModal()" title="Mở popup kiểm tra toàn nhà máy">
+        <button type="button" class="btn-mobile-balance-fast btn-kiem-tra-pulse" id="btnOpenGlobalBalanceMobile" onclick="openFactoryBalanceModal()" title="Mở popup kiểm tra toàn nhà máy">
           ⚖️ Kiểm tra
         </button>
 
@@ -857,16 +857,16 @@
         <div class="fb-hdr-left">
           <div class="fb-hdr-icon">⚖️</div>
           <div>
-            <h3 class="fb-hdr-title">KIỂM TRA CÂN ĐỐI TOÀN NHÀ MÁY</h3>
-            <div class="fb-hdr-sub">Tổng hợp tất cả PO phát sinh trong ngày</div>
+            <h3 class="fb-hdr-title">KIỂM TRA CÂN ĐỐI</h3>
+            <div class="fb-hdr-sub">Toàn bộ nhà máy (Tất cả PO phát sinh)</div>
           </div>
         </div>
-        <button type="button" class="btn-close-modal" id="btnCloseFactoryBalanceModal">×</button>
+        <button type="button" class="btn-close-modal" id="btnCloseFactoryBalanceModal" title="Đóng">✕</button>
       </div>
 
       <div class="modal-body fb-modal-body">
-        <!-- Date Selector & Status Badge Row -->
-        <div class="fb-top-bar">
+        <!-- Date Selector & Source Info Row -->
+        <div class="fb-date-row">
           <div class="fb-date-picker-wrap">
             <span class="fb-date-lbl">📅 Ngày kiểm tra:</span>
             <input type="date" id="fbReportDate" class="fb-date-input">
@@ -877,116 +877,76 @@
           </div>
         </div>
 
-        <!-- 2 Main Cards: Luân Chuyển Lý Thuyết (Vế 1) & Đếm Thực Tế Hôm Nay (Vế 2) -->
-        <div class="fb-cards-grid">
+        <!-- ULTRA MINIMALIST CALCULATION CONTAINER -->
+        <div class="fb-minimal-box">
           
-          <!-- Card 1: Luân Chuyển Lý Thuyết -->
-          <div class="fb-card fb-card-flow">
-            <div class="fb-card-header bg-indigo">
-              <span class="fb-ch-title">1. LUÂN CHUYỂN LÝ THUYẾT (TẤT CẢ PO)</span>
-              <span class="fb-ch-badge">Tồn qua + TP - Xuất</span>
+          <!-- HÀNG PHÉP TÍNH LÝ THUYẾT: TỒN QUA + THÀNH PHẨM - XUẤT = TỒN LÝ THUYẾT -->
+          <div class="fb-calc-row">
+            
+            <!-- 1. Tồn hôm qua (tự tính) -->
+            <div class="fb-calc-item fb-item-calc">
+              <span class="fb-ci-label">Tồn hôm qua</span>
+              <span class="fb-ci-val text-blue font-black" id="fbTonHomQua">0</span>
+              <span class="fb-ci-hint">(Máy tự tính)</span>
             </div>
-            <div class="fb-card-content">
-              
-              <div class="fb-metric-item">
-                <div class="fb-m-label">
-                  <span class="fb-m-dot bg-blue"></span>
-                  <span>Tồn hôm qua (QC + Phối + ĐG + Kho)</span>
-                </div>
-                <div class="fb-m-val text-blue font-black" id="fbTonHomQua">0</div>
-              </div>
 
-              <div class="fb-calc-operator">
-                <span class="fb-op-badge">+ (Cộng thành phẩm nhập mới)</span>
-              </div>
+            <div class="fb-calc-op text-emerald-600">+</div>
 
-              <div class="fb-metric-item fb-metric-input-item">
-                <div class="fb-m-label">
-                  <span class="fb-m-dot bg-amber"></span>
-                  <span class="font-bold text-amber-900">✨ Thành phẩm hôm nay (toàn nhà máy):</span>
-                </div>
-                <div class="fb-m-input-wrap">
-                  <input type="number" id="fbThanhPhamInput" class="fb-tp-input input-yellow font-black" placeholder="Nhập TP..." title="Nhập thành phẩm hôm nay của tất cả PO">
-                  <span class="fb-save-hint">⚡ Enter hoặc click ra ngoài để lưu</span>
-                </div>
-              </div>
+            <!-- 2. Thành phẩm hôm nay (1 ô cho nhập) -->
+            <div class="fb-calc-item fb-item-input">
+              <span class="fb-ci-label font-bold text-amber-900">✨ Thành phẩm hôm nay</span>
+              <input type="number" id="fbThanhPhamInput" class="fb-minimal-input" placeholder="Nhập TP..." title="Nhập thành phẩm hôm nay của tất cả PO">
+              <span class="fb-ci-hint text-amber-700">⚡ Nhập để lưu</span>
+            </div>
 
-              <div class="fb-calc-operator">
-                <span class="fb-op-badge">- (Trừ xuất hôm nay)</span>
-              </div>
+            <div class="fb-calc-op text-rose-600">-</div>
 
-              <div class="fb-metric-item">
-                <div class="fb-m-label">
-                  <span class="fb-m-dot bg-rose"></span>
-                  <span>Xuất hôm nay (tất cả PO)</span>
-                </div>
-                <div class="fb-m-val text-rose font-black" id="fbXuatHomNay">0</div>
-              </div>
+            <!-- 3. Xuất hôm nay (tự cộng) -->
+            <div class="fb-calc-item fb-item-calc">
+              <span class="fb-ci-label">Xuất hôm nay</span>
+              <span class="fb-ci-val text-rose font-black" id="fbXuatHomNay">0</span>
+              <span class="fb-ci-hint">(Máy tự cộng)</span>
+            </div>
 
-              <div class="fb-card-footer footer-indigo">
-                <span class="fb-cf-lbl">= TỒN LÝ THUYẾT (VẾ 1)</span>
-                <span class="fb-cf-val font-black" id="fbVe1Result">0</span>
-              </div>
+            <div class="fb-calc-op text-indigo-700">=</div>
 
+            <!-- 4. Tồn lý thuyết -->
+            <div class="fb-calc-item fb-item-calc fb-item-total">
+              <span class="fb-ci-label text-indigo-900">Tồn lý thuyết</span>
+              <span class="fb-ci-val text-indigo-700 font-black" id="fbVe1Result">0</span>
+              <span class="fb-ci-hint">(Qua + TP - Xuất)</span>
+            </div>
+
+          </div>
+
+          <!-- DÒNG ĐỐI CHIẾU VỚI TỒN HÔM NAY -->
+          <div class="fb-compare-row">
+            <span class="fb-cr-title">So với Tồn hôm nay (Máy tự tính tổng tất cả PO):</span>
+            <div class="fb-cr-val-wrap">
+              <span class="fb-cr-val font-black text-teal-800" id="fbTonHomNay">0</span>
+              <span class="fb-cr-unit">đôi</span>
             </div>
           </div>
 
-          <!-- Card 2: Đếm Thực Tế Hôm Nay -->
-          <div class="fb-card fb-card-actual">
-            <div class="fb-card-header bg-teal">
-              <span class="fb-ch-title">2. ĐẾM THỰC TẾ HÔM NAY (TẤT CẢ PO)</span>
-              <span class="fb-ch-badge">4 Trạm chính</span>
-            </div>
-            <div class="fb-card-content">
-              
-              <div class="fb-substation-grid">
-                <div class="fb-sub-item">
-                  <span class="fb-sub-lbl">Trạm QC:</span>
-                  <span class="fb-sub-val" id="fbDetailQc">0</span>
-                </div>
-                <div class="fb-sub-item">
-                  <span class="fb-sub-lbl">Trạm Phối đôi:</span>
-                  <span class="fb-sub-val" id="fbDetailPairing">0</span>
-                </div>
-                <div class="fb-sub-item">
-                  <span class="fb-sub-lbl">Trạm Đóng gói:</span>
-                  <span class="fb-sub-val" id="fbDetailPacking">0</span>
-                </div>
-                <div class="fb-sub-item">
-                  <span class="fb-sub-lbl">Trạm Kho TP:</span>
-                  <span class="fb-sub-val" id="fbDetailWarehouse">0</span>
-                </div>
-              </div>
-
-              <div class="fb-actual-summary-box">
-                <div class="fb-as-title">Công thức tồn thực tế:</div>
-                <div class="fb-as-eq">QC + Phối đôi + Đóng gói + Kho TP</div>
-              </div>
-
-              <div class="fb-card-footer footer-teal">
-                <span class="fb-cf-lbl">= TỒN THỰC TẾ (VẾ 2)</span>
-                <span class="fb-cf-val font-black" id="fbVe2Result">0</span>
-              </div>
-
+          <!-- 1 Ô DUY NHẤT: HIỂN THỊ ĐỦ HAY LỆCH HAY DƯ BAO NHIÊU -->
+          <div class="fb-single-result-card is-pending" id="fbSingleResultBox">
+            <div class="fb-sr-icon" id="fbResIcon">⏳</div>
+            <div class="fb-sr-body">
+              <div class="fb-sr-badge" id="fbResBadge">CHỜ NHẬP THÀNH PHẨM HÔM NAY</div>
+              <div class="fb-sr-message" id="fbResMessage">Vui lòng nhập Thành phẩm hôm nay vào ô màu vàng ở trên để kiểm tra đối chiếu.</div>
             </div>
           </div>
 
         </div>
-
-        <!-- Comparison / Balance Summary Box -->
-        <div class="fb-diff-box" id="fbDiffBox">
-          <div class="fb-diff-text" id="fbDiffText">Đang tải số liệu cân đối...</div>
-        </div>
-
       </div>
 
       <div class="modal-footer fb-modal-footer">
-        <button type="button" class="btn btn-outline" id="btnRefreshFactoryBalance">🔄 Làm Mới</button>
+        <button type="button" class="btn btn-outline" id="btnRefreshFactoryBalance">🔄 Tính Lại Từ Đầu</button>
         <button type="button" class="btn btn-primary" id="btnCloseFactoryBalanceModalBtn">Đóng</button>
       </div>
     </div>
   </div>
 
-  <script src="app.js?v=20261010_1435"></script>
+  <script src="app.js?v=20261010_1500"></script>
 </body>
 </html>
