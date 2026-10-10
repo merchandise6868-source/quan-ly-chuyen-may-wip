@@ -4190,6 +4190,9 @@ async function openFactoryBalanceModal() {
   const modal = document.getElementById("modalFactoryBalance");
   if (!modal) return;
   modal.style.display = "flex";
+  modal.style.opacity = "1";
+  modal.style.pointerEvents = "auto";
+  modal.classList.add("show");
 
   const targetDate = appState.currentDate || getLocalDateString();
   const dateInput = document.getElementById("fbReportDate");
@@ -4202,8 +4205,16 @@ async function openFactoryBalanceModal() {
 
 function closeFactoryBalanceModal() {
   const modal = document.getElementById("modalFactoryBalance");
-  if (modal) modal.style.display = "none";
+  if (!modal) return;
+  modal.style.display = "none";
+  modal.style.opacity = "0";
+  modal.style.pointerEvents = "none";
+  modal.classList.remove("show");
 }
+
+// Ensure global accessibility for onclick triggers
+window.openFactoryBalanceModal = openFactoryBalanceModal;
+window.closeFactoryBalanceModal = closeFactoryBalanceModal;
 
 async function loadFactoryBalanceData(dateStr) {
   const date = dateStr || (document.getElementById("fbReportDate") ? document.getElementById("fbReportDate").value : appState.currentDate);

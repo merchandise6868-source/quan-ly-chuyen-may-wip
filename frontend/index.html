@@ -22,7 +22,7 @@
   <link rel="apple-touch-icon" sizes="192x192" href="icon-192.png">
   <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png">
 
-  <link rel="stylesheet" href="styles.css?v=20261010_1310">
+  <link rel="stylesheet" href="styles.css?v=20261010_1435">
   
   <!-- cdn for sheetjs (xlsx) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -203,8 +203,8 @@
           <button type="button" class="btn btn-warning" id="btnToolbarSweepTail" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff; font-weight: 700; border: none;" title="Vét số lượng Chuẩn Bị còn nợ vào Lô riêng biệt">
             ⚡ Vét Lô Số Đuôi
           </button>
-          <button type="button" class="btn btn-info font-bold" id="btnOpenGlobalBalanceDesktop" style="background: linear-gradient(135deg, #4f46e5, #4338ca); color: #fff; font-weight: 800; border: none; box-shadow: 0 2px 4px rgba(79, 70, 229, 0.3);" title="Mở Popup kiểm tra cân đối toàn bộ nhà máy">
-            ⚖️ Cân Đối Toàn Nhà Máy
+          <button type="button" class="btn btn-info font-bold" id="btnOpenGlobalBalanceDesktop" onclick="openFactoryBalanceModal()" style="background: linear-gradient(135deg, #4f46e5, #4338ca); color: #fff; font-weight: 800; border: none; box-shadow: 0 2px 4px rgba(79, 70, 229, 0.3); cursor: pointer;" title="Mở Popup kiểm tra cân đối toàn bộ nhà máy">
+            ⚖️ Kiểm tra
           </button>
           <button class="btn btn-outline" id="btnRefresh">
             🔄 Tải Lại Dữ Liệu
@@ -235,9 +235,9 @@
           <span class="vet-lo-text">Vét lô</span>
         </button>
 
-        <!-- Nút Cân Đối Nhanh trên Mobile -->
-        <button type="button" class="btn-mobile-balance-fast" id="btnOpenGlobalBalanceMobile" title="Kiểm tra cân đối toàn nhà máy">
-          ⚖️ Cân đối
+        <!-- Nút Kiểm Tra Nhanh trên Mobile -->
+        <button type="button" class="btn-mobile-balance-fast" id="btnOpenGlobalBalanceMobile" onclick="openFactoryBalanceModal()" title="Mở popup kiểm tra toàn nhà máy">
+          ⚖️ Kiểm tra
         </button>
 
         <!-- Cụm chọn ngày -->
@@ -255,8 +255,8 @@
         <div class="mobile-more-cluster">
           <button type="button" class="btn-mobile-more" id="btnMobileMore" title="Tùy chọn tác vụ">···</button>
           <div class="more-popover-menu" id="morePopoverMenu" style="display: none;">
-            <button type="button" class="popover-item" id="btnMoreBalance">
-              <span class="p-icon">⚖️</span> Cân đối toàn nhà máy
+            <button type="button" class="popover-item" id="btnMoreBalance" onclick="openFactoryBalanceModal()">
+              <span class="p-icon">⚖️</span> Kiểm tra cân đối
             </button>
             <button type="button" class="popover-item" id="btnMoreRefresh">
               <span class="p-icon">🔄</span> Tải lại dữ liệu
@@ -987,6 +987,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261010_1430"></script>
+  <script src="app.js?v=20261010_1435"></script>
 </body>
 </html>

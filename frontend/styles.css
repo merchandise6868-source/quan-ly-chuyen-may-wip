@@ -5347,6 +5347,16 @@ input[type=number] {
 /* ========================================================
    MODAL: KIỂM TRA CÂN ĐỐI TOÀN NHÀ MÁY (HÌNH 2 MOCKUP)
    ======================================================== */
+#modalFactoryBalance.modal-overlay {
+  z-index: 99999 !important;
+}
+
+#modalFactoryBalance.show {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  display: flex !important;
+}
+
 .modal-factory-balance-card {
   max-width: 760px !important;
   width: 95% !important;
