@@ -3950,9 +3950,9 @@ input[type=number] {
   font-size: 13.5px !important;
   font-weight: 800 !important;
   outline: none !important;
-  background: #fef08a !important;
-  border: 1.5px solid #eab308 !important;
-  color: #713f12 !important;
+  background: #ffffff !important;
+  border: 1.5px solid #10b981 !important;
+  color: #065f46 !important;
   transition: all 0.2s ease !important;
 }
 
@@ -4867,9 +4867,9 @@ input[type=number] {
     font-size: 12px !important;
     padding: 1px 4px !important;
     width: 50px !important;
-    background: #fef08a !important;
-    border: 1.5px solid #eab308 !important;
-    color: #713f12 !important;
+    background: #ffffff !important;
+    border: 1.5px solid #10b981 !important;
+    color: #065f46 !important;
     font-weight: 800 !important;
   }
 
@@ -4891,9 +4891,9 @@ input[type=number] {
     font-size: 12px !important;
     padding: 1px 4px !important;
     width: 48px !important;
-    background: #fef08a !important;
-    border: 1.5px solid #eab308 !important;
-    color: #713f12 !important;
+    background: #ffffff !important;
+    border: 1.5px solid #10b981 !important;
+    color: #065f46 !important;
     font-weight: 800 !important;
   }
 
