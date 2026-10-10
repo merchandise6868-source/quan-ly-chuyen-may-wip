@@ -4332,8 +4332,9 @@ function recalculateFactoryBalanceModal() {
   const ve2 = tonHomNay;
   const diff = ve1 - ve2;
 
-  const elVe1 = document.getElementById("fbVe1Result");
-  if (elVe1) elVe1.innerText = (tpVal !== null ? ve1 : (tonHomQua - xuatHomNay)).toLocaleString("vi-VN");
+  // Cập nhật ô thứ 4: Tồn hôm nay (tổng 4 trạm: QC + Phối đôi + Đóng gói + Kho TP của tất cả PO)
+  const elTonNay = document.getElementById("fbTonHomNay") || document.getElementById("fbVe2Result");
+  if (elTonNay) elTonNay.innerText = tonHomNay.toLocaleString("vi-VN");
 
   const singleBox = document.getElementById("fbSingleResultBox") || document.getElementById("fbDiffBox");
   const resIcon = document.getElementById("fbResIcon");
@@ -4345,7 +4346,7 @@ function recalculateFactoryBalanceModal() {
     if (singleBox) singleBox.className = "fb-single-result-card is-pending";
     if (resIcon) resIcon.innerText = "⏳";
     if (resBadge) resBadge.innerText = "CHỜ NHẬP THÀNH PHẨM HÔM NAY";
-    if (resMessage) resMessage.innerHTML = "Vui lòng nhập <strong>Thành phẩm hôm nay</strong> vào ô màu vàng ở trên để kiểm tra đối chiếu.";
+    if (resMessage) resMessage.innerHTML = `Vui lòng nhập <strong>Thành phẩm hôm nay</strong> vào ô màu vàng ở trên để đối chiếu với Tồn hôm nay (4 trạm: <strong>${tonHomNay.toLocaleString("vi-VN")} đôi</strong>).`;
     if (statusBadge) {
       statusBadge.className = "fb-status-badge badge-pending";
       statusBadge.innerText = "⏳ Chờ nhập TP";
@@ -4354,7 +4355,7 @@ function recalculateFactoryBalanceModal() {
     if (singleBox) singleBox.className = "fb-single-result-card is-balanced";
     if (resIcon) resIcon.innerText = "✅";
     if (resBadge) resBadge.innerText = "ĐỦ (CÂN ĐỐI 0 ĐÔI)";
-    if (resMessage) resMessage.innerHTML = `🎉 <strong>KHỚP HOÀN TOÀN:</strong> Tồn lý thuyết (<strong>${ve1.toLocaleString("vi-VN")} đôi</strong>) = Tồn hôm nay (<strong>${ve2.toLocaleString("vi-VN")} đôi</strong>). Toàn bộ số liệu toàn nhà máy đã cân đối!`;
+    if (resMessage) resMessage.innerHTML = `🎉 <strong>HỆ THỐNG CÂN ĐỐI TUYỆT ĐỐI (0 ĐÔI):</strong><br>Vế tính luân chuyển [Tồn qua (${tonHomQua.toLocaleString("vi-VN")}) + TP (${tpVal.toLocaleString("vi-VN")}) - Xuất (${xuatHomNay.toLocaleString("vi-VN")})] = <strong>${ve1.toLocaleString("vi-VN")} đôi</strong>, KHỚP HOÀN TOÀN với Tồn hôm nay (4 trạm: <strong>${ve2.toLocaleString("vi-VN")} đôi</strong>)!`;
     if (statusBadge) {
       statusBadge.className = "fb-status-badge badge-balanced";
       statusBadge.innerText = "✅ Cân đối (0 đôi)";
@@ -4363,7 +4364,7 @@ function recalculateFactoryBalanceModal() {
     if (singleBox) singleBox.className = "fb-single-result-card is-short";
     if (resIcon) resIcon.innerText = "⚠️";
     if (resBadge) resBadge.innerText = `THIẾU ${diff.toLocaleString("vi-VN")} ĐÔI`;
-    if (resMessage) resMessage.innerHTML = `⚠️ <strong>THIẾU HỤT:</strong> Tồn lý thuyết là <strong>${ve1.toLocaleString("vi-VN")} đôi</strong> nhưng tồn hôm nay chỉ có <strong>${ve2.toLocaleString("vi-VN")} đôi</strong> (Lệch thiếu <strong>${diff.toLocaleString("vi-VN")} đôi</strong>). Vui lòng rà soát lại số kiểm kê các trạm hoặc số lượng xuất.`;
+    if (resMessage) resMessage.innerHTML = `⚠️ <strong>THIẾU HỤT ${diff.toLocaleString("vi-VN")} ĐÔI:</strong><br>Vế tính luân chuyển [Tồn qua + TP - Xuất] là <strong>${ve1.toLocaleString("vi-VN")} đôi</strong>, nhưng Tồn hôm nay (4 trạm) chỉ có <strong>${ve2.toLocaleString("vi-VN")} đôi</strong> (Lệch thiếu ${diff.toLocaleString("vi-VN")} đôi).`;
     if (statusBadge) {
       statusBadge.className = "fb-status-badge badge-unbalanced";
       statusBadge.innerText = `⚠️ Thiếu ${diff.toLocaleString("vi-VN")} đôi`;
@@ -4373,7 +4374,7 @@ function recalculateFactoryBalanceModal() {
     if (singleBox) singleBox.className = "fb-single-result-card is-surplus";
     if (resIcon) resIcon.innerText = "ℹ️";
     if (resBadge) resBadge.innerText = `DƯ ${absDiff.toLocaleString("vi-VN")} ĐÔI`;
-    if (resMessage) resMessage.innerHTML = `ℹ️ <strong>DƯ THỪA:</strong> Tồn lý thuyết là <strong>${ve1.toLocaleString("vi-VN")} đôi</strong> nhưng tồn hôm nay ghi nhận <strong>${ve2.toLocaleString("vi-VN")} đôi</strong> (Lệch dư <strong>${absDiff.toLocaleString("vi-VN")} đôi</strong>). Vui lòng kiểm tra lại kiểm kê các trạm.`;
+    if (resMessage) resMessage.innerHTML = `ℹ️ <strong>DƯ THỪA ${absDiff.toLocaleString("vi-VN")} ĐÔI:</strong><br>Vế tính luân chuyển [Tồn qua + TP - Xuất] là <strong>${ve1.toLocaleString("vi-VN")} đôi</strong>, nhưng Tồn hôm nay (4 trạm) ghi nhận <strong>${ve2.toLocaleString("vi-VN")} đôi</strong> (Lệch thừa ${absDiff.toLocaleString("vi-VN")} đôi).`;
     if (statusBadge) {
       statusBadge.className = "fb-status-badge badge-unbalanced";
       statusBadge.innerText = `ℹ️ Dư ${absDiff.toLocaleString("vi-VN")} đôi`;
