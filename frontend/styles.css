@@ -3740,26 +3740,31 @@ input[type=number] {
   line-height: 1.2 !important;
 }
 
-.card-yellow {
-  background: #fffbeb !important;
-  border: 1.5px solid #fef08a !important;
+.card-blue-soft {
+  background: #f0f7ff !important;
+  border: 1.5px solid #dbeafe !important;
+  box-shadow: 0 1px 3px rgba(2, 132, 199, 0.05) !important;
 }
-.card-yellow .eq-hdr { color: #92400e !important; }
-.font-amber { color: #b45309 !important; }
 
-.card-cyan {
-  background: #ecfeff !important;
-  border: 1.5px solid #a5f3fc !important;
+.text-blue-navy {
+  color: #1e3a8a !important;
+  font-weight: 800 !important;
 }
-.card-cyan .eq-hdr { color: #0e7490 !important; }
-.font-cyan { color: #0891b2 !important; }
 
-.card-rose {
-  background: #fff1f2 !important;
-  border: 1.5px solid #fecdd3 !important;
+.text-blue-vivid {
+  color: #1d4ed8 !important;
 }
-.card-rose .eq-hdr { color: #be123c !important; }
-.font-rose { color: #e11d48 !important; }
+
+.card-amber-soft {
+  background: #fffdf5 !important;
+  border: 1.5px solid #fef3c7 !important;
+  box-shadow: 0 1px 3px rgba(217, 119, 6, 0.05) !important;
+}
+
+.text-amber-dark {
+  color: #92400e !important;
+  font-weight: 900 !important;
+}
 
 .h1-eq-op {
   font-size: 16px !important;
@@ -5214,10 +5219,10 @@ input[type=number] {
 .input-station-green,
 .input-reason-green {
   background: #ffffff !important;
-  border: 1.5px solid #10b981 !important;
-  color: #065f46 !important;
+  border: 1.5px solid #86efac !important;
+  color: #166534 !important;
   font-weight: 800 !important;
-  border-radius: 6px !important;
+  border-radius: 8px !important;
   text-align: center !important;
   transition: all 0.2s ease !important;
 }
@@ -5225,8 +5230,102 @@ input[type=number] {
 .input-station-green:focus,
 .input-reason-green:focus {
   background: #f0fdf4 !important;
-  border-color: #059669 !important;
-  box-shadow: 0 0 0 2.5px rgba(16, 185, 129, 0.35) !important;
+  border-color: #22c55e !important;
+  box-shadow: 0 0 0 2.5px rgba(34, 197, 94, 0.25) !important;
+}
+
+/* Soft clean panel styling per latest image */
+.card-soft-panel {
+  background: #ffffff !important;
+  border: 1px solid #e0e7ff !important;
+  border-radius: 12px !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+}
+
+.hdr-clean-blue {
+  background: #ffffff !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+  padding: 8px 12px !important;
+  text-align: left !important;
+}
+
+.text-navy-title {
+  color: #1e3a8a !important;
+  font-weight: 800 !important;
+  font-size: 13.5px !important;
+}
+
+.text-slate-sub {
+  color: #64748b !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+}
+
+.badge-clean-num {
+  background: #f1f5f9 !important;
+  color: #475569 !important;
+  border: 1px solid #e2e8f0 !important;
+  font-weight: 700 !important;
+}
+
+.footer-clean-blue {
+  background: #f8fafc !important;
+  border-top: 1px solid #f1f5f9 !important;
+  padding: 8px 12px !important;
+}
+
+.rs-note-lbl {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+
+.input-note-green {
+  background: #ffffff !important;
+  border: 1.5px solid #86efac !important;
+  border-radius: 8px !important;
+  color: #334155 !important;
+  padding: 6px 10px !important;
+  font-size: 12px !important;
+}
+
+.input-note-green:focus {
+  border-color: #22c55e !important;
+  box-shadow: 0 0 0 2.5px rgba(34, 197, 94, 0.25) !important;
+  background: #f0fdf4 !important;
+}
+
+.h1-executor-clean-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 4px;
+}
+
+.input-executor-green {
+  flex: 1;
+  background: #ffffff !important;
+  border: 1.5px solid #86efac !important;
+  border-radius: 8px !important;
+  padding: 6px 12px !important;
+  font-size: 13px !important;
+  color: #334155 !important;
+}
+
+.input-executor-green:focus {
+  border-color: #22c55e !important;
+  box-shadow: 0 0 0 2.5px rgba(34, 197, 94, 0.25) !important;
+  background: #f0fdf4 !important;
+}
+
+.banner-amber {
+  background: #fffdf0 !important;
+  border: 1px solid #fef3c7 !important;
+  color: #92400e !important;
+  border-radius: 10px !important;
+  padding: 8px 12px !important;
+  font-size: 12.5px !important;
 }
 
 .btn-mobile-balance-fast {

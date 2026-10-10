@@ -1102,32 +1102,32 @@ function renderReportUI() {
             </div>
           </div>
 
-          <!-- 3 EQUATION METRIC CARDS -->
+          <!-- 3 EQUATION METRIC CARDS CHUẨN TONE MÀU HÌNH MỚI -->
           <div class="h1-equation-row">
-            <!-- Card 1: TỒN LÝ THUYẾT -->
-            <div class="h1-eq-card card-yellow">
-              <div class="eq-hdr">TỒN LÝ THUYẾT</div>
-              <div class="eq-sub">Nhập – Xuất</div>
-              <div class="eq-val font-amber font-black" id="calcTheoWip_${idx}">${tonLyThuyet.toLocaleString("vi-VN")}</div>
+            <!-- Card 1: TỒN LÝ THUYẾT (Nền xanh nhạt, chữ xanh đậm) -->
+            <div class="h1-eq-card card-blue-soft">
+              <div class="eq-hdr text-blue-navy">Tồn lý thuyết</div>
+              <div class="eq-sub">Nhập − Xuất</div>
+              <div class="eq-val text-blue-vivid font-black" id="calcTheoWip_${idx}">${tonLyThuyet.toLocaleString("vi-VN")}</div>
             </div>
 
-            <div class="h1-eq-op">−</div>
+            <div class="h1-eq-op font-bold text-slate-400">−</div>
 
-            <!-- Card 2: TỒN THỰC TẾ -->
-            <div class="h1-eq-card card-cyan">
-              <div class="eq-hdr">TỒN THỰC TẾ</div>
+            <!-- Card 2: TỒN THỰC TẾ (Nền xanh nhạt giống Card 1, chữ xanh đậm) -->
+            <div class="h1-eq-card card-blue-soft">
+              <div class="eq-hdr text-blue-navy">Tồn thực tế</div>
               <div class="eq-sub">Kiểm kê 5 trạm</div>
-              <div class="eq-val font-cyan font-black" id="calcActualWip_${idx}">${actualWip.toLocaleString("vi-VN")}</div>
+              <div class="eq-val text-blue-vivid font-black" id="calcActualWip_${idx}">${actualWip.toLocaleString("vi-VN")}</div>
             </div>
 
-            <div class="h1-eq-op">=</div>
+            <div class="h1-eq-op font-bold text-slate-400">=</div>
 
-            <!-- Card 3: THIẾU / LỆCH -->
-            <div class="h1-eq-card card-rose">
-              <div class="eq-hdr">THIẾU / LỆCH</div>
-              <div class="eq-sub">LT – TT</div>
-              <div class="eq-val font-rose font-black" id="calcShortage_${idx}">
-                ${shortage === 0 ? '<span class="status-ok">0 (OK)</span>' : (shortage > 0 ? ('<span class="status-shortage">-' + Math.abs(shortage).toLocaleString("vi-VN") + '</span>') : ('<span class="status-surplus">+' + Math.abs(shortage).toLocaleString("vi-VN") + '</span>'))}
+            <!-- Card 3: CHÊNH LỆCH (Nền vàng be, viền cam nhạt, chữ nâu cam) -->
+            <div class="h1-eq-card card-amber-soft">
+              <div class="eq-hdr text-amber-dark">Chênh lệch</div>
+              <div class="eq-sub">LT − TT</div>
+              <div class="eq-val text-amber-dark font-black" id="calcShortage_${idx}">
+                ${shortage === 0 ? '<span class="status-ok">0</span>' : (shortage > 0 ? ('<span class="status-shortage">-' + Math.abs(shortage).toLocaleString("vi-VN") + '</span>') : ('<span class="status-surplus">+' + Math.abs(shortage).toLocaleString("vi-VN") + '</span>'))}
               </div>
             </div>
           </div>
@@ -1155,21 +1155,21 @@ function renderReportUI() {
           </div>
         </div>
 
-        <!-- 6. TWO-COLUMN SPLIT BOXES -->
+        <!-- 6. TWO-COLUMN SPLIT BOXES CHUẨN THEO ẢNH NGƯỜI DÙNG DUYỆT -->
         <div class="h1-split-grid">
-          <!-- LEFT BOX: KIỂM KÊ TỒN THỰC TẾ (5 TRẠM) -->
-          <div class="h1-box h1-box-left">
-            <div class="h1-box-hdr bg-teal">
+          <!-- LEFT BOX: KIỂM KÊ THỰC TẾ (5 TRẠM) -->
+          <div class="h1-box h1-box-left card-soft-panel">
+            <div class="h1-box-hdr hdr-clean-blue">
               <div class="box-hdr-text">
-                <div class="box-title">KIỂM KÊ TỒN THỰC TẾ</div>
-                <div class="box-sub">${batch.batch_name} - SL tại từng trạm (nhập trực tiếp)</div>
+                <div class="box-title text-navy-title">Kiểm kê thực tế</div>
+                <div class="box-sub text-slate-sub">${batch.batch_name} · SL tại từng trạm</div>
               </div>
             </div>
             <div class="h1-station-list">
               <!-- 1. Đang sản xuất -->
               <div class="h1-station-row is-direct-input">
                 <div class="st-tag-name">
-                  <span class="st-badge badge-yellow">1</span>
+                  <span class="st-badge badge-clean-num">1</span>
                   <span class="st-text">Đang sản xuất</span>
                 </div>
                 <div class="st-val-wrap">
@@ -1179,7 +1179,7 @@ function renderReportUI() {
               <!-- 2. Tồn kiểm QC -->
               <div class="h1-station-row is-direct-input">
                 <div class="st-tag-name">
-                  <span class="st-badge badge-gray">2</span>
+                  <span class="st-badge badge-clean-num">2</span>
                   <span class="st-text">Tồn kiểm QC</span>
                 </div>
                 <div class="st-val-wrap">
@@ -1189,7 +1189,7 @@ function renderReportUI() {
               <!-- 3. Tồn phối đôi -->
               <div class="h1-station-row is-direct-input">
                 <div class="st-tag-name">
-                  <span class="st-badge badge-orange">3</span>
+                  <span class="st-badge badge-clean-num">3</span>
                   <span class="st-text">Tồn phối đôi</span>
                 </div>
                 <div class="st-val-wrap">
@@ -1199,7 +1199,7 @@ function renderReportUI() {
               <!-- 4. Tồn đóng gói -->
               <div class="h1-station-row is-direct-input">
                 <div class="st-tag-name">
-                  <span class="st-badge badge-slate">4</span>
+                  <span class="st-badge badge-clean-num">4</span>
                   <span class="st-text">Tồn đóng gói</span>
                 </div>
                 <div class="st-val-wrap">
@@ -1209,7 +1209,7 @@ function renderReportUI() {
               <!-- 5. Tồn kho TP -->
               <div class="h1-station-row is-direct-input">
                 <div class="st-tag-name">
-                  <span class="st-badge badge-green">5</span>
+                  <span class="st-badge badge-clean-num">5</span>
                   <span class="st-text">Tồn kho TP</span>
                 </div>
                 <div class="st-val-wrap">
@@ -1217,73 +1217,77 @@ function renderReportUI() {
                 </div>
               </div>
             </div>
-            <!-- Footer: Tổng tồn thực tế -->
-            <div class="h1-box-footer footer-teal">
-              <span class="ft-lbl">Σ Tồn thực tế</span>
-              <span class="ft-val text-cyan font-black" id="calcWipSum_${idx}">${actualWip.toLocaleString("vi-VN")}</span>
+            <!-- Footer: Tổng thực tế -->
+            <div class="h1-box-footer footer-clean-blue">
+              <span class="ft-lbl text-navy-title">Tổng thực tế</span>
+              <span class="ft-val text-blue-vivid font-black" id="calcWipSum_${idx}">${actualWip.toLocaleString("vi-VN")}</span>
             </div>
           </div>
 
-          <!-- RIGHT BOX: NGUYÊN NHÂN THIẾU / LỆCH -->
-          <div class="h1-box h1-box-right">
-            <div class="h1-box-hdr bg-burgundy">
-              <div class="box-title">NGUYÊN NHÂN</div>
-              <div class="box-sub">Thiếu / lệch (SL)</div>
+          <!-- RIGHT BOX: NGUYÊN NHÂN CHÊNH LỆCH -->
+          <div class="h1-box h1-box-right card-soft-panel">
+            <div class="h1-box-hdr hdr-clean-blue">
+              <div class="box-hdr-text">
+                <div class="box-title text-navy-title">Nguyên nhân chênh lệch</div>
+                <div class="box-sub text-slate-sub">Nhập số lượng (đôi)</div>
+              </div>
             </div>
             <div class="h1-reason-list">
               <!-- 1. Mất xác -->
               <div class="h1-reason-row is-direct-input">
                 <div class="rs-label-wrap">
-                  <span class="rs-title text-rose">1. Mất xác</span>
+                  <span class="rs-title font-bold text-slate-800">Mất xác</span>
                 </div>
                 <div class="rs-input-wrap">
-                  <input type="number" class="wip-num-input field-shortage-matxac grid-nav-input inp-rose input-reason-green" data-batch="${idx}" data-row="0" data-col="5" value="${batch.shortage_mat_xac || ''}" placeholder="0" data-idx="${idx}">
+                  <input type="number" class="wip-num-input field-shortage-matxac grid-nav-input input-reason-green" data-batch="${idx}" data-row="0" data-col="5" value="${batch.shortage_mat_xac || ''}" placeholder="0" data-idx="${idx}">
                 </div>
               </div>
               <!-- 2. Hàng phế -->
               <div class="h1-reason-row is-direct-input">
                 <div class="rs-label-wrap">
-                  <span class="rs-title text-amber">2. Hàng phế</span>
+                  <span class="rs-title font-bold text-slate-800">Hàng phế</span>
                 </div>
                 <div class="rs-input-wrap">
-                  <input type="number" class="wip-num-input field-shortage-hangphe grid-nav-input inp-amber input-reason-green" data-batch="${idx}" data-row="0" data-col="6" value="${batch.shortage_hang_phe || ''}" placeholder="0" data-idx="${idx}">
+                  <input type="number" class="wip-num-input field-shortage-hangphe grid-nav-input input-reason-green" data-batch="${idx}" data-row="0" data-col="6" value="${batch.shortage_hang_phe || ''}" placeholder="0" data-idx="${idx}">
                 </div>
               </div>
               <!-- 3. Khác -->
               <div class="h1-reason-row is-direct-input">
                 <div class="rs-label-wrap">
-                  <span class="rs-title text-purple">3. Khác</span>
+                  <span class="rs-title font-bold text-slate-800">Khác</span>
                 </div>
                 <div class="rs-input-wrap">
-                  <input type="number" class="wip-num-input field-shortage-khac grid-nav-input inp-purple input-reason-green" data-batch="${idx}" data-row="0" data-col="7" value="${batch.shortage_khac || ''}" placeholder="0" data-idx="${idx}">
+                  <input type="number" class="wip-num-input field-shortage-khac grid-nav-input input-reason-green" data-batch="${idx}" data-row="0" data-col="7" value="${batch.shortage_khac || ''}" placeholder="0" data-idx="${idx}">
                 </div>
               </div>
               <!-- Ghi chú lý do khác -->
               <div class="h1-reason-note-row">
-                <input type="text" class="th-khac-note-input field-shortage-note grid-nav-input" data-batch="${idx}" data-row="0" data-col="8" value="${batch.shortage_note || ''}" placeholder="✍️ Ghi chú lý do..." data-idx="${idx}">
+                <div class="rs-note-lbl">Ghi chú lý do (nếu có)</div>
+                <input type="text" class="th-khac-note-input field-shortage-note grid-nav-input input-note-green" data-batch="${idx}" data-row="0" data-col="8" value="${batch.shortage_note || ''}" placeholder="Ví dụ: hàng rơi ở trạm 3..." data-idx="${idx}">
               </div>
             </div>
-            <!-- Footer: Đã giải thích -->
-            <div class="h1-box-footer footer-burgundy">
-              <span class="ft-lbl">Σ Đã giải thích</span>
-              <span class="ft-val text-rose font-black" id="calcExplainSum_${idx}">${totalExplained.toLocaleString("vi-VN")}</span>
+            <!-- Footer: Tổng đã giải thích -->
+            <div class="h1-box-footer footer-clean-blue">
+              <span class="ft-lbl text-navy-title">Tổng đã giải thích</span>
+              <span class="ft-val text-slate-800 font-black" id="calcExplainSum_${idx}">${totalExplained.toLocaleString("vi-VN")}</span>
             </div>
           </div>
         </div>
 
-        <!-- 7. STATUS BANNER -->
+        <!-- 7. STATUS BANNER (TONE VÀNG NHẠT CHUẨN ẢNH) -->
         <div class="h1-status-banner-wrap" id="calcStatusBanner_${idx}">
           ${shortage === 0 
-            ? '<div class="h1-status-banner banner-ok">✔ Không có lệch – không cần phân tích</div>' 
+            ? '<div class="h1-status-banner banner-ok font-bold">✔ Khớp số liệu hoàn toàn – không có chênh lệch</div>' 
             : (shortage > 0 
-                ? ('<div class="h1-status-banner banner-shortage">⚠️ Thiếu -' + Math.abs(shortage).toLocaleString("vi-VN") + ' đôi – vui lòng phân tích nguyên nhân bên trên</div>') 
-                : ('<div class="h1-status-banner banner-surplus">ℹ️ Thừa +' + Math.abs(shortage).toLocaleString("vi-VN") + ' đôi – kiểm tra lại số đếm thực tế</div>'))}
+                ? ('<div class="h1-status-banner banner-amber font-bold">ℹ️ Còn chênh <strong>' + Math.abs(shortage).toLocaleString("vi-VN") + ' đôi</strong> chưa giải thích – nhập nguyên nhân ở cột bên phải.</div>') 
+                : ('<div class="h1-status-banner banner-amber font-bold">ℹ️ Thừa +' + Math.abs(shortage).toLocaleString("vi-VN") + ' đôi – kiểm tra lại số đếm thực tế</div>'))}
         </div>
 
-        <!-- 8. BOTTOM ACTION BAR: EXECUTOR INPUT -->
+        <!-- 8. BOTTOM ACTION BAR: EXECUTOR INPUT (VIỀN XANH LÁ) -->
         <div class="h1-bottom-bar">
-          <div class="h1-executor-wrap" style="width: 100%;">
-            <input type="text" class="wip-executor-input field-note-sewing grid-nav-input" data-batch="${idx}" data-row="2" data-col="0" value="${batch.note_sewing || ''}" placeholder="👤 Người kiểm kê: (nhập tên...)" data-idx="${idx}">
+          <div class="h1-executor-clean-row">
+            <span class="ex-lbl font-bold text-slate-700">Người kiểm kê</span>
+            <input type="text" class="wip-executor-input field-note-sewing grid-nav-input input-executor-green" data-batch="${idx}" data-row="2" data-col="0" value="${batch.note_sewing || ''}" placeholder="Nhập tên" data-idx="${idx}">
           </div>
         </div>
 
