@@ -1062,7 +1062,7 @@ function renderReportUI() {
                   <td class="cell-label">
                     <span class="main-lbl">Tổng</span>
                   </td>
-                  <td class="cell-val-bold text-center" id="calcTonDauNgay_${idx}">${(Math.max(0, prevIn - prevOut)).toLocaleString("vi-VN")}</td>
+                  <td class="cell-dash text-center" id="calcTonDauNgay_${idx}">--</td>
                   <td class="cell-total-val text-center text-blue">
                     <span class="val-num font-black text-sky-800" id="calcIntoSewing_${idx}">${cumIn.toLocaleString("vi-VN")}</span>
                   </td>
@@ -1390,7 +1390,7 @@ function recalculateAllInPlace() {
     }
 
     const elTonDau = document.getElementById(`calcTonDauNgay_${idx}`);
-    if (elTonDau) elTonDau.innerText = Math.max(0, prevIn - prevOut).toLocaleString("vi-VN");
+    if (elTonDau) elTonDau.innerText = "--";
   });
 
   const prepDebt = Math.max(0, poPlan - totalReceived);
