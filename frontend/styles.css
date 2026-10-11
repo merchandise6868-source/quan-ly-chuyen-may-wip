@@ -5733,3 +5733,184 @@ input[type=number] {
   }
 }
 
+/* ========================================================
+   THEME MỚI ĐỒNG BỘ CHO TẤT CẢ CÁC LÔ (MOCKUP PINK & NAVY)
+   ======================================================== */
+
+/* Batch card container & card */
+.h1-batch-card {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 14px !important;
+  box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.04) !important;
+  padding: 14px 16px !important;
+  width: 100% !important;
+  max-width: 440px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+  box-sizing: border-box !important;
+}
+
+/* Badge Lô góc phải trên */
+.h1-batch-badge {
+  background: #1e3a5f !important;
+  color: #ffffff !important;
+  border-radius: 6px !important;
+  padding: 5px 14px !important;
+  text-align: center !important;
+  box-shadow: 0 2px 6px rgba(30, 58, 95, 0.25) !important;
+}
+
+.h1-batch-badge .b-name {
+  font-size: 15px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.2px !important;
+  line-height: 1.2 !important;
+  color: #ffffff !important;
+}
+
+.h1-batch-badge .b-plan {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: #93c5fd !important;
+  margin-top: 1px !important;
+}
+
+/* Bảng Section 1: Nhập - Xuất 3 cột */
+.h1-table-nx-3col {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  table-layout: fixed !important;
+}
+
+.h1-table-nx-3col thead tr {
+  background: #f0f4f8 !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+.h1-table-nx-3col th {
+  padding: 7px 6px !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  color: #475569 !important;
+}
+
+.h1-table-nx-3col td {
+  padding: 6px 6px !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+  vertical-align: middle !important;
+}
+
+.h1-table-nx-3col .cell-sub-note {
+  font-size: 11px !important;
+  font-style: italic !important;
+  color: #94a3b8 !important;
+  padding: 4px 8px !important;
+  background: #fafafa !important;
+}
+
+/* Tất cả các ô nhập số màu hồng viền hồng chữ xanh đậm */
+.h1-pink-input,
+input.h1-pink-input,
+.st-val-wrap input.h1-pink-input,
+.rs-input-wrap input.h1-pink-input,
+.h1-table-nx input.h1-pink-input,
+.h1-station-row input.h1-pink-input,
+.h1-reason-row input.h1-pink-input {
+  width: 66px !important;
+  height: 30px !important;
+  background: #fdf2f8 !important;
+  border: 1.5px solid #ec4899 !important;
+  border-radius: 6px !important;
+  color: #2563eb !important;
+  font-weight: 800 !important;
+  font-size: 14px !important;
+  text-align: center !important;
+  outline: none !important;
+  transition: all 0.2s ease !important;
+  box-sizing: border-box !important;
+}
+
+.h1-pink-input:focus,
+input.h1-pink-input:focus,
+.st-val-wrap input.h1-pink-input:focus,
+.rs-input-wrap input.h1-pink-input:focus,
+.h1-table-nx input.h1-pink-input:focus,
+.h1-station-row input.h1-pink-input:focus,
+.h1-reason-row input.h1-pink-input:focus {
+  background: #fdf4f9 !important;
+  border-color: #db2777 !important;
+  box-shadow: 0 0 0 2.5px rgba(236, 72, 153, 0.3) !important;
+}
+
+/* Ô nhập ghi chú lý do thiếu */
+.h1-pink-note-input,
+input.h1-pink-note-input {
+  width: 100% !important;
+  height: 28px !important;
+  background: #fff5f8 !important;
+  border: 1px dashed #f472b6 !important;
+  border-radius: 6px !important;
+  color: #334155 !important;
+  font-size: 11px !important;
+  padding: 2px 8px !important;
+  outline: none !important;
+  box-sizing: border-box !important;
+}
+
+.h1-pink-note-input:focus,
+input.h1-pink-note-input:focus {
+  border-color: #ec4899 !important;
+  box-shadow: 0 0 0 2px rgba(236, 72, 153, 0.2) !important;
+}
+
+/* Section 2: 3 Cards cùng nền xanh nhạt */
+.card-blue-soft {
+  background: #edf4fc !important;
+  border: 1px solid #dbeafe !important;
+  border-radius: 8px !important;
+  padding: 8px 6px !important;
+}
+
+.text-pink {
+  color: #db2777 !important;
+}
+
+/* Sub-panel header & footers */
+.hdr-clean-blue {
+  background: #f0f4f8 !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  padding: 6px 10px !important;
+}
+
+.footer-clean-blue {
+  background: #edf4fc !important;
+  border-top: 1px solid #dbeafe !important;
+  padding: 6px 10px !important;
+}
+
+.footer-clean-pink {
+  background: #ffffff !important;
+  border-top: 1px solid #fce7f3 !important;
+  padding: 6px 10px !important;
+}
+
+/* Mobile responsive for pink inputs */
+@media (max-width: 768px) {
+  .h1-pink-input,
+  input.h1-pink-input,
+  .st-val-wrap input.h1-pink-input,
+  .rs-input-wrap input.h1-pink-input,
+  .h1-table-nx input.h1-pink-input,
+  .h1-station-row input.h1-pink-input,
+  .h1-reason-row input.h1-pink-input {
+    width: 56px !important;
+    height: 28px !important;
+    font-size: 13px !important;
+    background: #fdf2f8 !important;
+    border: 1.5px solid #ec4899 !important;
+    color: #2563eb !important;
+  }
+}
+
