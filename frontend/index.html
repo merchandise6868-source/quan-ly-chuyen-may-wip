@@ -58,17 +58,17 @@
       <div class="login-roles-grid">
         <div class="login-role-choice-card is-admin-card" id="cardRoleAdmin" data-role="admin">
           <div class="r-icon">👑</div>
-          <div class="r-title">Sếp Tổng (Admin)</div>
-          <div class="r-desc">Toàn quyền 4 Tab & Phân quyền</div>
+          <div class="r-title">Sếp Tổng Quản Trị</div>
+          <div class="r-desc">Toàn quyền các Tab & Phân quyền</div>
         </div>
         <div class="login-role-choice-card is-manager-card" id="cardRoleManager" data-role="manager">
           <div class="r-icon">⭐</div>
-          <div class="r-title">Quản Lý (Manager)</div>
+          <div class="r-title">Quản Lý Điều Hành</div>
           <div class="r-desc">Xem toàn bộ báo cáo & tiến độ</div>
         </div>
         <div class="login-role-choice-card is-worker-card" id="cardRoleWorker" data-role="worker">
           <div class="r-icon">👤</div>
-          <div class="r-title">Công Nhân (Worker)</div>
+          <div class="r-title">Công Nhân Kiểm Kê</div>
           <div class="r-desc">Chỉ nhập liệu 2 Tab kiểm kê</div>
         </div>
       </div>
@@ -138,8 +138,8 @@
           </div>
 
           <div class="user-action-cluster">
-            <button type="button" id="btnInstallPWA" class="btn-install-pwa desktop-only-pwa" style="display: none;" title="Cài đặt ứng dụng về thiết bị">📲 Cài App</button>
-            <span class="role-badge is-admin desktop-only-role" id="currentRoleBadge">👑 Sếp Tổng Quản Trị (Admin)</span>
+            <button type="button" id="btnInstallPWA" class="btn-install-pwa desktop-only-pwa" style="display: none;" title="Cài đặt ứng dụng về thiết bị">📲 Cài Ứng Dụng</button>
+            <span class="role-badge is-admin desktop-only-role" id="currentRoleBadge">👑 Sếp Tổng Quản Trị</span>
             <button class="btn-role-switch desktop-only-btn" id="btnSwitchRole" title="Đổi quyền hoặc đăng nhập tài khoản khác">🔄 Đổi Quyền</button>
             <button class="btn-logout desktop-only-btn" id="btnLogout" title="Đăng xuất khỏi hệ thống">🚪 Đăng Xuất</button>
 
@@ -271,33 +271,40 @@
         </div>
       </div>
 
-      <!-- MOBILE KPI CARD (BÁO CÁO ĐỐI CHIẾU NHẬP XUẤT TỒN 4 DÒNG CHUẨN MOCKUP) -->
-      <div class="mobile-kpi-card">
-        <div class="mobile-kpi-title">BÁO CÁO ĐỐI CHIẾU NHẬP XUẤT TỒN</div>
-        <table class="mobile-kpi-table">
-          <tr>
-            <td class="mkpi-hdr">Ngày</td>
-            <td class="mkpi-val" id="mkpiDate">--</td>
-            <td class="mkpi-hdr mkpi-debt-hdr">Chuẩn bị còn nợ</td>
-            <td class="mkpi-val mkpi-debt-val" id="mkpiPrepDebt">0</td>
-          </tr>
-          <tr>
-            <td class="mkpi-hdr">PO</td>
-            <td class="mkpi-val mkpi-bold" id="mkpiPoNum">--</td>
-            <td class="mkpi-hdr">Tổng đơn</td>
-            <td class="mkpi-val mkpi-bold" id="mkpiTotalPlan">0</td>
-          </tr>
-          <tr>
-            <td class="mkpi-hdr">Tổng nhận</td>
-            <td class="mkpi-val mkpi-blue" id="mkpiTotalReceived">0</td>
-            <td class="mkpi-hdr">Xuất KH</td>
-            <td class="mkpi-val mkpi-blue" id="mkpiTotalDelivered">0</td>
-          </tr>
-          <tr>
-            <td class="mkpi-hdr" colspan="2">Tồn thực tế (đôi)</td>
-            <td class="mkpi-val mkpi-blue" colspan="2" id="mkpiTotalActualWip">0</td>
-          </tr>
-        </table>
+      <!-- MOBILE KPI CARD (BÁO CÁO ĐỐI CHIẾU NHẬP XUẤT TỒN THU GỌN / MỞ RỘNG BẰNG MŨI TÊN) -->
+      <div class="mobile-kpi-card" id="mobileKpiCard">
+        <div class="mobile-kpi-header-wrap" id="btnToggleMobileKpi" title="Chạm để mở rộng hoặc thu gọn bảng">
+          <div class="mobile-kpi-title">BÁO CÁO ĐỐI CHIẾU NHẬP XUẤT TỒN</div>
+          <div class="kpi-arrow-container">
+            <span class="kpi-toggle-arrow" id="kpiToggleArrow">▼</span>
+          </div>
+        </div>
+        <div class="mobile-kpi-body" id="mobileKpiBody" style="display: none;">
+          <table class="mobile-kpi-table">
+            <tr>
+              <td class="mkpi-hdr">Ngày</td>
+              <td class="mkpi-val" id="mkpiDate">--</td>
+              <td class="mkpi-hdr mkpi-debt-hdr">Chuẩn bị còn nợ</td>
+              <td class="mkpi-val mkpi-debt-val" id="mkpiPrepDebt">0</td>
+            </tr>
+            <tr>
+              <td class="mkpi-hdr">PO</td>
+              <td class="mkpi-val mkpi-bold" id="mkpiPoNum">--</td>
+              <td class="mkpi-hdr">Tổng đơn</td>
+              <td class="mkpi-val mkpi-bold" id="mkpiTotalPlan">0</td>
+            </tr>
+            <tr>
+              <td class="mkpi-hdr">Tổng nhận</td>
+              <td class="mkpi-val mkpi-blue" id="mkpiTotalReceived">0</td>
+              <td class="mkpi-hdr">Xuất KH</td>
+              <td class="mkpi-val mkpi-blue" id="mkpiTotalDelivered">0</td>
+            </tr>
+            <tr>
+              <td class="mkpi-hdr" colspan="2">Tồn thực tế (đôi)</td>
+              <td class="mkpi-val mkpi-blue" colspan="2" id="mkpiTotalActualWip">0</td>
+            </tr>
+          </table>
+        </div>
       </div>
 
       <!-- MAIN EXCEL SHEET CONTAINER -->
@@ -645,9 +652,9 @@
                 <div class="form-group" style="flex:1; min-width: 240px;">
                   <label style="font-weight: 700; color: #1e293b;">👑 Phân Quyền Vai Trò:</label>
                   <select id="userRoleSelect" class="form-control font-bold" style="border: 2px solid #0f766e;">
-                    <option value="admin">👑 Admin (Sếp Tổng - Toàn quyền tất cả 5 Tab & Phân quyền)</option>
-                    <option value="manager">⭐ Manager (Quản lý - Xem tất cả các Tab & Tiến độ)</option>
-                    <option value="worker" selected>👤 Worker (Công nhân - Chỉ xem & nhập 2 Tab kiểm kê)</option>
+                    <option value="admin">👑 Sếp Tổng (Toàn quyền tất cả các Tab & Phân quyền)</option>
+                    <option value="manager">⭐ Quản lý (Xem tất cả các Tab & Tiến độ)</option>
+                    <option value="worker" selected>👤 Công nhân (Chỉ xem & nhập 2 Tab kiểm kê)</option>
                   </select>
                 </div>
               </div>

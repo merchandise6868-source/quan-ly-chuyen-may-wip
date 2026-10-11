@@ -604,6 +604,32 @@ function bindEvents() {
     });
   }
 
+  // Toggle Mobile KPI Card (Báo Cáo Đối Chiếu Nhập Xuất Tồn thu gọn / mở rộng theo mũi tên)
+  const btnToggleKpi = document.getElementById("btnToggleMobileKpi");
+  const mobileKpiBody = document.getElementById("mobileKpiBody");
+  const kpiArrow = document.getElementById("kpiToggleArrow");
+
+  if (btnToggleKpi && mobileKpiBody) {
+    btnToggleKpi.addEventListener("click", () => {
+      const isHidden = mobileKpiBody.style.display === "none" || mobileKpiBody.classList.contains("collapsed");
+      if (isHidden) {
+        mobileKpiBody.style.display = "block";
+        mobileKpiBody.classList.remove("collapsed");
+        if (kpiArrow) {
+          kpiArrow.innerText = "▲";
+          kpiArrow.classList.add("expanded");
+        }
+      } else {
+        mobileKpiBody.style.display = "none";
+        mobileKpiBody.classList.add("collapsed");
+        if (kpiArrow) {
+          kpiArrow.innerText = "▼";
+          kpiArrow.classList.remove("expanded");
+        }
+      }
+    });
+  }
+
   // GLOBAL FACTORY BALANCE POPUP TRIGGERS & ACTIONS
   const btnFbDesktop = document.getElementById("btnOpenGlobalBalanceDesktop");
   if (btnFbDesktop) {
@@ -1002,15 +1028,17 @@ function renderReportUI() {
            ======================================================== -->
       <div class="h1-batch-card" id="batchCard_${idx}">
         
-        <!-- 1. TOP HEADER: DATE BADGE (LEFT) & BATCH BADGE (RIGHT) -->
+        <!-- 1. TOP HEADER: DATE BADGE (LEFT), PO (CENTER) & BATCH BADGE (RIGHT) -->
         <div class="h1-batch-header">
-          <div class="h1-date-badge">
+          <div class="h1-date-badge" id="batchDateBadge_${idx}" title="Chạm để chọn ngày">
             <span class="cal-icon">📅</span>
             <span class="date-txt" id="batchDateTxt_${idx}">${formatDateDisplay(appState.currentDate)}</span>
+            <input type="date" class="h1-date-hidden-input" id="batchDateInput_${idx}" value="${appState.currentDate}">
           </div>
+          <div class="h1-header-po font-bold text-navy">${poNum}</div>
           <div class="h1-batch-badge">
             <div class="b-name">${batch.batch_name}</div>
-            <div class="b-plan">KH: ${(batch.batch_plan || 0).toLocaleString("vi-VN")}</div>
+            <div class="b-plan">${(batch.batch_plan || 0).toLocaleString("vi-VN")} đôi</div>
           </div>
         </div>
 
@@ -1028,7 +1056,7 @@ function renderReportUI() {
               </colgroup>
               <thead>
                 <tr>
-                  <th class="col-target text-left" style="padding-left: 10px;">Chỉ tiêu</th>
+                  <th class="col-target text-center" style="padding-left: 6px;">Chỉ tiêu</th>
                   <th class="col-nhap text-center">Nhập</th>
                   <th class="col-xuat text-center">Xuất</th>
                 </tr>
@@ -1084,72 +1112,58 @@ function renderReportUI() {
             <span class="h1-num-bullet">❷</span> ĐỐI CHIẾU SỐ TỒN THỰC TẾ
           </div>
 
-          <!-- 3 EQUATION METRIC CARDS (CÙNG NỀN XANH NHẠT CHUẨN MOCKUP) -->
+          <!-- 3 EQUATION METRIC CARDS (CHUẨN GIAO DIỆN HÌNH ẢNH) -->
           <div class="h1-equation-row">
-            <!-- Card 1: Tồn lý thuyết -->
-            <div class="h1-eq-card card-blue-soft">
-              <div class="eq-hdr text-navy-title font-bold">Tồn lý thuyết</div>
-              <div class="eq-val text-blue-vivid font-black" id="calcTheoWip_${idx}">${tonLyThuyet.toLocaleString("vi-VN")}</div>
+            <!-- Card 1: Tồn LT -->
+            <div class="h1-eq-col">
+              <div class="eq-hdr text-navy-title font-bold">Tồn LT</div>
+              <div class="eq-box bg-soft-blue">
+                <span class="eq-val text-blue-vivid font-black" id="calcTheoWip_${idx}">${tonLyThuyet.toLocaleString("vi-VN")}</span>
+              </div>
             </div>
 
             <div class="h1-eq-op font-bold text-slate-400">−</div>
 
-            <!-- Card 2: Tồn thực tế -->
-            <div class="h1-eq-card card-blue-soft">
-              <div class="eq-hdr text-navy-title font-bold">Tồn thực tế</div>
-              <div class="eq-val text-blue-vivid font-black" id="calcActualWip_${idx}">${actualWip.toLocaleString("vi-VN")}</div>
+            <!-- Card 2: Tồn TT -->
+            <div class="h1-eq-col">
+              <div class="eq-hdr text-navy-title font-bold">Tồn TT</div>
+              <div class="eq-box bg-soft-blue">
+                <span class="eq-val text-blue-vivid font-black" id="calcActualWip_${idx}">${actualWip.toLocaleString("vi-VN")}</span>
+              </div>
             </div>
 
             <div class="h1-eq-op font-bold text-slate-400">=</div>
 
             <!-- Card 3: Thiếu / Thừa / Cân đối -->
-            <div class="h1-eq-card card-blue-soft">
+            <div class="h1-eq-col">
               <div class="eq-hdr text-pink font-bold" id="calcShortageTitle_${idx}">
                 ${shortage > 0 ? 'Thiếu' : (shortage < 0 ? 'Thừa' : 'Cân đối')}
               </div>
-              <div class="eq-val text-pink font-black" id="calcShortage_${idx}">
-                ${shortage === 0 ? '<span class="text-green-600 font-bold">0</span>' : (shortage > 0 ? ('<span class="text-pink font-bold">' + Math.abs(shortage).toLocaleString("vi-VN") + '</span>') : ('<span class="text-blue-vivid font-bold">+' + Math.abs(shortage).toLocaleString("vi-VN") + '</span>'))}
+              <div class="eq-box bg-soft-blue">
+                <span class="eq-val text-pink font-black" id="calcShortage_${idx}">
+                  ${shortage === 0 ? '<span class="text-green-600 font-bold">0</span>' : (shortage > 0 ? ('<span class="text-pink font-bold">' + Math.abs(shortage).toLocaleString("vi-VN") + '</span>') : ('<span class="text-blue-vivid font-bold">+' + Math.abs(shortage).toLocaleString("vi-VN") + '</span>'))}
+                </span>
               </div>
             </div>
           </div>
 
-          <!-- SUB-PANEL: KIỂM KÊ THỰC TẾ (5 TRẠM) -->
-          <div class="h1-box card-soft-panel">
-            <div class="h1-box-hdr hdr-clean-blue">
-              <div class="box-hdr-text">
-                <div class="box-title text-navy-title font-bold">Kiểm kê thực tế ngày ${formatDateDisplay(appState.currentDate)}</div>
-                <div class="box-sub text-slate-sub">${batch.batch_name} · SL tại từng trạm</div>
+          <!-- SUB-PANEL: KIỂM KÊ THỰC TẾ (5 TRẠM ĐẢO THỨ TỰ: 5 -> 4 -> 3 -> 2 -> 1) -->
+          <div class="h1-box card-soft-panel h1-station-card">
+            <div class="h1-box-hdr hdr-clean-blue h1-station-hdr">
+              <div class="box-hdr-text station-hdr-text">
+                <div class="box-title station-title text-navy-title font-bold">Kiểm kê thực tế ngày ${formatDateDisplay(appState.currentDate)}</div>
+                <div class="box-sub station-sub text-slate-sub">${batch.batch_name} · SL tại từng trạm</div>
               </div>
             </div>
             <div class="h1-station-list">
-              <!-- 1. Đang sản xuất -->
+              <!-- 5. Tồn - tại Kho thành phẩm -->
               <div class="h1-station-row is-direct-input">
                 <div class="st-tag-name">
-                  <span class="st-badge badge-clean-num">1</span>
-                  <span class="st-text">Đang sản xuất</span>
+                  <span class="st-badge badge-clean-num">5</span>
+                  <span class="st-text">Tồn - tại Kho thành phẩm</span>
                 </div>
                 <div class="st-val-wrap">
-                  <input type="number" class="wip-num-input field-wip-sewing grid-nav-input h1-pink-input" data-batch="${idx}" data-row="1" data-col="0" value="${batch.wip_sewing || ''}" placeholder="0" data-idx="${idx}" title="Nhập số lượng trạm 1">
-                </div>
-              </div>
-              <!-- 2. Tồn kiểm QC -->
-              <div class="h1-station-row is-direct-input">
-                <div class="st-tag-name">
-                  <span class="st-badge badge-clean-num">2</span>
-                  <span class="st-text">Tồn kiểm QC</span>
-                </div>
-                <div class="st-val-wrap">
-                  <input type="number" class="wip-num-input field-wip-qc grid-nav-input h1-pink-input" data-batch="${idx}" data-row="1" data-col="1" value="${batch.wip_qc || ''}" placeholder="0" data-idx="${idx}" title="Nhập số lượng trạm 2">
-                </div>
-              </div>
-              <!-- 3. Tồn phối đôi -->
-              <div class="h1-station-row is-direct-input">
-                <div class="st-tag-name">
-                  <span class="st-badge badge-clean-num">3</span>
-                  <span class="st-text">Tồn phối đôi</span>
-                </div>
-                <div class="st-val-wrap">
-                  <input type="number" class="wip-num-input field-wip-pairing grid-nav-input h1-pink-input" data-batch="${idx}" data-row="1" data-col="2" value="${batch.wip_pairing || ''}" placeholder="0" data-idx="${idx}" title="Nhập số lượng trạm 3">
+                  <input type="number" class="wip-num-input field-wip-warehouse grid-nav-input h1-pink-input" data-batch="${idx}" data-row="1" data-col="4" value="${batch.wip_warehouse || ''}" placeholder="0" data-idx="${idx}" title="Nhập số lượng trạm 5">
                 </div>
               </div>
               <!-- 4. Tồn đóng gói -->
@@ -1162,19 +1176,39 @@ function renderReportUI() {
                   <input type="number" class="wip-num-input field-wip-packing grid-nav-input h1-pink-input" data-batch="${idx}" data-row="1" data-col="3" value="${batch.wip_packing || ''}" placeholder="0" data-idx="${idx}" title="Nhập số lượng trạm 4">
                 </div>
               </div>
-              <!-- 5. Tồn kho TP -->
+              <!-- 3. Tồn phối đôi -->
               <div class="h1-station-row is-direct-input">
                 <div class="st-tag-name">
-                  <span class="st-badge badge-clean-num">5</span>
-                  <span class="st-text">Tồn kho TP</span>
+                  <span class="st-badge badge-clean-num">3</span>
+                  <span class="st-text">Tồn phối đôi</span>
                 </div>
                 <div class="st-val-wrap">
-                  <input type="number" class="wip-num-input field-wip-warehouse grid-nav-input h1-pink-input" data-batch="${idx}" data-row="1" data-col="4" value="${batch.wip_warehouse || ''}" placeholder="0" data-idx="${idx}" title="Nhập số lượng trạm 5">
+                  <input type="number" class="wip-num-input field-wip-pairing grid-nav-input h1-pink-input" data-batch="${idx}" data-row="1" data-col="2" value="${batch.wip_pairing || ''}" placeholder="0" data-idx="${idx}" title="Nhập số lượng trạm 3">
+                </div>
+              </div>
+              <!-- 2. Tồn kiểm QC -->
+              <div class="h1-station-row is-direct-input">
+                <div class="st-tag-name">
+                  <span class="st-badge badge-clean-num">2</span>
+                  <span class="st-text">Tồn kiểm QC</span>
+                </div>
+                <div class="st-val-wrap">
+                  <input type="number" class="wip-num-input field-wip-qc grid-nav-input h1-pink-input" data-batch="${idx}" data-row="1" data-col="1" value="${batch.wip_qc || ''}" placeholder="0" data-idx="${idx}" title="Nhập số lượng trạm 2">
+                </div>
+              </div>
+              <!-- 1. Đang sản xuất -->
+              <div class="h1-station-row is-direct-input">
+                <div class="st-tag-name">
+                  <span class="st-badge badge-clean-num">1</span>
+                  <span class="st-text">Đang sản xuất</span>
+                </div>
+                <div class="st-val-wrap">
+                  <input type="number" class="wip-num-input field-wip-sewing grid-nav-input h1-pink-input" data-batch="${idx}" data-row="1" data-col="0" value="${batch.wip_sewing || ''}" placeholder="0" data-idx="${idx}" title="Nhập số lượng trạm 1">
                 </div>
               </div>
             </div>
             <!-- Footer: Tồn thực tế -->
-            <div class="h1-box-footer footer-clean-blue">
+            <div class="h1-box-footer footer-clean-blue h1-station-footer">
               <span class="ft-lbl text-navy-title font-bold">Tồn thực tế</span>
               <span class="ft-val text-blue-vivid font-black" id="calcWipSum_${idx}">${actualWip.toLocaleString("vi-VN")}</span>
             </div>
@@ -1186,10 +1220,10 @@ function renderReportUI() {
           <div class="h1-sec-title">
             <span class="h1-num-bullet">❸</span> NGUYÊN NHÂN THIẾU
           </div>
-          <div class="h1-box card-soft-panel">
-            <div class="h1-box-hdr hdr-clean-blue">
-              <div class="box-hdr-text">
-                <div class="box-title text-slate-sub font-semibold">Nhập số lượng (đôi)</div>
+          <div class="h1-box card-soft-panel h1-reason-card">
+            <div class="h1-box-hdr hdr-clean-blue h1-reason-hdr">
+              <div class="box-hdr-text reason-hdr-text">
+                <div class="box-title reason-hdr-title text-slate-sub font-semibold">Nhập số lượng (đôi)</div>
               </div>
             </div>
             <div class="h1-reason-list">
@@ -1227,7 +1261,7 @@ function renderReportUI() {
               </div>
             </div>
             <!-- Footer: Tổng số thiếu -->
-            <div class="h1-box-footer footer-clean-pink">
+            <div class="h1-box-footer footer-clean-pink h1-reason-footer">
               <span class="ft-lbl text-pink font-bold">Tổng số thiếu</span>
               <span class="ft-val text-pink font-black" id="calcExplainSum_${idx}">${totalExplained.toLocaleString("vi-VN")}</span>
             </div>
@@ -1252,7 +1286,7 @@ function formatDateDisplay(dateStr) {
   if (!dateStr) return "";
   const parts = dateStr.split("-");
   if (parts.length === 3) {
-    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const months = ["Th01", "Th02", "Th03", "Th04", "Th05", "Th06", "Th07", "Th08", "Th09", "Th10", "Th11", "Th12"];
     const mIdx = parseInt(parts[1], 10) - 1;
     return `${parts[2]}-${months[mIdx] || parts[1]}`;
   }
@@ -1566,6 +1600,33 @@ function bindCardInputs() {
         if (e.target.classList.contains("field-daily-finished")) {
           showToast(`💾 Đã lưu thành phẩm hôm nay: ${(Number(e.target.value) || 0).toLocaleString("vi-VN")} đôi!`);
         }
+      }
+    });
+  });
+
+  // Date Badge picker trigger
+  document.querySelectorAll(".h1-date-badge").forEach(badge => {
+    badge.addEventListener("click", (e) => {
+      const input = badge.querySelector(".h1-date-hidden-input");
+      if (input && e.target !== input) {
+        if (typeof input.showPicker === "function") {
+          try { input.showPicker(); } catch (err) { input.focus(); }
+        } else {
+          input.focus();
+        }
+      }
+    });
+  });
+
+  document.querySelectorAll(".h1-date-hidden-input").forEach(input => {
+    input.addEventListener("change", async (e) => {
+      if (e.target.value) {
+        appState.currentDate = e.target.value;
+        const topDate = document.getElementById("reportDate");
+        if (topDate) topDate.value = e.target.value;
+        const mobDate = document.getElementById("reportDateMobile");
+        if (mobDate) mobDate.value = e.target.value;
+        await loadReport();
       }
     });
   });
