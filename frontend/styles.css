@@ -4795,20 +4795,20 @@ input[type=number] {
     display: flex !important;
     align-items: center !important;
     justify-content: space-between !important;
-    margin-bottom: 1px !important;
+    margin-bottom: 2px !important;
     padding: 0 2px !important;
   }
 
   .h1-date-badge {
     display: inline-flex !important;
     align-items: center !important;
-    gap: 3px !important;
+    gap: 4px !important;
     background: #ffffff !important;
     border: 1px solid #cbd5e1 !important;
-    border-radius: 12px !important;
-    padding: 2px 7px !important;
-    font-size: 13px !important;
-    font-weight: 700 !important;
+    border-radius: 14px !important;
+    padding: 2px 8px !important;
+    font-size: 13.5px !important;
+    font-weight: 800 !important;
     color: #0f172a !important;
     cursor: pointer !important;
     position: relative !important;
@@ -4827,8 +4827,8 @@ input[type=number] {
   }
 
   .h1-header-po {
-    font-size: 15px !important;
-    font-weight: 800 !important;
+    font-size: 16px !important;
+    font-weight: 900 !important;
     color: #1e3a8a !important;
     line-height: 1.2 !important;
   }
@@ -4836,36 +4836,36 @@ input[type=number] {
   .h1-batch-badge {
     background: #1e3a8a !important;
     border-radius: 6px !important;
-    padding: 2px 8px !important;
+    padding: 3px 10px !important;
     text-align: center !important;
     box-shadow: 0 1px 3px rgba(30, 58, 138, 0.2) !important;
   }
 
   .h1-batch-badge .b-name {
     color: #ffffff !important;
-    font-size: 13.5px !important;
-    font-weight: 800 !important;
+    font-size: 14.5px !important;
+    font-weight: 900 !important;
     line-height: 1.1 !important;
   }
 
   .h1-batch-badge .b-plan {
     color: #93c5fd !important;
-    font-size: 11px !important;
+    font-size: 11.5px !important;
     font-weight: 700 !important;
     line-height: 1.1 !important;
   }
 
   /* 4. TIÊU ĐỀ SECTION */
   .h1-sec-title {
-    font-size: 13px !important;
-    font-weight: 800 !important;
-    color: #1e293b !important;
-    margin-top: 1px !important;
-    margin-bottom: 2px !important;
+    font-size: 14.5px !important;
+    font-weight: 900 !important;
+    color: #0f172a !important;
+    margin-top: 2px !important;
+    margin-bottom: 3px !important;
     padding-left: 1px !important;
     display: flex !important;
     align-items: center !important;
-    gap: 4px !important;
+    gap: 6px !important;
     line-height: 1.2 !important;
   }
 
@@ -4873,19 +4873,19 @@ input[type=number] {
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    width: 16px !important;
-    height: 16px !important;
+    width: 18px !important;
+    height: 18px !important;
     background: #1e3a8a !important;
     color: #ffffff !important;
     border-radius: 50% !important;
-    font-size: 10.5px !important;
-    font-weight: 800 !important;
+    font-size: 11.5px !important;
+    font-weight: 900 !important;
     flex-shrink: 0 !important;
   }
 
   /* 5. SECTION 1: BẢNG NHẬP - XUẤT TRONG NGÀY */
   .h1-table-card {
-    border: 1px solid #e2e8f0 !important;
+    border: 1px solid #cbd5e1 !important;
     border-radius: 6px !important;
     overflow: hidden !important;
     background: #ffffff !important;
@@ -4903,48 +4903,49 @@ input[type=number] {
 
   .h1-table-nx th {
     padding: 3px 2px !important;
-    font-size: 12px !important;
+    font-size: 13.5px !important;
     font-weight: 800 !important;
-    color: #475569 !important;
+    color: #334155 !important;
     text-align: center !important;
     line-height: 1.2 !important;
   }
 
   .h1-table-nx td {
     padding: 2px 4px !important;
-    font-size: 13px !important;
+    font-size: 14px !important;
     border-bottom: 1px solid #f1f5f9 !important;
     vertical-align: middle !important;
     line-height: 1.2 !important;
   }
 
   .h1-table-nx td.cell-label {
-    color: #1e293b !important;
-    font-weight: 600 !important;
+    color: #0f172a !important;
+    font-weight: 700 !important;
     padding-left: 6px !important;
     text-align: left !important;
   }
 
   .h1-table-nx tr.row-luy-ke-truoc td {
-    color: #1e293b !important;
+    color: #0f172a !important;
     font-weight: 700 !important;
   }
 
   .h1-table-nx tr.row-tong td.cell-label {
-    font-weight: 800 !important;
+    font-weight: 900 !important;
     color: #0f172a !important;
+    font-size: 14.5px !important;
   }
 
   .h1-table-nx tr.row-tong .val-num {
-    font-weight: 800 !important;
-    color: #1e293b !important;
-    font-size: 13.5px !important;
+    font-weight: 900 !important;
+    color: #0f172a !important;
+    font-size: 14.5px !important;
   }
 
   .h1-table-nx tr.row-note td {
     background: #ffffff !important;
     color: #64748b !important;
-    font-size: 11px !important;
+    font-size: 12px !important;
     font-style: normal !important;
     padding: 2px 6px !important;
     border-bottom: none !important;
@@ -4968,9 +4969,9 @@ input[type=number] {
   }
 
   .h1-eq-col .eq-hdr {
-    font-size: 12.5px !important;
-    font-weight: 700 !important;
-    color: #1e293b !important;
+    font-size: 13.5px !important;
+    font-weight: 800 !important;
+    color: #0f172a !important;
     margin-bottom: 2px !important;
     line-height: 1.1 !important;
   }
@@ -4985,7 +4986,7 @@ input[type=number] {
     padding: 2px 0 !important;
     width: 100% !important;
     text-align: center !important;
-    min-height: 25px !important;
+    min-height: 26px !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
@@ -4993,8 +4994,8 @@ input[type=number] {
   }
 
   .h1-eq-col .eq-val {
-    font-size: 17px !important;
-    font-weight: 800 !important;
+    font-size: 19px !important;
+    font-weight: 900 !important;
     color: #1e3a8a !important;
     line-height: 1 !important;
   }
@@ -5005,8 +5006,8 @@ input[type=number] {
   }
 
   .h1-eq-op {
-    font-size: 17px !important;
-    font-weight: 700 !important;
+    font-size: 18px !important;
+    font-weight: 800 !important;
     color: #64748b !important;
     margin-bottom: 4px !important;
     flex-shrink: 0 !important;
@@ -5014,7 +5015,7 @@ input[type=number] {
 
   /* 7. SECTION 2 SUB-PANEL: KIỂM KÊ THỰC TẾ (ĐẢO THỨ TỰ 5 -> 4 -> 3 -> 2 -> 1) */
   .h1-station-card {
-    border: 1px solid #e2e8f0 !important;
+    border: 1px solid #cbd5e1 !important;
     border-radius: 6px !important;
     overflow: hidden !important;
     background: #ffffff !important;
@@ -5024,18 +5025,18 @@ input[type=number] {
   .h1-station-hdr {
     background: #f1f5f9 !important;
     padding: 3px 8px !important;
-    border-bottom: 1px solid #e2e8f0 !important;
+    border-bottom: 1px solid #cbd5e1 !important;
   }
 
   .station-title {
-    font-size: 12.5px !important;
-    font-weight: 800 !important;
+    font-size: 13.5px !important;
+    font-weight: 900 !important;
     color: #0f172a !important;
     line-height: 1.2 !important;
   }
 
   .station-sub {
-    font-size: 11px !important;
+    font-size: 11.5px !important;
     color: #64748b !important;
     margin-top: 0 !important;
     line-height: 1.1 !important;
@@ -5065,21 +5066,21 @@ input[type=number] {
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    width: 16px !important;
-    height: 16px !important;
+    width: 17px !important;
+    height: 17px !important;
     border: 1px solid #cbd5e1 !important;
     background: #f8fafc !important;
-    color: #475569 !important;
-    font-size: 10.5px !important;
+    color: #334155 !important;
+    font-size: 11.5px !important;
     font-weight: 800 !important;
     border-radius: 3px !important;
     flex-shrink: 0 !important;
   }
 
   .st-text {
-    font-size: 12.5px !important;
-    font-weight: 600 !important;
-    color: #1e293b !important;
+    font-size: 13.5px !important;
+    font-weight: 700 !important;
+    color: #0f172a !important;
   }
 
   .h1-station-footer {
@@ -5088,24 +5089,24 @@ input[type=number] {
     align-items: center !important;
     padding: 3px 8px !important;
     background: #ffffff !important;
-    border-top: 1px solid #e2e8f0 !important;
+    border-top: 1px solid #cbd5e1 !important;
   }
 
   .h1-station-footer .ft-lbl {
-    font-size: 12.5px !important;
-    font-weight: 800 !important;
+    font-size: 13.5px !important;
+    font-weight: 900 !important;
     color: #1e3a8a !important;
   }
 
   .h1-station-footer .ft-val {
-    font-size: 14.5px !important;
-    font-weight: 800 !important;
-    color: #1e3a8a !important;
+    font-size: 16px !important;
+    font-weight: 900 !important;
+    color: #0f172a !important;
   }
 
   /* 8. SECTION 3: NGUYÊN NHÂN THIẾU */
   .h1-reason-card {
-    border: 1px solid #e2e8f0 !important;
+    border: 1px solid #cbd5e1 !important;
     border-radius: 6px !important;
     overflow: hidden !important;
     background: #ffffff !important;
@@ -5115,13 +5116,13 @@ input[type=number] {
   .h1-reason-hdr {
     background: #f1f5f9 !important;
     padding: 2px 8px !important;
-    border-bottom: 1px solid #e2e8f0 !important;
+    border-bottom: 1px solid #cbd5e1 !important;
   }
 
   .reason-hdr-title {
-    font-size: 11.5px !important;
+    font-size: 12.5px !important;
     font-weight: 700 !important;
-    color: #64748b !important;
+    color: #475569 !important;
     line-height: 1.2 !important;
   }
 
@@ -5140,9 +5141,9 @@ input[type=number] {
   }
 
   .h1-reason-row .rs-title {
-    font-size: 12.5px !important;
-    font-weight: 600 !important;
-    color: #1e293b !important;
+    font-size: 13.5px !important;
+    font-weight: 700 !important;
+    color: #0f172a !important;
   }
 
   .h1-reason-note-row {
@@ -5151,8 +5152,9 @@ input[type=number] {
   }
 
   .h1-reason-note-row .rs-note-lbl {
-    font-size: 11px !important;
-    color: #64748b !important;
+    font-size: 12px !important;
+    color: #475569 !important;
+    font-weight: 600 !important;
     margin-bottom: 2px !important;
     line-height: 1.1 !important;
   }
@@ -5165,8 +5167,8 @@ input[type=number] {
     width: 100% !important;
     height: 22px !important;
     padding: 2px 6px !important;
-    font-size: 12px !important;
-    color: #1e293b !important;
+    font-size: 12.5px !important;
+    color: #0f172a !important;
     outline: none !important;
     box-sizing: border-box !important;
   }
@@ -5181,14 +5183,14 @@ input[type=number] {
   }
 
   .h1-reason-footer .ft-lbl {
-    font-size: 12.5px !important;
-    font-weight: 800 !important;
+    font-size: 13.5px !important;
+    font-weight: 900 !important;
     color: #db2777 !important;
   }
 
   .h1-reason-footer .ft-val {
-    font-size: 14.5px !important;
-    font-weight: 800 !important;
+    font-size: 16px !important;
+    font-weight: 900 !important;
     color: #db2777 !important;
   }
 
@@ -5200,14 +5202,14 @@ input[type=number] {
   .h1-table-nx input.h1-pink-input,
   .h1-station-row input.h1-pink-input,
   .h1-reason-row input.h1-pink-input {
-    width: 56px !important;
+    width: 58px !important;
     height: 22px !important;
     background: #fdf2f8 !important;
     border: 1.2px solid #ec4899 !important;
     border-radius: 4px !important;
     color: #0284c7 !important;
-    font-weight: 800 !important;
-    font-size: 13.5px !important;
+    font-weight: 900 !important;
+    font-size: 14.5px !important;
     text-align: center !important;
     outline: none !important;
     box-sizing: border-box !important;
@@ -6187,10 +6189,10 @@ input.h1-pink-note-input:focus {
   .h1-table-nx input.h1-pink-input,
   .h1-station-row input.h1-pink-input,
   .h1-reason-row input.h1-pink-input {
-    width: 56px !important;
+    width: 58px !important;
     height: 22px !important;
-    font-size: 13.5px !important;
-    font-weight: 800 !important;
+    font-size: 14.5px !important;
+    font-weight: 900 !important;
     background: #fdf2f8 !important;
     border: 1.2px solid #ec4899 !important;
     border-radius: 4px !important;
@@ -6203,17 +6205,19 @@ input.h1-pink-note-input:focus {
 
   /* Badge Lô góc phải trên trên di động */
   .h1-batch-badge {
-    padding: 2px 8px !important;
+    padding: 3px 10px !important;
     border-radius: 6px !important;
   }
 
   .h1-batch-badge .b-name {
-    font-size: 13.5px !important;
+    font-size: 14.5px !important;
+    font-weight: 900 !important;
     line-height: 1.1 !important;
   }
 
   .h1-batch-badge .b-plan {
-    font-size: 11px !important;
+    font-size: 11.5px !important;
+    font-weight: 700 !important;
     line-height: 1.1 !important;
     margin-top: 0 !important;
   }
@@ -6221,18 +6225,21 @@ input.h1-pink-note-input:focus {
   /* Bảng Section 1 trên di động */
   .h1-table-nx-3col th {
     padding: 3px 2px !important;
-    font-size: 12px !important;
+    font-size: 13.5px !important;
+    font-weight: 800 !important;
     line-height: 1.2 !important;
   }
 
   .h1-table-nx-3col td {
     padding: 2px 4px !important;
-    font-size: 13px !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
     line-height: 1.2 !important;
   }
 
   .h1-table-nx-3col .cell-sub-note {
-    font-size: 11px !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
     padding: 2px 6px !important;
     line-height: 1.2 !important;
   }
