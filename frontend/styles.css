@@ -5078,8 +5078,8 @@ input[type=number] {
   }
 
   .st-text {
-    font-size: 15px !important;
-    font-weight: 700 !important;
+    font-size: 16.5px !important;
+    font-weight: 500 !important;
     color: #0f172a !important;
   }
 
@@ -5141,8 +5141,8 @@ input[type=number] {
   }
 
   .h1-reason-row .rs-title {
-    font-size: 15px !important;
-    font-weight: 700 !important;
+    font-size: 16.5px !important;
+    font-weight: 500 !important;
     color: #0f172a !important;
   }
 
