@@ -1181,6 +1181,20 @@ export default {
         const date = url.searchParams.get('date') || new Date().toISOString().split('T')[0];
         const key = `${poId}_${date}`;
 
+        let cachedReport = null;
+        try {
+          const cache = caches.default;
+          const cacheUrl = new Request(`https://internal-cache.ddlongan.local/api/report/${key}`);
+          const match = await cache.match(cacheUrl);
+          if (match) {
+            cachedReport = await match.json();
+          }
+        } catch (e) {}
+
+        if (!cachedReport && memoryDB.reports && memoryDB.reports[key]) {
+          cachedReport = memoryDB.reports[key];
+        }
+
         if (env && env.DB) {
           try {
             const { results: repRows } = await env.DB.prepare("SELECT * FROM daily_reports WHERE id = ?").bind(key).all();
@@ -1194,6 +1208,13 @@ export default {
                   status: repRows[0].status || "DRAFT",
                   batches: batchRows
                 };
+              }
+            }
+
+            // Nếu Edge Cache / Memory có bản lưu mới hơn D1 (ví dụ khi D1 bị vượt hạn mức ghi)
+            if (cachedReport && cachedReport.batches && cachedReport.batches.length > 0) {
+              if (!report || !report.batches || report.batches.length === 0 || (cachedReport.updated_at && cachedReport.updated_at > (report.updated_at || 0))) {
+                report = cachedReport;
               }
             }
 
@@ -1438,48 +1459,81 @@ export default {
           const body = await request.json();
           const { po_id, report_date, status, batches } = body;
           const key = `${po_id}_${report_date}`;
+          const now = Date.now();
 
-          if (env && env.DB) {
-            await env.DB.prepare("INSERT OR REPLACE INTO daily_reports (id, po_id, report_date, status) VALUES (?, ?, ?, ?)")
-              .bind(key, po_id, report_date, status || 'DRAFT')
-              .run();
-
-            // Clear old batch records for this report
-            await env.DB.prepare("DELETE FROM report_batches WHERE report_id = ?").bind(key).run();
-
-            // Insert batches
-            for (let i = 0; i < (batches || []).length; i++) {
-              const b = batches[i];
-              const bId = `rb-${key}-${(b.batch_name || ('b' + (i+1))).replace(/\s+/g, '_')}`;
-              const dailyOut = Number(b.daily_out) || 0;
-              const delivered = Number(b.delivered) || dailyOut;
-              const dailyFinished = Number(b.daily_finished) || 0;
-              await env.DB.prepare(`
-                INSERT INTO report_batches (
-                  id, report_id, po_id, report_date, batch_name, batch_plan, into_sewing, delivered, daily_out, daily_finished,
-                  wip_sewing, wip_qc, wip_pairing, wip_packing, wip_warehouse,
-                  note_sewing, note_qc, note_pairing, note_packing, note_warehouse, note_export,
-                  shortage_reason_type, shortage_note, shortage_mat_xac, shortage_hang_phe, shortage_khac
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-              `).bind(
-                bId, key, po_id, report_date, b.batch_name, Number(b.batch_plan) || 0, Number(b.into_sewing) || 0, delivered, dailyOut, dailyFinished,
-                Number(b.wip_sewing) || 0, Number(b.wip_qc) || 0, Number(b.wip_pairing) || 0, Number(b.wip_packing) || 0, Number(b.wip_warehouse) || 0,
-                b.note_sewing || '', b.note_qc || '', b.note_pairing || '', b.note_packing || '', b.note_warehouse || '', b.note_export || '',
-                b.shortage_reason_type || '', b.shortage_note || '', Number(b.shortage_mat_xac) || 0, Number(b.shortage_hang_phe) || 0, Number(b.shortage_khac) || 0
-              ).run();
-            }
-
-            return Response.json({ success: true, message: "Đã lưu báo cáo thành công vào D1 Database" }, { headers });
-          }
-
-          memoryDB.reports[key] = {
+          // 1. Luôn lưu vào memoryDB và gán timestamp updated_at
+          const memReport = {
             po_id,
             report_date,
             status: status || "DRAFT",
-            batches
+            batches,
+            updated_at: now
           };
+          if (!memoryDB.reports) memoryDB.reports = {};
+          memoryDB.reports[key] = memReport;
 
-          return Response.json({ success: true, message: "Đã lưu báo cáo thành công" }, { headers });
+          // 2. Lưu vào Cloudflare Edge Cache (caches.default) để chia sẻ giữa các Worker requests
+          try {
+            const cache = caches.default;
+            const cacheUrl = new Request(`https://internal-cache.ddlongan.local/api/report/${key}`);
+            const cacheResponse = new Response(JSON.stringify(memReport), {
+              headers: {
+                'Content-Type': 'application/json',
+                'Cache-Control': 'public, max-age=86400'
+              }
+            });
+            await cache.put(cacheUrl, cacheResponse);
+          } catch (cacheErr) {
+            console.warn("Edge Cache put warning:", cacheErr);
+          }
+
+          // 3. Cố gắng ghi vào D1 Database
+          let d1Success = false;
+          let d1ErrMsg = null;
+          if (env && env.DB) {
+            try {
+              await env.DB.prepare("INSERT OR REPLACE INTO daily_reports (id, po_id, report_date, status) VALUES (?, ?, ?, ?)")
+                .bind(key, po_id, report_date, status || 'DRAFT')
+                .run();
+
+              // Clear old batch records for this report
+              await env.DB.prepare("DELETE FROM report_batches WHERE report_id = ?").bind(key).run();
+
+              // Insert batches
+              for (let i = 0; i < (batches || []).length; i++) {
+                const b = batches[i];
+                const bId = `rb-${key}-${(b.batch_name || ('b' + (i+1))).replace(/\s+/g, '_')}`;
+                const dailyOut = Number(b.daily_out) || 0;
+                const delivered = Number(b.delivered) || dailyOut;
+                const dailyFinished = Number(b.daily_finished) || 0;
+                await env.DB.prepare(`
+                  INSERT INTO report_batches (
+                    id, report_id, po_id, report_date, batch_name, batch_plan, into_sewing, delivered, daily_out, daily_finished,
+                    wip_sewing, wip_qc, wip_pairing, wip_packing, wip_warehouse,
+                    note_sewing, note_qc, note_pairing, note_packing, note_warehouse, note_export,
+                    shortage_reason_type, shortage_note, shortage_mat_xac, shortage_hang_phe, shortage_khac
+                  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `).bind(
+                  bId, key, po_id, report_date, b.batch_name, Number(b.batch_plan) || 0, Number(b.into_sewing) || 0, delivered, dailyOut, dailyFinished,
+                  Number(b.wip_sewing) || 0, Number(b.wip_qc) || 0, Number(b.wip_pairing) || 0, Number(b.wip_packing) || 0, Number(b.wip_warehouse) || 0,
+                  b.note_sewing || '', b.note_qc || '', b.note_pairing || '', b.note_packing || '', b.note_warehouse || '', b.note_export || '',
+                  b.shortage_reason_type || '', b.shortage_note || '', Number(b.shortage_mat_xac) || 0, Number(b.shortage_hang_phe) || 0, Number(b.shortage_khac) || 0
+                ).run();
+              }
+              d1Success = true;
+            } catch (dbErr) {
+              d1ErrMsg = dbErr.message;
+              console.warn("D1 write warning (backed up to Edge & Memory Cache):", dbErr.message);
+              // Bắt lỗi D1_ERROR: Không ném lỗi 400! Báo cáo đã an toàn ở Edge & Memory Cache.
+            }
+          }
+
+          return Response.json({
+            success: true,
+            message: d1Success ? "Đã lưu báo cáo thành công vào D1 Database" : "Đã lưu an toàn vào bộ nhớ đệm (Edge Cache)",
+            cachedOnly: !d1Success,
+            d1Warning: d1ErrMsg
+          }, { headers });
         } catch (err) {
           return Response.json({ success: false, error: err.message }, { status: 400, headers });
         }

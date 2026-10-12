@@ -934,9 +934,14 @@ async function loadReport() {
 
       const serverHasData = checkHasData(appState.report);
       const cacheHasData = checkHasData(localCache);
+      const localTime = (localCache && localCache._localSavedAt) || 0;
+      const serverTime = (appState.report && appState.report.updated_at) || 0;
 
-      if (!serverHasData && cacheHasData) {
-        console.info("⚡ Khôi phục dữ liệu đã lưu từ bộ nhớ điện thoại (localStorage):", localCache);
+      // ƯU TIÊN TUYỆT ĐỐI BẢN LƯU GẦN NHẤT CỦA NGƯỜI DÙNG:
+      // Nếu máy này có bản lưu cục bộ và thời gian lưu cục bộ mới hơn server,
+      // hoặc server không có số liệu thực tế mà máy có số liệu:
+      if (cacheHasData && (localTime >= serverTime || !serverHasData)) {
+        console.info("⚡ Ưu tiên hiển thị dữ liệu mới nhất người dùng vừa nhập trên máy:", localCache);
         appState.report = localCache;
         // Tự động đồng bộ ngay lên máy chủ
         saveReport(appState.report.status || "DRAFT", true);
@@ -2810,6 +2815,7 @@ function saveLocalReportCache(poId, date, reportData) {
   if (!poId || !date || !reportData) return;
   try {
     const key = `dd_cache_report_${poId}_${date}`;
+    reportData._localSavedAt = Date.now();
     localStorage.setItem(key, JSON.stringify(reportData));
     localStorage.setItem("dd_last_saved_time", Date.now().toString());
   } catch (e) {
