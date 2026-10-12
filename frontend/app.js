@@ -225,20 +225,28 @@ function checkLoginPortalState() {
 function initDate() {
   const dateEl = document.getElementById("reportDate");
   const todayStr = getLocalDateString();
-  appState.currentDate = todayStr;
+  let targetDate = todayStr;
+  try {
+    const savedDate = localStorage.getItem("dd_last_report_date");
+    if (savedDate && /^\d{4}-\d{2}-\d{2}$/.test(savedDate)) {
+      targetDate = savedDate;
+    }
+  } catch (e) {}
+
+  appState.currentDate = targetDate;
   if (appState.report) {
-    appState.report.report_date = todayStr;
+    appState.report.report_date = targetDate;
   }
   if (dateEl) {
-    dateEl.value = todayStr;
+    dateEl.value = targetDate;
   }
   const mobInput = document.getElementById("reportDateMobile");
   if (mobInput) {
-    mobInput.value = todayStr;
+    mobInput.value = targetDate;
   }
   const mobDisp = document.getElementById("mobileDateDisplay");
-  if (mobDisp && todayStr) {
-    const parts = todayStr.split("-");
+  if (mobDisp && targetDate) {
+    const parts = targetDate.split("-");
     if (parts.length === 3) {
       mobDisp.innerText = `${parts[2]}/${parts[1]}/${parts[0]}`;
     }
@@ -341,6 +349,7 @@ function bindEvents() {
   if (selCust) {
     selCust.addEventListener("change", async (e) => {
       appState.currentCustomer = e.target.value;
+      try { localStorage.setItem("dd_last_customer_id", appState.currentCustomer || ""); } catch (err) {}
       await filterOrdersByCustomer();
     });
   }
@@ -350,6 +359,7 @@ function bindEvents() {
     selPO.addEventListener("change", async (e) => {
       const poId = e.target.value;
       appState.currentPO = appState.orders.find(o => o.id === poId);
+      try { localStorage.setItem("dd_last_po_id", poId || ""); } catch (err) {}
       await refreshAllTabsData();
     });
   }
@@ -366,6 +376,7 @@ function bindEvents() {
         }
       }
       appState.currentDate = e.target.value;
+      try { localStorage.setItem("dd_last_report_date", appState.currentDate || ""); } catch (err) {}
       await refreshAllTabsData();
     });
   }
@@ -733,16 +744,50 @@ function bindEvents() {
     }
   });
 
-  // Tự động lưu khi người dùng tải lại trang (reload/F5) hoặc thoát
-  window.addEventListener("beforeunload", () => {
-    if (appState.hasUnsavedChanges && appState.currentPO && appState.report) {
+  // Tự động lưu bảo vệ dữ liệu tuyệt đối khi người dùng chuyển app, khóa màn hình, tải lại trang (reload/F5) hoặc thoát trình duyệt
+  const flushSaveReport = () => {
+    if (appState.currentPO && appState.report) {
       recalculateAllInPlace();
       appState.report.po_id = appState.currentPO.id;
       appState.report.report_date = appState.currentDate;
-      const blob = new Blob([JSON.stringify(appState.report)], { type: "application/json" });
-      navigator.sendBeacon("/api/report", blob);
+      saveLocalReportCache(appState.currentPO.id, appState.currentDate, appState.report);
+      try {
+        localStorage.setItem("dd_last_customer_id", appState.currentCustomer || "");
+        localStorage.setItem("dd_last_po_id", appState.currentPO.id || "");
+        localStorage.setItem("dd_last_report_date", appState.currentDate || "");
+      } catch (e) {}
+
+      if (appState.hasUnsavedChanges) {
+        const payload = JSON.stringify(appState.report);
+        let sent = false;
+        try {
+          if (navigator.sendBeacon) {
+            const blob = new Blob([payload], { type: "application/json" });
+            sent = navigator.sendBeacon("/api/report", blob);
+          }
+        } catch (e) {}
+        if (!sent) {
+          try {
+            fetch("/api/report", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: payload,
+              keepalive: true
+            });
+          } catch (e) {}
+        }
+        appState.hasUnsavedChanges = false;
+      }
+    }
+  };
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") {
+      flushSaveReport();
     }
   });
+  window.addEventListener("pagehide", flushSaveReport);
+  window.addEventListener("beforeunload", flushSaveReport);
 }
 
 // MASTER SYNC: REFRESH ALL TABS DATA FOR CURRENT PO & DATE
@@ -778,6 +823,7 @@ async function changeDateByDays(days) {
   d.setDate(d.getDate() + days);
   const newDateStr = getLocalDateString(d);
   appState.currentDate = newDateStr;
+  try { localStorage.setItem("dd_last_report_date", newDateStr || ""); } catch (err) {}
   const dateEl = document.getElementById("reportDate");
   if (dateEl) {
     dateEl.value = newDateStr;
@@ -813,7 +859,12 @@ function populateCustomerSelect() {
   custSel.innerHTML = appState.customers.map(c => `<option value="${c.id}">${c.name} (${c.code})</option>`).join("");
   
   if (appState.customers.length > 0) {
-    if (!appState.currentCustomer || !appState.customers.some(c => c.id === appState.currentCustomer)) {
+    let savedCustId = null;
+    try { savedCustId = localStorage.getItem("dd_last_customer_id"); } catch (e) {}
+
+    if (savedCustId && appState.customers.some(c => c.id === savedCustId)) {
+      appState.currentCustomer = savedCustId;
+    } else if (!appState.currentCustomer || !appState.customers.some(c => c.id === appState.currentCustomer)) {
       appState.currentCustomer = appState.customers[0].id;
     }
     custSel.value = appState.currentCustomer;
@@ -831,7 +882,13 @@ async function filterOrdersByCustomer() {
   
   if (filtered.length > 0) {
     poSel.innerHTML = filtered.map(o => `<option value="${o.id}">${o.style_code} (${o.po_number}) - Kế hoạch: ${o.po_plan} đôi</option>`).join("");
-    if (!appState.currentPO || !filtered.some(o => o.id === appState.currentPO.id)) {
+    
+    let savedPoId = null;
+    try { savedPoId = localStorage.getItem("dd_last_po_id"); } catch (e) {}
+
+    if (savedPoId && filtered.some(o => o.id === savedPoId)) {
+      appState.currentPO = filtered.find(o => o.id === savedPoId);
+    } else if (!appState.currentPO || !filtered.some(o => o.id === appState.currentPO.id)) {
       appState.currentPO = filtered[0];
     }
     poSel.value = appState.currentPO.id;
@@ -851,6 +908,8 @@ async function loadReport() {
   const po = appState.currentPO;
   const tailSweepDate = po ? (po.tail_sweep_date || (po.id === 'po-050' ? '2026-09-23' : null)) : null;
 
+  const localCache = getLocalReportCache(poId, date);
+
   try {
     const res = await fetch(`/api/report?po_id=${poId}&date=${date}`);
     const data = await res.json();
@@ -860,6 +919,30 @@ async function loadReport() {
       appState.cumImportsByBatch = data.cumImportsByBatch || {};
       appState.prevDayWipByBatch = data.prevDayWipByBatch || {};
       appState.prevReportDate = data.prevReportDate || "";
+
+      // Kiểm tra dữ liệu: Nếu server trả về danh sách lô rỗng hoặc các ô đều là 0,
+      // trong khi bộ nhớ cache trên điện thoại đã có dữ liệu người dùng nhập:
+      const checkHasData = (rep) => {
+        return Boolean(rep && rep.batches && rep.batches.some(b => 
+          (Number(b.into_sewing) || 0) > 0 || (Number(b.wip_sewing) || 0) > 0 || (Number(b.wip_qc) || 0) > 0 ||
+          (Number(b.wip_pairing) || 0) > 0 || (Number(b.wip_packing) || 0) > 0 || (Number(b.wip_warehouse) || 0) > 0 ||
+          (Number(b.daily_out) || 0) > 0 || (Number(b.daily_finished) || 0) > 0 ||
+          (Number(b.shortage_mat_xac) || 0) > 0 || (Number(b.shortage_hang_phe) || 0) > 0 || (Number(b.shortage_khac) || 0) > 0 ||
+          (b.shortage_note && b.shortage_note.trim().length > 0)
+        ));
+      };
+
+      const serverHasData = checkHasData(appState.report);
+      const cacheHasData = checkHasData(localCache);
+
+      if (!serverHasData && cacheHasData) {
+        console.info("⚡ Khôi phục dữ liệu đã lưu từ bộ nhớ điện thoại (localStorage):", localCache);
+        appState.report = localCache;
+        // Tự động đồng bộ ngay lên máy chủ
+        saveReport(appState.report.status || "DRAFT", true);
+      } else if (serverHasData) {
+        saveLocalReportCache(poId, date, appState.report);
+      }
 
       // Auto-fallback: if report has no batches, populate immediately from currentPO default_batches
       if (!appState.report.batches || appState.report.batches.length === 0) {
@@ -954,7 +1037,14 @@ async function loadReport() {
       renderReportUI();
     }
   } catch (err) {
-    console.error("Lỗi tải báo cáo:", err);
+    console.error("Lỗi tải báo cáo từ máy chủ, kiểm tra cache nội bộ:", err);
+    if (localCache && localCache.batches && localCache.batches.length > 0) {
+      appState.report = localCache;
+      appState.hasUnsavedChanges = false;
+      renderReportUI();
+      showToast("📱 Đang hiển thị dữ liệu lưu trên điện thoại (ngoại tuyến)");
+      return;
+    }
   }
 }
 
@@ -1576,6 +1666,21 @@ function bindCardInputs() {
       }
 
       recalculateAllInPlace();
+
+      // 1. Lưu ngay tức thì vào LocalStorage của điện thoại (chỉ tốn 0.1ms) để không bao giờ bị mất/tuột dữ liệu khi đóng/chuyển app
+      if (appState.currentPO && appState.report) {
+        appState.report.po_id = appState.currentPO.id;
+        appState.report.report_date = appState.currentDate;
+        saveLocalReportCache(appState.currentPO.id, appState.currentDate, appState.report);
+      }
+
+      // 2. Tự động đồng bộ ngầm lên máy chủ sau 600ms không cần chờ người dùng bấm ra ngoài
+      clearTimeout(window._autoSaveDebounceTimer);
+      window._autoSaveDebounceTimer = setTimeout(() => {
+        if (appState.currentPO && appState.report) {
+          saveReport(appState.report.status || "DRAFT", true);
+        }
+      }, 600);
     });
 
     input.addEventListener("dblclick", (e) => {
@@ -2700,6 +2805,29 @@ async function handleAddPO(e) {
   }
 }
 
+// HELPER: LOCAL STORAGE REPORT CACHE (BẢO VỆ DỮ LIỆU ĐIỆN THOẠI KHÔNG BỊ MẤT KHI THOÁT)
+function saveLocalReportCache(poId, date, reportData) {
+  if (!poId || !date || !reportData) return;
+  try {
+    const key = `dd_cache_report_${poId}_${date}`;
+    localStorage.setItem(key, JSON.stringify(reportData));
+    localStorage.setItem("dd_last_saved_time", Date.now().toString());
+  } catch (e) {
+    console.warn("Lỗi lưu cache báo cáo cục bộ:", e);
+  }
+}
+
+function getLocalReportCache(poId, date) {
+  if (!poId || !date) return null;
+  try {
+    const key = `dd_cache_report_${poId}_${date}`;
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
 // SAVE REPORT
 async function saveReport(status, silent = false) {
   if (!appState.currentPO) return;
@@ -2707,11 +2835,23 @@ async function saveReport(status, silent = false) {
   appState.report.po_id = appState.currentPO.id;
   appState.report.report_date = appState.currentDate;
   appState.report.status = status || "DRAFT";
+
+  // 1. Luôn lưu ngay vào LocalStorage của điện thoại để dữ liệu không bao giờ bị tuột
+  saveLocalReportCache(appState.currentPO.id, appState.currentDate, appState.report);
+
+  // Lưu lại khách hàng, PO và ngày gần nhất người dùng đang xem
+  try {
+    localStorage.setItem("dd_last_customer_id", appState.currentCustomer || "");
+    localStorage.setItem("dd_last_po_id", appState.currentPO.id || "");
+    localStorage.setItem("dd_last_report_date", appState.currentDate || "");
+  } catch (e) {}
+
   try {
     const res = await fetch("/api/report", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(appState.report)
+      body: JSON.stringify(appState.report),
+      keepalive: true
     });
     const data = await res.json();
     if (data.success) {
@@ -2722,9 +2862,14 @@ async function saveReport(status, silent = false) {
       if (typeof refreshFactoryBalanceInBackground === "function") {
         refreshFactoryBalanceInBackground();
       }
+    } else {
+      if (!silent) showToast("⚠️ Dữ liệu đã lưu tạm trên máy (chờ đồng bộ máy chủ)");
     }
   } catch (err) {
-    if (!silent) alert("Lỗi khi lưu báo cáo: " + err.message);
+    console.warn("Lỗi kết nối khi gửi dữ liệu lên server, đã bảo lưu cục bộ:", err);
+    if (!silent) {
+      showToast("📱 Đã lưu an toàn trên điện thoại (sẽ tự động đồng bộ khi có mạng)!");
+    }
   }
 }
 
