@@ -3923,7 +3923,7 @@ async function handleConfirmAuth() {
 // ========================================================
 async function fetchUsers() {
   try {
-    const res = await fetch("/api/admin/users");
+    const res = await fetch(`/api/admin/users?_t=${Date.now()}`);
     const data = await res.json();
     if (data.success) {
       appState.usersList = data.users || [];
@@ -4021,11 +4021,16 @@ function renderUsersTable() {
       const id = e.target.dataset.id;
       if (confirm("Bạn có chắc chắn muốn xóa người dùng này khỏi hệ thống?")) {
         try {
-          const res = await fetch(`/api/admin/users?id=${id}`, { method: "DELETE" });
+          const res = await fetch(`/api/admin/users?id=${id}&_t=${Date.now()}`, { method: "DELETE" });
           const data = await res.json();
           if (data.success) {
             showToast("🗑️ Đã xóa người dùng thành công!");
-            fetchUsers();
+            if (data.users && Array.isArray(data.users)) {
+              appState.usersList = data.users;
+              renderUsersTable();
+            } else {
+              await fetchUsers();
+            }
           }
         } catch (err) {
           alert("Lỗi khi xóa người dùng: " + err.message);
@@ -4199,9 +4204,14 @@ async function handleAddUser(e) {
     if (data.success) {
       const actionText = id ? "cập nhật phân quyền" : "thêm người dùng mới";
       const roleText = role === 'admin' ? '👑 Sếp Tổng (Admin)' : role === 'manager' ? '⭐ Quản Lý' : '👤 Công Nhân';
-      showToast(`🎉 Đã ${actionText} thành công!\n👤 ${fullName} (${roleText})`);
+      if (data.users && Array.isArray(data.users)) {
+        appState.usersList = data.users;
+        renderUsersTable();
+      } else {
+        await fetchUsers();
+      }
       resetUserForm();
-      fetchUsers();
+      showToast(`🎉 Đã ${actionText} thành công!\n👤 ${fullName} (${roleText})`);
     } else {
       alert("❌ Lỗi: " + (data.error || "Không thể lưu người dùng"));
     }
