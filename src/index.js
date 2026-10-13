@@ -312,12 +312,21 @@ async function initD1Tables(db) {
       }
     }
 
-    // Safe schema migrations for users table (if table already existed without email or password)
+    // Safe schema migrations for users table (if table already existed without email, password, pin_code, etc.)
     try {
       await db.prepare("ALTER TABLE users ADD COLUMN email TEXT").run();
     } catch (e) {}
     try {
       await db.prepare("ALTER TABLE users ADD COLUMN password TEXT DEFAULT 'Admin@123456'").run();
+    } catch (e) {}
+    try {
+      await db.prepare("ALTER TABLE users ADD COLUMN pin_code TEXT DEFAULT '1234'").run();
+    } catch (e) {}
+    try {
+      await db.prepare("ALTER TABLE users ADD COLUMN is_active INTEGER DEFAULT 1").run();
+    } catch (e) {}
+    try {
+      await db.prepare("ALTER TABLE users ADD COLUMN updated_at DATETIME").run();
     } catch (e) {}
 
     // Safe schema migrations for po_orders (tail_sweep_date, tail_batch_name)
@@ -828,24 +837,7 @@ export default {
           if (env && env.DB) {
             let targetUserId = id ? String(id).trim() : null;
 
-            // Nếu chưa có ID (người dùng tự nhập SĐT/Email ở form mà không ấn nút Sửa):
-            // Tự động tìm xem SĐT hoặc Email này đã tồn tại trong DB chưa để cập nhật
-            if (!targetUserId) {
-              if (cleanPhone) {
-                const { results: phoneMatch } = await env.DB.prepare("SELECT * FROM users WHERE phone = ?").bind(cleanPhone).all();
-                if (phoneMatch && phoneMatch.length > 0) {
-                  targetUserId = phoneMatch[0].id;
-                }
-              }
-              if (!targetUserId && cleanEmail) {
-                const { results: emailMatch } = await env.DB.prepare("SELECT * FROM users WHERE LOWER(email) = ?").bind(cleanEmail).all();
-                if (emailMatch && emailMatch.length > 0) {
-                  targetUserId = emailMatch[0].id;
-                }
-              }
-            }
-
-            // Kiểm tra trùng lặp với tài khoản khác trong hệ thống
+            // Nếu đang SỬA người dùng hiện có (có ID)
             if (targetUserId) {
               if (cleanPhone) {
                 const { results: phoneConflict } = await env.DB.prepare("SELECT id, full_name FROM users WHERE phone = ? AND id != ?").bind(cleanPhone, targetUserId).all();
@@ -889,7 +881,26 @@ export default {
                 targetUserId
               ).run();
             } else {
-              // Thêm người dùng mới
+              // THÊM NGƯỜI DÙNG MỚI (chưa có ID)
+              if (cleanPhone) {
+                const { results: phoneMatch } = await env.DB.prepare("SELECT id, full_name FROM users WHERE phone = ?").bind(cleanPhone).all();
+                if (phoneMatch && phoneMatch.length > 0) {
+                  return Response.json({
+                    success: false,
+                    error: `Số điện thoại "${cleanPhone}" đã được đăng ký cho tài khoản "${phoneMatch[0].full_name}". Vui lòng chọn số khác hoặc bấm 'Sửa' tài khoản đó.`
+                  }, { status: 400, headers });
+                }
+              }
+              if (cleanEmail) {
+                const { results: emailMatch } = await env.DB.prepare("SELECT id, full_name FROM users WHERE LOWER(email) = ?").bind(cleanEmail).all();
+                if (emailMatch && emailMatch.length > 0) {
+                  return Response.json({
+                    success: false,
+                    error: `Email "${cleanEmail}" đã được đăng ký cho tài khoản "${emailMatch[0].full_name}". Vui lòng chọn email khác.`
+                  }, { status: 400, headers });
+                }
+              }
+
               targetUserId = 'usr-' + Date.now();
               await env.DB.prepare(`
                 INSERT INTO users (id, email, phone, full_name, role, password, pin_code, is_active, updated_at)
@@ -912,15 +923,6 @@ export default {
 
           // Memory fallback
           let targetUserId = id ? String(id).trim() : null;
-          if (!targetUserId) {
-            const existing = memoryDB.users.find(u => 
-              (cleanPhone && normalizePhone(u.phone) === cleanPhone) ||
-              (cleanEmail && u.email && u.email.toLowerCase() === cleanEmail)
-            );
-            if (existing) {
-              targetUserId = existing.id;
-            }
-          }
 
           if (targetUserId) {
             const dup = memoryDB.users.find(u => u.id !== targetUserId && (
@@ -948,6 +950,7 @@ export default {
               };
             }
           } else {
+            // Thêm người dùng mới
             const dup = memoryDB.users.find(u => 
               (cleanPhone && normalizePhone(u.phone) === cleanPhone) ||
               (cleanEmail && u.email && u.email.toLowerCase() === cleanEmail)
@@ -955,7 +958,7 @@ export default {
             if (dup) {
               return Response.json({
                 success: false,
-                error: `Số điện thoại hoặc Email đã được sử dụng bởi tài khoản "${dup.full_name}". Vui lòng kiểm tra lại.`
+                error: `Số điện thoại hoặc Email đã được đăng ký cho tài khoản "${dup.full_name}". Vui lòng chọn số/email khác hoặc bấm 'Sửa'.`
               }, { status: 400, headers });
             }
 

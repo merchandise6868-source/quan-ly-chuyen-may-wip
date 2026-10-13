@@ -468,7 +468,7 @@
         </div>
         <div class="stat-card">
           <span class="stat-label">👥 Tổng Tài Khoản Hệ Thống</span>
-          <span class="stat-value" id="statTotalUsers">3</span>
+          <span class="stat-value" id="statTotalUsersTab3">3</span>
         </div>
       </div>
       
@@ -619,19 +619,34 @@
       <div class="manage-layout-grid" style="grid-template-columns: 1fr;">
         
         <div class="manage-card" style="box-shadow: 0 4px 18px rgba(0,0,0,0.08);">
-          <div class="manage-card-header" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: #ffffff; display:flex; justify-content:space-between; align-items:center;">
+          <div class="manage-card-header" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: #ffffff; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
             <div>
               <h3 style="font-size: 16px;">👑 QUẢN TRỊ VIÊN & PHÂN QUYỀN HỆ THỐNG</h3>
               <p style="font-size: 12px; color: #94a3b8; margin-top: 3px;">Sếp Tổng ghi nhận Số Điện Thoại, Email và thiết lập vai trò (Sếp Tổng / Quản Lý / Công Nhân) cho nhân viên</p>
             </div>
-            <span class="user-role-badge is-admin" id="statTotalUsers" style="font-size:12.5px; padding: 4px 10px;">0 người</span>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <button type="button" class="btn btn-success font-bold" id="btnAddNewUserTop" style="font-size:13px; padding:7px 15px; background:#10b981; border:none; border-radius:6px; cursor:pointer; color:#ffffff; display:inline-flex; align-items:center; gap:6px;">
+                ➕ Thêm Người Dùng Mới
+              </button>
+              <span class="user-role-badge is-admin" id="statTotalUsersBadge" style="font-size:12.5px; padding: 5px 12px;">0 người</span>
+            </div>
           </div>
           
           <div class="manage-card-body">
             <!-- FORM THÊM / CẬP NHẬT USER VÀ SĐT -->
-            <form id="formAddUser" class="form-grid" style="background: #f8fafc; padding: 18px; border-radius: 10px; border: 1.5px solid #e2e8f0; margin-bottom: 20px;">
+            <form id="formAddUser" class="form-grid" style="background: #f8fafc; padding: 18px; border-radius: 10px; border: 1.5px solid #cbd5e1; margin-bottom: 20px;">
               <input type="hidden" id="editUserId" value="">
-              <div id="userFormHint" style="display:none; background:#e0f2fe; color:#0369a1; padding:8px 12px; border-radius:6px; font-size:13px; margin-bottom:12px; border:1px solid #bae6fd; font-weight:500;"></div>
+
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; padding-bottom:10px; border-bottom:1.5px solid #e2e8f0; flex-wrap:wrap; gap:8px;">
+                <h4 id="userFormTitle" style="margin:0; font-size:15px; color:#0f766e; display:flex; align-items:center; gap:6px;">
+                  ➕ Thêm Tài Khoản & Phân Quyền Mới
+                </h4>
+                <span id="userFormModeBadge" style="font-size:12px; font-weight:700; background:#e0f2fe; color:#0369a1; padding:4px 10px; border-radius:5px;">
+                  Chế độ: Thêm mới
+                </span>
+              </div>
+
+              <div id="userFormHint" style="display:none; background:#e0f2fe; color:#0369a1; padding:10px 14px; border-radius:6px; font-size:13px; margin-bottom:14px; border:1px solid #bae6fd; font-weight:500;"></div>
 
               <div class="form-row" style="display:flex; gap:12px; flex-wrap: wrap;">
                 <div class="form-group" style="flex:1; min-width: 240px;">
@@ -662,20 +677,20 @@
               <div class="form-row" style="display:flex; gap:12px; flex-wrap: wrap; margin-top: 10px;">
                 <div class="form-group" style="flex:1; min-width: 240px;">
                   <label style="font-weight: 700; color: #1e293b;">🔒 Mật Khẩu Đăng Nhập:</label>
-                  <input type="text" id="userPassword" class="form-control font-bold" placeholder="Nhập mật khẩu..." required>
+                  <input type="text" id="userPassword" class="form-control font-bold" placeholder="Nhập mật khẩu..." value="Admin@123456" required>
                 </div>
                 <div class="form-group" style="flex:1; min-width: 240px;">
                   <label style="font-weight: 700; color: #1e293b;">🔑 Mã PIN Dự Phòng (4 - 6 số):</label>
-                  <input type="text" id="userPinCode" class="form-control font-bold" placeholder="Ví dụ: 1234" maxlength="6" inputmode="numeric">
+                  <input type="text" id="userPinCode" class="form-control font-bold" placeholder="Ví dụ: 1234" value="1234" maxlength="6" inputmode="numeric">
                 </div>
               </div>
 
-              <div style="display:flex; gap:10px; margin-top: 16px; align-items: center;">
-                <button type="submit" class="btn btn-primary font-bold" id="btnSubmitUser" style="padding: 10px 22px; font-size: 14px;">
-                  💾 Lưu Tài Khoản & Phân Quyền
+              <div style="display:flex; gap:10px; margin-top: 16px; align-items: center; flex-wrap: wrap;">
+                <button type="submit" class="btn btn-primary font-bold" id="btnSubmitUser" style="padding: 10px 22px; font-size: 14px; background:#0f766e; border:none; cursor:pointer;">
+                  💾 Lưu Tài Khoản Mới
                 </button>
-                <button type="button" class="btn btn-secondary" id="btnCancelEditUser" style="display:none; padding: 10px 18px;">
-                  ✕ Hủy Chỉnh Sửa
+                <button type="button" class="btn btn-secondary font-bold" id="btnCancelEditUser" style="display:none; padding: 10px 18px; background:#64748b; color:#ffffff; border:none; cursor:pointer;">
+                  ✕ Hủy Chỉnh Sửa (Về Thêm Mới)
                 </button>
                 <small style="color: #64748b; margin-left: 8px;">* Nhân viên sau khi được lưu có thể dùng SĐT hoặc Email để đăng nhập ngay trên mọi thiết bị.</small>
               </div>

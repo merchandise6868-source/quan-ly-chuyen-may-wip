@@ -339,6 +339,16 @@ function bindEvents() {
   const btnCancelUser = document.getElementById("btnCancelEditUser");
   if (btnCancelUser) btnCancelUser.addEventListener("click", resetUserForm);
 
+  const btnAddNewTop = document.getElementById("btnAddNewUserTop");
+  if (btnAddNewTop) {
+    btnAddNewTop.addEventListener("click", () => {
+      resetUserForm();
+      const form = document.getElementById("formAddUser");
+      if (form) form.scrollIntoView({ behavior: "smooth", block: "center" });
+      document.getElementById("userPhone")?.focus();
+    });
+  }
+
   const inputUserPhone = document.getElementById("userPhone");
   if (inputUserPhone) inputUserPhone.addEventListener("input", handleUserFormPhoneInput);
   const inputUserEmail = document.getElementById("userEmail");
@@ -3887,12 +3897,14 @@ async function fetchUsers() {
 
 function renderUsersTable() {
   const tbody = document.getElementById("tbodyUsers");
-  const statTotal = document.getElementById("statTotalUsers");
-  if (statTotal) statTotal.innerText = `${appState.usersList.length} người`;
+  const statTotalTab3 = document.getElementById("statTotalUsersTab3");
+  if (statTotalTab3) statTotalTab3.innerText = `${appState.usersList.length}`;
+  const statTotalTab4 = document.getElementById("statTotalUsersBadge");
+  if (statTotalTab4) statTotalTab4.innerText = `${appState.usersList.length} người`;
 
   if (!tbody) return;
   if (appState.usersList.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 20px; color: #94a3b8;">Chưa có tài khoản nào. Hãy thêm tài khoản mới ở trên.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 20px; color: #94a3b8;">Chưa có tài khoản nào. Hãy bấm nút '➕ Thêm Người Dùng Mới' ở trên.</td></tr>`;
     return;
   }
 
@@ -3933,13 +3945,28 @@ function renderUsersTable() {
       document.getElementById("userRoleSelect").value = user.role || "worker";
       if (document.getElementById("userPassword")) document.getElementById("userPassword").value = user.password || "Admin@123456";
       document.getElementById("userPinCode").value = user.pin_code || "1234";
-      document.getElementById("btnSubmitUser").innerText = "💾 Cập Nhật Quyền";
-      document.getElementById("btnCancelEditUser").style.display = "inline-block";
+
+      const formTitle = document.getElementById("userFormTitle");
+      if (formTitle) formTitle.innerHTML = `✏️ Chỉnh Sửa Tài Khoản: <strong>${user.full_name}</strong>`;
+      const formBadge = document.getElementById("userFormModeBadge");
+      if (formBadge) {
+        formBadge.innerText = "Chế độ: Đang chỉnh sửa";
+        formBadge.style.background = "#fef3c7";
+        formBadge.style.color = "#b45309";
+      }
+
+      const btnSubmit = document.getElementById("btnSubmitUser");
+      if (btnSubmit) {
+        btnSubmit.innerText = "💾 Cập Nhật Quyền";
+        btnSubmit.style.background = "#d97706";
+      }
+      const btnCancel = document.getElementById("btnCancelEditUser");
+      if (btnCancel) btnCancel.style.display = "inline-block";
 
       const hintEl = document.getElementById("userFormHint");
       if (hintEl) {
         hintEl.style.display = "block";
-        hintEl.innerHTML = `✏️ Đang chỉnh sửa tài khoản: <strong>${user.full_name}</strong> (${user.phone || user.email || id}).`;
+        hintEl.innerHTML = `✏️ Đang chỉnh sửa tài khoản: <strong>${user.full_name}</strong> (${user.phone || user.email || id}). Bấm nút <strong>"✕ Hủy Chỉnh Sửa (Về Thêm Mới)"</strong> nếu bạn muốn thêm người dùng mới khác.`;
       }
 
       const formUser = document.getElementById("formAddUser");
@@ -3979,10 +4006,19 @@ function handleUserFormPhoneInput() {
   const cleanPhone = normalizePhone(phoneVal);
   const hintEl = document.getElementById("userFormHint");
   const btnSubmit = document.getElementById("btnSubmitUser");
+  const formBadge = document.getElementById("userFormModeBadge");
 
   if (!cleanPhone && !emailVal) {
     if (hintEl) hintEl.style.display = "none";
-    if (btnSubmit) btnSubmit.innerText = "💾 Lưu Tài Khoản & Phân Quyền";
+    if (btnSubmit) {
+      btnSubmit.innerText = "💾 Lưu Tài Khoản Mới";
+      btnSubmit.style.background = "#0f766e";
+    }
+    if (formBadge) {
+      formBadge.innerText = "Chế độ: Thêm mới";
+      formBadge.style.background = "#e0f2fe";
+      formBadge.style.color = "#0369a1";
+    }
     return;
   }
 
@@ -3995,14 +4031,28 @@ function handleUserFormPhoneInput() {
     const roleText = existing.role === 'admin' ? 'Admin (Sếp Tổng)' : existing.role === 'manager' ? 'Manager (Quản Lý)' : 'Worker (Công Nhân)';
     if (hintEl) {
       hintEl.style.display = "block";
-      hintEl.innerHTML = `ℹ️ Số điện thoại/Email này đã có tài khoản: <strong>${existing.full_name}</strong> (Vai trò hiện tại: <em>${roleText}</em>). Khi bạn bấm Lưu, hệ thống sẽ tự động cập nhật phân quyền và thông tin cho tài khoản này.`;
+      hintEl.innerHTML = `ℹ️ Số điện thoại/Email này đã thuộc tài khoản: <strong>${existing.full_name}</strong> (Vai trò: <em>${roleText}</em>). Khi bạn bấm Lưu, hệ thống sẽ cập nhật thông tin cho tài khoản này. Nếu muốn thêm người mới, vui lòng đổi số khác.`;
     }
     if (btnSubmit) {
       btnSubmit.innerText = `💾 Cập Nhật Quyền (${existing.full_name})`;
+      btnSubmit.style.background = "#d97706";
+    }
+    if (formBadge) {
+      formBadge.innerText = "Trùng SĐT/Email cũ";
+      formBadge.style.background = "#fef3c7";
+      formBadge.style.color = "#b45309";
     }
   } else {
     if (hintEl) hintEl.style.display = "none";
-    if (btnSubmit) btnSubmit.innerText = "💾 Lưu Tài Khoản & Phân Quyền";
+    if (btnSubmit) {
+      btnSubmit.innerText = "💾 Lưu Tài Khoản Mới";
+      btnSubmit.style.background = "#0f766e";
+    }
+    if (formBadge) {
+      formBadge.innerText = "Chế độ: Thêm mới";
+      formBadge.style.background = "#e0f2fe";
+      formBadge.style.color = "#0369a1";
+    }
   }
 }
 
@@ -4021,8 +4071,21 @@ function resetUserForm() {
   if (elPassword) elPassword.value = "Admin@123456";
   const elPin = document.getElementById("userPinCode");
   if (elPin) elPin.value = "1234";
+
+  const formTitle = document.getElementById("userFormTitle");
+  if (formTitle) formTitle.innerHTML = `➕ Thêm Tài Khoản & Phân Quyền Mới`;
+  const formBadge = document.getElementById("userFormModeBadge");
+  if (formBadge) {
+    formBadge.innerText = "Chế độ: Thêm mới";
+    formBadge.style.background = "#e0f2fe";
+    formBadge.style.color = "#0369a1";
+  }
+
   const elSubmit = document.getElementById("btnSubmitUser");
-  if (elSubmit) elSubmit.innerText = "💾 Lưu Tài Khoản & Phân Quyền";
+  if (elSubmit) {
+    elSubmit.innerText = "💾 Lưu Tài Khoản Mới";
+    elSubmit.style.background = "#0f766e";
+  }
   const elCancel = document.getElementById("btnCancelEditUser");
   if (elCancel) elCancel.style.display = "none";
   const hintEl = document.getElementById("userFormHint");
@@ -4043,15 +4106,15 @@ async function handleAddUser(e) {
   const pinCode = document.getElementById("userPinCode")?.value.trim() || "1234";
 
   if (!email && !phone) {
-    alert("Vui lòng nhập Email hoặc Số điện thoại.");
+    alert("❌ Vui lòng nhập Email hoặc Số điện thoại.");
     return;
   }
   if (!fullName) {
-    alert("Vui lòng điền họ và tên.");
+    alert("❌ Vui lòng điền họ và tên người dùng.");
     return;
   }
 
-  // Tự động gán ID nếu người dùng tự nhập SĐT hoặc Email đã tồn tại trong danh sách
+  // Tự động kiểm tra trùng lặp nếu chưa có ID (chế độ Thêm mới)
   const cleanPhone = normalizePhone(phone);
   const cleanEmail = email.toLowerCase();
   if (!id && Array.isArray(appState.usersList)) {
@@ -4060,8 +4123,21 @@ async function handleAddUser(e) {
       (cleanEmail && u.email && u.email.toLowerCase() === cleanEmail)
     );
     if (existing) {
-      id = existing.id;
+      const confirmUpdate = confirm(`⚠️ Số điện thoại hoặc Email này đã thuộc về tài khoản "${existing.full_name}".\n\nBạn có muốn CẬP NHẬT thông tin/phân quyền cho tài khoản "${existing.full_name}" không?\n- Bấm OK: Cập nhật tài khoản hiện có này.\n- Bấm Cancel: Quay lại đổi số điện thoại để tạo người dùng mới.`);
+      if (confirmUpdate) {
+        id = existing.id;
+      } else {
+        document.getElementById("userPhone")?.focus();
+        return;
+      }
     }
+  }
+
+  const btnSubmit = document.getElementById("btnSubmitUser");
+  const origBtnText = btnSubmit ? btnSubmit.innerText : "";
+  if (btnSubmit) {
+    btnSubmit.disabled = true;
+    btnSubmit.innerText = "⏳ Đang lưu...";
   }
 
   try {
@@ -4082,14 +4158,21 @@ async function handleAddUser(e) {
 
     const data = await res.json();
     if (data.success) {
-      showToast("✅ Đã lưu tài khoản người dùng và phân quyền thành công!");
+      const actionText = id ? "cập nhật phân quyền" : "thêm người dùng mới";
+      const roleText = role === 'admin' ? '👑 Sếp Tổng (Admin)' : role === 'manager' ? '⭐ Quản Lý' : '👤 Công Nhân';
+      showToast(`🎉 Đã ${actionText} thành công!\n👤 ${fullName} (${roleText})`);
       resetUserForm();
       fetchUsers();
     } else {
-      alert("Lỗi: " + (data.error || "Không thể lưu người dùng"));
+      alert("❌ Lỗi: " + (data.error || "Không thể lưu người dùng"));
     }
   } catch (err) {
-    alert("Lỗi: " + err.message);
+    alert("❌ Lỗi kết nối máy chủ: " + err.message);
+  } finally {
+    if (btnSubmit) {
+      btnSubmit.disabled = false;
+      btnSubmit.innerText = origBtnText || "💾 Lưu Tài Khoản Mới";
+    }
   }
 }
 
