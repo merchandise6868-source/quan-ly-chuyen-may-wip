@@ -22,7 +22,7 @@
   <link rel="apple-touch-icon" sizes="192x192" href="icon-192.png">
   <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png">
 
-  <link rel="stylesheet" href="styles.css?v=20261011_1515">
+  <link rel="stylesheet" href="styles.css?v=20261013_1640">
   
   <!-- cdn for sheetjs (xlsx) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -139,6 +139,7 @@
 
           <div class="user-action-cluster">
             <button type="button" id="btnInstallPWA" class="btn-install-pwa desktop-only-pwa" style="display: none;" title="Cài đặt ứng dụng về thiết bị">📲 Cài Ứng Dụng</button>
+            <button type="button" id="btnForceRefreshApp" class="desktop-only-btn" title="Xóa cache và cập nhật phiên bản mới nhất" style="background:#0284c7; color:#ffffff; border:none; padding:6px 12px; border-radius:6px; font-weight:700; font-size:13px; cursor:pointer; display:inline-flex; align-items:center; gap:5px;">⚡ Cập Nhật App</button>
             <span class="role-badge is-admin desktop-only-role" id="currentRoleBadge">👑 Sếp Tổng Quản Trị</span>
             <button class="btn-role-switch desktop-only-btn" id="btnSwitchRole" title="Đổi quyền hoặc đăng nhập tài khoản khác">🔄 Đổi Quyền</button>
             <button class="btn-logout desktop-only-btn" id="btnLogout" title="Đăng xuất khỏi hệ thống">🚪 Đăng Xuất</button>
@@ -155,6 +156,9 @@
                 <div class="user-popover-role" id="popoverUserRole">Vai trò: Công nhân</div>
               </div>
               <div class="user-popover-divider"></div>
+              <button type="button" class="popover-item text-primary" id="btnPopoverRefreshApp">
+                <span class="p-icon">⚡</span> Cập nhật phiên bản mới
+              </button>
               <button type="button" class="popover-item" id="btnPopoverSwitchRole">
                 <span class="p-icon">🔄</span> Đổi quyền
               </button>
@@ -960,6 +964,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261011_1515"></script>
+  <script src="app.js?v=20261013_1640"></script>
 </body>
 </html>

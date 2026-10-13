@@ -68,18 +68,29 @@ function initFirebaseAuth() {
 let deferredInstallPrompt = null;
 
 function initPWA() {
-  // 1. Register Service Worker
+  // 1. Register Service Worker with active update check
   if ('serviceWorker' in navigator) {
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!refreshing) {
+        refreshing = true;
+        window.location.reload();
+      }
+    });
+
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js', { scope: '/' })
+      navigator.serviceWorker.register('/sw.js?v=20261013_1640', { scope: '/' })
         .then(reg => {
           console.log('✅ Service Worker registered successfully:', reg.scope);
+          // Explicit update check on every page load
+          reg.update();
           reg.onupdatefound = () => {
             const installingWorker = reg.installing;
             if (installingWorker) {
               installingWorker.onstatechange = () => {
                 if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                  console.log('🔄 Đã cập nhật phiên bản ứng dụng mới ngầm.');
+                  console.log('⚡ Đã tải phiên bản ứng dụng mới, tự động làm mới trang...');
+                  window.location.reload();
                 }
               };
             }
@@ -265,8 +276,36 @@ function showToast(msg = "✅ Đã lưu dữ liệu thành công!") {
   }, 2200);
 }
 
+// FORCE HARD REFRESH & CLEAR PWA / CACHE
+async function forceRefreshApp() {
+  if (confirm("⚡ Hệ thống sẽ làm sạch bộ nhớ đệm (Cache) trên thiết bị và tải bản mới nhất từ máy chủ ngay lập tức.\n\nBạn có muốn tiếp tục?")) {
+    try {
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k => caches.delete(k)));
+      }
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const reg of registrations) {
+          await reg.unregister();
+        }
+      }
+    } catch (e) {
+      console.warn("Cache purge notice:", e);
+    }
+    const cleanUrl = window.location.origin + window.location.pathname + '?t=' + Date.now();
+    window.location.replace(cleanUrl);
+  }
+}
+
 // BIND DOM EVENTS
 function bindEvents() {
+  // Force Refresh App Buttons (Desktop & Avatar Popover)
+  const btnForceRef = document.getElementById("btnForceRefreshApp");
+  if (btnForceRef) btnForceRef.addEventListener("click", forceRefreshApp);
+  const btnPopRef = document.getElementById("btnPopoverRefreshApp");
+  if (btnPopRef) btnPopRef.addEventListener("click", forceRefreshApp);
+
   // Role & Auth Modal Events
   const btnSwitchRole = document.getElementById("btnSwitchRole");
   if (btnSwitchRole) btnSwitchRole.addEventListener("click", openRoleModal);
