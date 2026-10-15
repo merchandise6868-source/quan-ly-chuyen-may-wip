@@ -198,9 +198,11 @@ let memoryDB = JSON.parse(JSON.stringify(INITIAL_DB));
 // Helper: Normalize phone numbers (e.g. +84901234567 -> 0901234567 or vice versa)
 function normalizePhone(p) {
   if (!p) return "";
-  let clean = p.replace(/\s+/g, "").replace(/-/g, "");
+  let clean = String(p).replace(/\s+/g, "").replace(/[\-\.\(\)]/g, "");
   if (clean.startsWith("+84")) {
     clean = "0" + clean.substring(3);
+  } else if (clean.startsWith("84") && clean.length >= 11) {
+    clean = "0" + clean.substring(2);
   }
   return clean;
 }
@@ -508,7 +510,9 @@ export default {
                  OR phone = ? 
                  OR phone = ?
                  OR phone = ?
-            `).bind(cleanEmail, cleanEmail, userInput, cleanPhone, rawPhone, intlPhone).all();
+                 OR REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '.', '') = ?
+                 OR REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '.', '') = ?
+            `).bind(cleanEmail, cleanEmail, userInput, cleanPhone, rawPhone, intlPhone, cleanPhone, rawPhone).all();
             let user = results && results.length > 0 ? results[0] : null;
 
             // Pre-configured Admin credentials fallback
@@ -862,27 +866,50 @@ export default {
               }
 
               // Cập nhật người dùng hiện có
-              await env.DB.prepare(`
-                UPDATE users
-                SET email = ?,
-                    phone = ?,
-                    full_name = ?,
-                    role = ?,
-                    password = ?,
-                    pin_code = ?,
-                    is_active = ?,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
-              `).bind(
-                cleanEmail,
-                cleanPhone,
-                full_name || 'Nhân Viên',
-                role || 'worker',
-                password || 'Admin@123456',
-                pin_code || '1234',
-                is_active !== undefined ? is_active : 1,
-                targetUserId
-              ).run();
+              try {
+                await env.DB.prepare(`
+                  UPDATE users
+                  SET email = ?,
+                      phone = ?,
+                      full_name = ?,
+                      role = ?,
+                      password = ?,
+                      pin_code = ?,
+                      is_active = ?,
+                      updated_at = CURRENT_TIMESTAMP
+                  WHERE id = ?
+                `).bind(
+                  cleanEmail,
+                  cleanPhone,
+                  full_name || 'Nhân Viên',
+                  role || 'worker',
+                  password || 'Admin@123456',
+                  pin_code || '1234',
+                  is_active !== undefined ? is_active : 1,
+                  targetUserId
+                ).run();
+              } catch (updErr) {
+                await env.DB.prepare(`
+                  UPDATE users
+                  SET email = ?,
+                      phone = ?,
+                      full_name = ?,
+                      role = ?,
+                      password = ?,
+                      pin_code = ?,
+                      is_active = ?
+                  WHERE id = ?
+                `).bind(
+                  cleanEmail,
+                  cleanPhone,
+                  full_name || 'Nhân Viên',
+                  role || 'worker',
+                  password || 'Admin@123456',
+                  pin_code || '1234',
+                  is_active !== undefined ? is_active : 1,
+                  targetUserId
+                ).run();
+              }
             } else {
               // THÊM NGƯỜI DÙNG MỚI (chưa có ID)
               if (cleanPhone) {
@@ -905,19 +932,35 @@ export default {
               }
 
               targetUserId = 'usr-' + Date.now();
-              await env.DB.prepare(`
-                INSERT INTO users (id, email, phone, full_name, role, password, pin_code, is_active, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-              `).bind(
-                targetUserId,
-                cleanEmail,
-                cleanPhone,
-                full_name || 'Nhân Viên',
-                role || 'worker',
-                password || 'Admin@123456',
-                pin_code || '1234',
-                is_active !== undefined ? is_active : 1
-              ).run();
+              try {
+                await env.DB.prepare(`
+                  INSERT INTO users (id, email, phone, full_name, role, password, pin_code, is_active, updated_at)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                `).bind(
+                  targetUserId,
+                  cleanEmail,
+                  cleanPhone,
+                  full_name || 'Nhân Viên',
+                  role || 'worker',
+                  password || 'Admin@123456',
+                  pin_code || '1234',
+                  is_active !== undefined ? is_active : 1
+                ).run();
+              } catch (insErr) {
+                await env.DB.prepare(`
+                  INSERT INTO users (id, email, phone, full_name, role, password, pin_code, is_active)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                `).bind(
+                  targetUserId,
+                  cleanEmail,
+                  cleanPhone,
+                  full_name || 'Nhân Viên',
+                  role || 'worker',
+                  password || 'Admin@123456',
+                  pin_code || '1234',
+                  is_active !== undefined ? is_active : 1
+                ).run();
+              }
             }
 
             const { results: users } = await env.DB.prepare("SELECT id, email, phone, full_name, role, password, pin_code, is_active, created_at FROM users ORDER BY role ASC, created_at DESC").all();

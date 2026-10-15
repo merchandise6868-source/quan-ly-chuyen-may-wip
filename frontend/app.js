@@ -6,6 +6,18 @@ function getLocalDateString(d = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
+// HELPER: Chuẩn hóa số điện thoại (+84901234567 -> 0901234567, loại bỏ khoảng trắng, gạch nối, dấu chấm)
+function normalizePhone(p) {
+  if (!p) return "";
+  let clean = String(p).replace(/\s+/g, "").replace(/[\-\.\(\)]/g, "");
+  if (clean.startsWith("+84")) {
+    clean = "0" + clean.substring(3);
+  } else if (clean.startsWith("84") && clean.length >= 11) {
+    clean = "0" + clean.substring(2);
+  }
+  return clean;
+}
+
 // STATE MANAGEMENT
 let appState = {
   currentUserRole: null, // Set dynamically upon login
@@ -236,12 +248,9 @@ function checkLoginPortalState() {
 function initDate() {
   const dateEl = document.getElementById("reportDate");
   const todayStr = getLocalDateString();
-  let targetDate = todayStr;
+  const targetDate = todayStr; // Luôn hiển thị ngày thực tế hôm nay khi mở giao diện
   try {
-    const savedDate = localStorage.getItem("dd_last_report_date");
-    if (savedDate && /^\d{4}-\d{2}-\d{2}$/.test(savedDate)) {
-      targetDate = savedDate;
-    }
+    localStorage.removeItem("dd_last_report_date");
   } catch (e) {}
 
   appState.currentDate = targetDate;
@@ -375,6 +384,20 @@ function bindEvents() {
   const formUser = document.getElementById("formAddUser");
   if (formUser) formUser.addEventListener("submit", handleAddUser);
 
+  const btnSubmitUser = document.getElementById("btnSubmitUser");
+  if (btnSubmitUser) {
+    btnSubmitUser.addEventListener("click", (e) => {
+      if (formUser) {
+        if (!formUser.checkValidity()) {
+          formUser.reportValidity();
+          return;
+        }
+        e.preventDefault();
+        handleAddUser(e);
+      }
+    });
+  }
+
   const btnCancelUser = document.getElementById("btnCancelEditUser");
   if (btnCancelUser) btnCancelUser.addEventListener("click", resetUserForm);
 
@@ -425,7 +448,6 @@ function bindEvents() {
         }
       }
       appState.currentDate = e.target.value;
-      try { localStorage.setItem("dd_last_report_date", appState.currentDate || ""); } catch (err) {}
       await refreshAllTabsData();
     });
   }
@@ -803,7 +825,6 @@ function bindEvents() {
       try {
         localStorage.setItem("dd_last_customer_id", appState.currentCustomer || "");
         localStorage.setItem("dd_last_po_id", appState.currentPO.id || "");
-        localStorage.setItem("dd_last_report_date", appState.currentDate || "");
       } catch (e) {}
 
       if (appState.hasUnsavedChanges) {
@@ -872,7 +893,6 @@ async function changeDateByDays(days) {
   d.setDate(d.getDate() + days);
   const newDateStr = getLocalDateString(d);
   appState.currentDate = newDateStr;
-  try { localStorage.setItem("dd_last_report_date", newDateStr || ""); } catch (err) {}
   const dateEl = document.getElementById("reportDate");
   if (dateEl) {
     dateEl.value = newDateStr;
@@ -2894,11 +2914,10 @@ async function saveReport(status, silent = false) {
   // 1. Luôn lưu ngay vào LocalStorage của điện thoại để dữ liệu không bao giờ bị tuột
   saveLocalReportCache(appState.currentPO.id, appState.currentDate, appState.report);
 
-  // Lưu lại khách hàng, PO và ngày gần nhất người dùng đang xem
+  // Lưu lại khách hàng và PO gần nhất người dùng đang chọn
   try {
     localStorage.setItem("dd_last_customer_id", appState.currentCustomer || "");
     localStorage.setItem("dd_last_po_id", appState.currentPO.id || "");
-    localStorage.setItem("dd_last_report_date", appState.currentDate || "");
   } catch (e) {}
 
   try {
@@ -3927,10 +3946,18 @@ async function fetchUsers() {
     const data = await res.json();
     if (data.success) {
       appState.usersList = data.users || [];
+      try { localStorage.setItem("dd_cached_users", JSON.stringify(appState.usersList)); } catch (e) {}
       renderUsersTable();
     }
   } catch (err) {
-    console.error("Error fetching users:", err);
+    console.warn("Lỗi tải danh sách người dùng từ máy chủ, kiểm tra cache:", err);
+    try {
+      const cached = localStorage.getItem("dd_cached_users");
+      if (cached && (!appState.usersList || appState.usersList.length === 0)) {
+        appState.usersList = JSON.parse(cached);
+        renderUsersTable();
+      }
+    } catch (e) {}
   }
 }
 
@@ -4140,7 +4167,7 @@ function resetUserForm() {
 }
 
 async function handleAddUser(e) {
-  e.preventDefault();
+  if (e && e.preventDefault) e.preventDefault();
   let id = document.getElementById("editUserId")?.value || "";
   const email = document.getElementById("userEmail")?.value.trim() || "";
   const phone = document.getElementById("userPhone")?.value.trim() || "";
@@ -4151,10 +4178,12 @@ async function handleAddUser(e) {
 
   if (!email && !phone) {
     alert("❌ Vui lòng nhập Email hoặc Số điện thoại.");
+    document.getElementById("userPhone")?.focus();
     return;
   }
   if (!fullName) {
     alert("❌ Vui lòng điền họ và tên người dùng.");
+    document.getElementById("userFullName")?.focus();
     return;
   }
 
@@ -4176,6 +4205,9 @@ async function handleAddUser(e) {
       }
     }
   }
+
+  if (window._isSavingUser) return;
+  window._isSavingUser = true;
 
   const btnSubmit = document.getElementById("btnSubmitUser");
   const origBtnText = btnSubmit ? btnSubmit.innerText : "";
@@ -4206,6 +4238,7 @@ async function handleAddUser(e) {
       const roleText = role === 'admin' ? '👑 Sếp Tổng (Admin)' : role === 'manager' ? '⭐ Quản Lý' : '👤 Công Nhân';
       if (data.users && Array.isArray(data.users)) {
         appState.usersList = data.users;
+        try { localStorage.setItem("dd_cached_users", JSON.stringify(appState.usersList)); } catch (e) {}
         renderUsersTable();
       } else {
         await fetchUsers();
@@ -4218,6 +4251,7 @@ async function handleAddUser(e) {
   } catch (err) {
     alert("❌ Lỗi kết nối máy chủ: " + err.message);
   } finally {
+    window._isSavingUser = false;
     if (btnSubmit) {
       btnSubmit.disabled = false;
       btnSubmit.innerText = origBtnText || "💾 Lưu Tài Khoản Mới";
