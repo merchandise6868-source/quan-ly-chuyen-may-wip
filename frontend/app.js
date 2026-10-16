@@ -1135,7 +1135,7 @@ function renderReportUI() {
 
   // Status Tag
   const statusTag = document.getElementById("reportStatusTag");
-  statusTag.innerText = appState.report.status === "SUBMITTED" ? "TRẠNG THÁI: ĐÃ CHỐT SỔ" : "TRẠNG THÁI: BẢN NHÁP";
+  statusTag.innerText = appState.report.status === "SUBMITTED" ? "Đã chốt sổ" : "Bản nháp";
   if (appState.report.status === "SUBMITTED") {
     statusTag.classList.add("submitted");
   } else {
@@ -1148,9 +1148,9 @@ function renderReportUI() {
 
   if (batches.length === 0) {
     container.innerHTML = `
-      <div style="text-align:center; padding: 40px; color:#64748b; background:#f8fafc; border-radius:12px; border:1px dashed #cbd5e1;">
-        <p style="font-size:16px; font-weight:700;">Chưa có Lô hàng nào cho Đơn hàng này.</p>
-        <p style="font-size:13px; margin-top:6px;">Hãy nhấp vào nút <strong>"➕ Thêm Lô Mới"</strong> ở trên hoặc chuyển sang tab <strong>"Quản Lý Khách Hàng & Đơn Hàng Lô"</strong> để tạo hoặc sửa đơn hàng.</p>
+      <div class="empty-ledger-state">
+        <p class="empty-ledger-title">Đơn hàng này chưa được chia lô sản xuất</p>
+        <p class="empty-ledger-desc">Chọn <strong>+ Thêm lô mới</strong> trên thanh công cụ hoặc mở tab <strong>Khách hàng &amp; đơn hàng PO</strong> để thiết lập định mức từng lô.</p>
       </div>
     `;
     recalculateAllInPlace();
@@ -1187,15 +1187,13 @@ function renderReportUI() {
 
     wrapper.innerHTML = `
       <!-- ========================================================
-      <!-- ========================================================
-           UNIFIED BATCH CARD (THEME CHUẨN MOCKUP: PINK INPUTS & NAVY THEME)
+           UNIFIED WORKFLOOR TICKET / BATCH CARD
            ======================================================== -->
       <div class="h1-batch-card" id="batchCard_${idx}">
         
         <!-- 1. TOP HEADER: DATE BADGE (LEFT), PO (CENTER) & BATCH BADGE (RIGHT) -->
         <div class="h1-batch-header">
-          <div class="h1-date-badge" id="batchDateBadge_${idx}" title="Chạm để chọn ngày">
-            <span class="cal-icon">📅</span>
+          <div class="h1-date-badge" id="batchDateBadge_${idx}" title="Chạm để chọn ngày báo cáo">
             <span class="date-txt" id="batchDateTxt_${idx}">${formatDateDisplay(appState.currentDate)}</span>
             <input type="date" class="h1-date-hidden-input" id="batchDateInput_${idx}" value="${appState.currentDate}">
           </div>
@@ -1209,7 +1207,7 @@ function renderReportUI() {
         <!-- 2. SECTION 1: NHẬP - XUẤT TRONG NGÀY -->
         <div class="h1-section-block">
           <div class="h1-sec-title">
-            <span class="h1-num-bullet">❶</span> NHẬP - XUẤT TRONG NGÀY
+            <span class="h1-num-bullet">1</span> Nhập – xuất trong ngày
           </div>
           <div class="h1-table-card">
             <table class="h1-table-nx h1-table-nx-3col">
@@ -1249,7 +1247,7 @@ function renderReportUI() {
                 <!-- ROW 3: TỔNG -->
                 <tr class="row-tong">
                   <td class="cell-label">
-                    <span class="main-lbl font-bold">Tổng</span>
+                    <span class="main-lbl font-bold">Tổng luỹ kế</span>
                   </td>
                   <td class="cell-total-val text-center">
                     <span class="val-num font-black text-blue-vivid" id="calcIntoSewing_${idx}">${cumIn.toLocaleString("vi-VN")}</span>
@@ -1273,10 +1271,10 @@ function renderReportUI() {
         <!-- 3. SECTION 2: ĐỐI CHIẾU SỐ TỒN THỰC TẾ -->
         <div class="h1-section-block">
           <div class="h1-sec-title">
-            <span class="h1-num-bullet">❷</span> ĐỐI CHIẾU SỐ TỒN THỰC TẾ
+            <span class="h1-num-bullet">2</span> Đối chiếu số tồn thực tế
           </div>
 
-          <!-- 3 EQUATION METRIC CARDS (CHUẨN GIAO DIỆN HÌNH ẢNH) -->
+          <!-- 3 EQUATION METRIC CARDS -->
           <div class="h1-equation-row">
             <!-- Card 1: Tồn LT -->
             <div class="h1-eq-col">
@@ -1316,7 +1314,7 @@ function renderReportUI() {
             <div class="h1-box-hdr hdr-clean-blue h1-station-hdr">
               <div class="box-hdr-text station-hdr-text">
                 <div class="box-title station-title text-navy-title font-bold">Kiểm kê thực tế ngày ${formatDateDisplay(appState.currentDate)}</div>
-                <div class="box-sub station-sub text-slate-sub">${batch.batch_name} · SL tại từng trạm</div>
+                <div class="box-sub station-sub text-slate-sub">${batch.batch_name}, số lượng tại từng trạm</div>
               </div>
             </div>
             <div class="h1-station-list">
@@ -1324,7 +1322,7 @@ function renderReportUI() {
               <div class="h1-station-row is-direct-input">
                 <div class="st-tag-name">
                   <span class="st-badge badge-clean-num">5</span>
-                  <span class="st-text">Tồn - tại Kho thành phẩm</span>
+                  <span class="st-text">Tồn tại kho thành phẩm</span>
                 </div>
                 <div class="st-val-wrap">
                   <input type="number" class="wip-num-input field-wip-warehouse grid-nav-input h1-pink-input" data-batch="${idx}" data-row="1" data-col="4" value="${batch.wip_warehouse || ''}" placeholder="0" data-idx="${idx}" title="Nhập số lượng trạm 5">
@@ -1382,12 +1380,12 @@ function renderReportUI() {
         <!-- 4. SECTION 3: NGUYÊN NHÂN THIẾU -->
         <div class="h1-section-block">
           <div class="h1-sec-title">
-            <span class="h1-num-bullet">❸</span> NGUYÊN NHÂN THIẾU
+            <span class="h1-num-bullet">3</span> Nguyên nhân thiếu
           </div>
           <div class="h1-box card-soft-panel h1-reason-card">
             <div class="h1-box-hdr hdr-clean-blue h1-reason-hdr">
               <div class="box-hdr-text reason-hdr-text">
-                <div class="box-title reason-hdr-title text-slate-sub font-semibold">Nhập số lượng (đôi)</div>
+                <div class="box-title reason-hdr-title text-slate-sub font-semibold">Nhập số lượng thiếu theo phân loại (đôi)</div>
               </div>
             </div>
             <div class="h1-reason-list">
@@ -2378,12 +2376,12 @@ function renderManageTab() {
 function renderCustomerTable() {
   const tbodyCust = document.getElementById("tbodyCustomers");
   const hdrCount = document.getElementById("statCustHeaderCount");
-  if (hdrCount) hdrCount.innerText = `${appState.customers.length} Công Ty`;
+  if (hdrCount) hdrCount.innerText = `${appState.customers.length} công ty`;
 
   if (!tbodyCust) return;
 
   if (appState.customers.length === 0) {
-    tbodyCust.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:20px; color:#94a3b8;">Chưa có khách hàng nào. Hãy thêm khách hàng mới ở biểu mẫu phía trên.</td></tr>`;
+    tbodyCust.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:20px; color:#64748b;">Chưa có khách hàng nào. Nhập tên và mã khách hàng ở biểu mẫu trên để bắt đầu.</td></tr>`;
     return;
   }
 
@@ -2392,13 +2390,13 @@ function renderCustomerTable() {
     const custPOCount = appState.orders.filter(o => o.customer_id === c.id).length;
 
     return `
-      <tr class="customer-row-item ${isSelected ? 'selected-cust-row' : ''}" data-id="${c.id}" title="Nhấp chuột để xem danh sách PO của ${c.name}">
-        <td><strong style="color: #0369a1; font-weight: 800;">${c.code}</strong></td>
+      <tr class="customer-row-item ${isSelected ? 'selected-cust-row' : ''}" data-id="${c.id}" title="Chọn để xem danh sách PO của ${c.name}">
+        <td><strong class="mono-code">${c.code}</strong></td>
         <td><strong>${c.name}</strong></td>
         <td><span class="badge-po-count">${custPOCount} PO</span></td>
         <td style="text-align:center; white-space: nowrap;">
-          <button type="button" class="btn-action-icon btn-action-edit btn-edit-cust" data-id="${c.id}" data-name="${c.name}" data-code="${c.code}" title="Sửa thông tin khách hàng">✏️ Sửa</button>
-          <button type="button" class="btn-action-icon btn-action-danger btn-delete-cust" data-id="${c.id}" data-name="${c.name}" data-code="${c.code}" title="Xóa khách hàng">🗑️ Xóa</button>
+          <button type="button" class="btn-action-icon btn-action-edit btn-edit-cust" data-id="${c.id}" data-name="${c.name}" data-code="${c.code}" title="Sửa thông tin khách hàng">Sửa</button>
+          <button type="button" class="btn-action-icon btn-action-danger btn-delete-cust" data-id="${c.id}" data-name="${c.name}" data-code="${c.code}" title="Xóa khách hàng">Xóa</button>
         </td>
       </tr>
     `;
@@ -2407,9 +2405,7 @@ function renderCustomerTable() {
   // Bind click event on customer rows to switch PO list on the right
   tbodyCust.querySelectorAll(".customer-row-item").forEach(row => {
     row.addEventListener("click", (e) => {
-      // Do nothing if user clicked action buttons (handled separately)
       if (e.target.closest(".btn-action-icon")) return;
-
       const custId = row.dataset.id;
       selectCustomerInManageTab(custId);
     });
@@ -2431,7 +2427,7 @@ function renderCustomerTable() {
       if (elCode) elCode.value = code;
 
       const btnSubmit = document.getElementById("btnSubmitCust");
-      if (btnSubmit) btnSubmit.innerText = "💾 Cập Nhật Khách Hàng";
+      if (btnSubmit) btnSubmit.innerText = "Cập nhật khách hàng";
 
       const btnCancel = document.getElementById("btnCancelEditCust");
       if (btnCancel) btnCancel.style.display = "inline-flex";
@@ -2451,29 +2447,28 @@ function renderCustomerTable() {
       const name = btn.dataset.name;
       const code = btn.dataset.code;
 
-      if (confirm(`⚠️ Bạn có chắc chắn muốn xóa khách hàng "${name}" (${code}) cùng tất cả đơn hàng PO liên quan?`)) {
+      if (confirm(`Xóa khách hàng "${name}" (${code}) cùng toàn bộ đơn hàng PO liên quan?`)) {
         try {
           const res = await fetch(`/api/customers?id=${id}`, { method: "DELETE" });
           const data = await res.json();
           if (data.success) {
-            showToast(`🗑️ Đã xóa khách hàng "${name}" thành công!`);
+            showToast(`Đã xóa khách hàng "${name}"`);
             fetchMetadata();
           } else {
-            alert("Lỗi khi xóa: " + (data.error || "Không thể xóa"));
+            alert("Không thể xóa khách hàng: " + (data.error || "Vui lòng thử lại"));
           }
         } catch (err) {
-          alert("Lỗi khi xóa khách hàng: " + err.message);
+          alert("Không thể xóa khách hàng: " + err.message);
         }
       }
     });
   });
 }
 
-// 2. SELECT CUSTOMER IN TAB 4 (SYNC SELECTION, HIGHLIGHT & ORDERS TABLE)
+// 2. SELECT CUSTOMER IN TAB 3 (SYNC SELECTION, HIGHLIGHT & ORDERS TABLE)
 function selectCustomerInManageTab(custId) {
   appState.currentCustomer = custId;
 
-  // Highlight selected row in customer table
   document.querySelectorAll("#tbodyCustomers .customer-row-item").forEach(r => {
     if (r.dataset.id === custId) {
       r.classList.add("selected-cust-row");
@@ -2482,18 +2477,15 @@ function selectCustomerInManageTab(custId) {
     }
   });
 
-  // Sync PO Form Customer select
   const poCustSel = document.getElementById("poCustomerSelect");
   if (poCustSel) poCustSel.value = custId;
 
-  // Sync Top Filter Select & PO selector
   const topCustSel = document.getElementById("selectCustomer");
   if (topCustSel) {
     topCustSel.value = custId;
     filterOrdersByCustomer();
   }
 
-  // Render detail POs for this customer
   renderOrdersTable(custId);
 }
 
@@ -2504,7 +2496,7 @@ function renderOrdersTable(customerId) {
   const badgePoCount = document.getElementById("badgeSelectedCustPoCount");
 
   const cust = appState.customers.find(c => c.id === customerId);
-  const custNameDisplay = cust ? `${cust.name} (${cust.code})` : "Tất Cả";
+  const custNameDisplay = cust ? `${cust.name} (${cust.code})` : "Tất cả";
   
   if (lblCustTitle) lblCustTitle.innerText = custNameDisplay;
 
@@ -2519,9 +2511,8 @@ function renderOrdersTable(customerId) {
   if (filteredOrders.length === 0) {
     tbodyOrders.innerHTML = `
       <tr>
-        <td colspan="6" style="text-align:center; padding: 25px; color: #64748b; font-style: italic;">
-          🏢 Khách hàng <strong>${cust ? cust.name : ''}</strong> chưa có đơn hàng / PO nào.<br>
-          <span style="font-size:12px; color:#94a3b8;">Bạn hãy thêm đơn hàng / PO mới ở biểu mẫu phía trên!</span>
+        <td colspan="6" style="text-align:center; padding: 24px; color: #64748b;">
+          Khách hàng <strong>${cust ? cust.name : ''}</strong> chưa có đơn hàng PO nào.Điền thông tin ở biểu mẫu phía trên để tạo PO mới.
         </td>
       </tr>
     `;
@@ -2536,14 +2527,14 @@ function renderOrdersTable(customerId) {
 
     return `
       <tr>
-        <td><strong style="color: #0369a1; font-size: 13.5px;">${o.po_number}</strong></td>
+        <td><strong class="mono-code">${o.po_number}</strong></td>
         <td><strong>${o.style_code}</strong></td>
         <td>${o.line_name}</td>
-        <td><strong style="color: #16a34a;">${(Number(o.po_plan) || 0).toLocaleString('vi-VN')} đôi</strong></td>
-        <td style="text-align:left;">${batchTags || '<em style="color:#94a3b8;">Chưa cấu hình Lô</em>'}</td>
+        <td><strong class="mono-num text-emerald-700">${(Number(o.po_plan) || 0).toLocaleString('vi-VN')} đôi</strong></td>
+        <td style="text-align:left;">${batchTags || '<span style="color:#94a3b8;">Chưa cấu hình lô</span>'}</td>
         <td style="text-align:center; white-space: nowrap;">
-          <button type="button" class="btn-action-icon btn-action-edit btn-edit-po" data-id="${o.id}" title="Sửa đơn hàng & cấu hình Lô">✏️ Sửa</button>
-          <button type="button" class="btn-action-icon btn-action-danger btn-delete-po" data-id="${o.id}" data-ponum="${o.po_number}" title="Xóa đơn hàng PO">🗑️ Xóa</button>
+          <button type="button" class="btn-action-icon btn-action-edit btn-edit-po" data-id="${o.id}" title="Sửa đơn hàng & cấu hình lô">Sửa</button>
+          <button type="button" class="btn-action-icon btn-action-danger btn-delete-po" data-id="${o.id}" data-ponum="${o.po_number}" title="Xóa đơn hàng PO">Xóa</button>
         </td>
       </tr>
     `;
@@ -2587,7 +2578,7 @@ function renderOrdersTable(customerId) {
       renderBatchInputBoxes(batchCount, batches);
 
       const btnSubmitPO = document.getElementById("btnSubmitPO");
-      if (btnSubmitPO) btnSubmitPO.innerText = "💾 Cập Nhật PO & Cấu Hình Lô";
+      if (btnSubmitPO) btnSubmitPO.innerText = "Cập nhật đơn hàng & cấu hình lô";
 
       const btnCancelPO = document.getElementById("btnCancelEditPO");
       if (btnCancelPO) btnCancelPO.style.display = "inline-flex";
@@ -2604,18 +2595,18 @@ function renderOrdersTable(customerId) {
       const id = btn.dataset.id;
       const poNum = btn.dataset.ponum || "";
 
-      if (confirm(`⚠️ Bạn có chắc chắn muốn xóa đơn hàng / PO "${poNum}" khỏi hệ thống?`)) {
+      if (confirm(`Xóa đơn hàng PO "${poNum}" khỏi hệ thống?`)) {
         try {
           const res = await fetch(`/api/orders?id=${id}`, { method: "DELETE" });
           const data = await res.json();
           if (data.success) {
-            showToast(`🗑️ Đã xóa PO "${poNum}" thành công!`);
+            showToast(`Đã xóa PO "${poNum}"`);
             fetchMetadata();
           } else {
-            alert("Lỗi khi xóa PO: " + (data.error || "Không thể xóa"));
+            alert("Không thể xóa PO: " + (data.error || "Vui lòng thử lại"));
           }
         } catch (err) {
-          alert("Lỗi khi xóa PO: " + err.message);
+          alert("Không thể xóa PO: " + err.message);
         }
       }
     });
@@ -2641,7 +2632,6 @@ function renderBatchInputBoxes(count, initialBatches = null) {
   const container = document.getElementById("dynamicBatchInputsContainer") || document.getElementById("batchInputGrid");
   if (!container) return;
 
-  // Preserve existing typed values if no initialBatches provided
   const existingValues = {};
   if (!initialBatches) {
     container.querySelectorAll(".batch-card-item").forEach(card => {
@@ -2674,16 +2664,16 @@ function renderBatchInputBoxes(count, initialBatches = null) {
     card.className = "batch-card-item";
     card.dataset.batchName = bName;
     card.innerHTML = `
-      <span class="batch-card-badge">📦 ${bName}</span>
+      <span class="batch-card-badge">${bName}</span>
       <div class="batch-card-input-wrapper">
-        <label>Nhập Cố Định (đôi):</label>
+        <label>Định mức (đôi)</label>
         <input type="number" class="batch-card-input" placeholder="0" value="${val}" min="0">
       </div>
     `;
     container.appendChild(card);
   }
 
-  // 2. Khung Số Đuôi (luôn có theo cấu trúc Lô 1..N + Số đuôi)
+  // 2. Khung Số Đuôi
   const tailName = "Số đuôi";
   let tailVal = "";
   if (initialBatches && Array.isArray(initialBatches)) {
@@ -2699,15 +2689,14 @@ function renderBatchInputBoxes(count, initialBatches = null) {
   tailCard.className = "batch-card-item is-tail";
   tailCard.dataset.batchName = tailName;
   tailCard.innerHTML = `
-    <span class="batch-card-badge">🏷️ ${tailName}</span>
+    <span class="batch-card-badge">${tailName}</span>
     <div class="batch-card-input-wrapper">
-      <label>Nhập Cố Định (đôi):</label>
+      <label>Định mức (đôi)</label>
       <input type="number" class="batch-card-input" placeholder="0" value="${tailVal}" min="0">
     </div>
   `;
   container.appendChild(tailCard);
 
-  // Bind input events to recalculate sum
   container.querySelectorAll(".batch-card-input").forEach(input => {
     input.addEventListener("input", updateBatchSummaryCheck);
   });
@@ -2726,7 +2715,6 @@ function updateBatchSummaryCheck() {
   const poPlanInput = document.getElementById("poPlanTotal");
   const poPlan = Number(poPlanInput ? poPlanInput.value : 0) || 0;
 
-  // Update label elements
   const elSum = document.getElementById("lblCurrentSumBatches") || document.getElementById("batchSumDisplay");
   if (elSum) elSum.innerText = totalBatchQty.toLocaleString("vi-VN");
 
@@ -2738,13 +2726,13 @@ function updateBatchSummaryCheck() {
     const diff = totalBatchQty - poPlan;
     if (poPlan > 0 && diff === 0) {
       elStatus.className = "badge-checker-ok";
-      elStatus.innerText = "✅ Khớp kế hoạch";
+      elStatus.innerText = "Khớp kế hoạch";
     } else if (poPlan > 0 && diff > 0) {
       elStatus.className = "badge-checker-warn";
-      elStatus.innerText = `⚠️ Thừa ${diff.toLocaleString("vi-VN")} đôi`;
+      elStatus.innerText = `Thừa ${diff.toLocaleString("vi-VN")} đôi`;
     } else if (poPlan > 0 && diff < 0) {
       elStatus.className = "badge-checker-warn";
-      elStatus.innerText = `⚠️ Thiếu ${Math.abs(diff).toLocaleString("vi-VN")} đôi`;
+      elStatus.innerText = `Thiếu ${Math.abs(diff).toLocaleString("vi-VN")} đôi`;
     } else {
       elStatus.className = "badge-checker-ok";
       elStatus.innerText = `Tổng: ${totalBatchQty.toLocaleString("vi-VN")} đôi`;
@@ -2760,7 +2748,7 @@ function resetCustomerForm() {
   const elCode = document.getElementById("custCode");
   if (elCode) elCode.value = "";
   const btnSub = document.getElementById("btnSubmitCust");
-  if (btnSub) btnSub.innerText = "➕ Thêm Khách Hàng";
+  if (btnSub) btnSub.innerText = "+ Thêm khách hàng";
   const btnCan = document.getElementById("btnCancelEditCust");
   if (btnCan) btnCan.style.display = "none";
 }
@@ -2787,7 +2775,7 @@ function resetPOForm() {
   ]);
 
   const btnSub = document.getElementById("btnSubmitPO");
-  if (btnSub) btnSub.innerText = "💾 Lưu Đơn Hàng & Cấu Hình Lô";
+  if (btnSub) btnSub.innerText = "Lưu đơn hàng & cấu hình lô";
   const btnCan = document.getElementById("btnCancelEditPO");
   if (btnCan) btnCan.style.display = "none";
 }
@@ -3102,28 +3090,28 @@ function renderDeptLogsUI() {
           <!-- HÀNG MERGE CHỒNG LÊN TOÀN BỘ CÁC Ô: LÔ 1 HOẶC LÔ 2 -->
           <tr>
             <th colspan="10" class="th-top-batch-banner">
-              🔷 ${bName.toUpperCase()} <span class="plan-tag">Kế hoạch: ${batchPlan.toLocaleString('vi-VN')} đôi</span>
+              <span class="batch-title-label">${bName}</span> <span class="plan-tag">Kế hoạch: ${batchPlan.toLocaleString('vi-VN')} đôi</span>
             </th>
           </tr>
           <!-- HÀNG TIÊU ĐỀ 10 CỘT -->
           <tr>
             <th rowspan="2" class="th-dept-col th-ngay">Ngày</th>
-            <th class="th-dept-col th-dept-tondau">TỒN ĐẦU NGÀY</th>
-            <th class="th-dept-col th-dept-nhap">NHẬP</th>
-            <th class="th-dept-col th-dept-xuat">XUẤT</th>
-            <th class="th-dept-col th-dept-toncuoi">TỒN CUỐI NGÀY</th>
+            <th class="th-dept-col th-dept-tondau">Tồn đầu ngày</th>
+            <th class="th-dept-col th-dept-nhap">Nhập</th>
+            <th class="th-dept-col th-dept-xuat">Xuất</th>
+            <th class="th-dept-col th-dept-toncuoi">Tồn cuối ngày</th>
             <th rowspan="2" class="th-dept-col">Nhập phối đôi</th>
-            <th rowspan="2" class="th-dept-col">Giao Đóng gói</th>
+            <th rowspan="2" class="th-dept-col">Giao đóng gói</th>
             <th rowspan="2" class="th-dept-col">Nhập kho TP</th>
             <th rowspan="2" class="th-dept-col">Xuất kho TP</th>
-            <th rowspan="2" class="th-dept-col" style="width: 95px;">Trạng Thái</th>
+            <th rowspan="2" class="th-dept-col" style="width: 95px;">Trạng thái</th>
           </tr>
           <!-- HÀNG SUBHEADERS GIẢI THÍCH -->
           <tr>
             <th class="sub-dept-header">Luôn bằng 0</th>
             <th class="sub-dept-header">Vào chuyền may</th>
             <th class="sub-dept-header">Đã giao KH</th>
-            <th class="sub-dept-header sub-dept-toncuoi">Lấy số Tồn đầu ngày + Nhập - Xuất</th>
+            <th class="sub-dept-header sub-dept-toncuoi">Tồn đầu + Nhập − Xuất</th>
           </tr>
         </thead>
         <tbody id="deptTbody_${bIdx}">
@@ -3131,7 +3119,7 @@ function renderDeptLogsUI() {
         </tbody>
         <tfoot class="dept-table-tfoot">
           <tr class="tr-dept-total">
-            <td class="td-dept-sum-label"><strong>TỔNG CỘNG</strong></td>
+            <td class="td-dept-sum-label"><strong>Tổng cộng</strong></td>
             <td class="td-dept-sum-val" id="sum_ton_dau_${bIdx}">${sumTonDau.toLocaleString('vi-VN')}</td>
             <td class="td-dept-sum-val txt-blue" id="sum_nhap_${bIdx}">${sumNhap.toLocaleString('vi-VN')}</td>
             <td class="td-dept-sum-val txt-green" id="sum_xuat_${bIdx}">${sumXuat.toLocaleString('vi-VN')}</td>
@@ -3144,9 +3132,9 @@ function renderDeptLogsUI() {
           </tr>
         </tfoot>
       </table>
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">
-        <button type="button" class="btn-add-dept-row" data-batch-idx="${bIdx}" data-batch-name="${bName}">➕ Thêm dòng ngày (${bName})</button>
-        <div class="dept-executor-note">Điền tên người Thực Hiện ở bảng chi tiết</div>
+      <div class="dept-batch-footer-bar">
+        <button type="button" class="btn-add-dept-row" data-batch-idx="${bIdx}" data-batch-name="${bName}">+ Thêm dòng ngày (${bName})</button>
+        <div class="dept-executor-note">Điền tên người thực hiện ở bảng chi tiết</div>
       </div>
     `;
 
@@ -3529,8 +3517,8 @@ function onLoginSuccess(user, role) {
   applyUserRole(appState.currentUserRole, appState.currentUser);
   closeRoleModal();
 
-  const roleLabel = role === 'admin' ? '👑 Sếp Tổng (Toàn quyền 4 Tab)' : (role === 'manager' ? '⭐ Quản Lý (Xem toàn bộ tiến độ)' : '👤 Công Nhân (2 Tab kiểm kê)');
-  showToast(`🎉 Đăng nhập thành công: ${user.full_name || user.email || user.phone}\nQuyền: ${roleLabel}`);
+  const roleLabel = role === 'admin' ? 'Ban giám đốc (Toàn quyền 4 Tab)' : (role === 'manager' ? 'Quản lý điều hành (Xem toàn bộ tiến độ)' : 'Nhân viên kiểm kê (2 Tab kiểm kê)');
+  showToast(`Đăng nhập thành công: ${user.full_name || user.email || user.phone} — Quyền: ${roleLabel}`);
 
   fetchMetadata();
   if (role === 'admin') {
@@ -3567,7 +3555,7 @@ function handleLogout() {
       mainApp.style.setProperty("display", "none", "important");
     }
 
-    showToast("👋 Đã đăng xuất khỏi hệ thống!");
+    showToast("Đã đăng xuất khỏi hệ thống.");
   }
 }
 
@@ -3603,10 +3591,10 @@ function bindPortalEvents() {
     btnTogglePass.addEventListener("click", () => {
       if (passInput.type === "password") {
         passInput.type = "text";
-        btnTogglePass.innerText = "🙈 Ẩn mật khẩu";
+        btnTogglePass.innerText = "Ẩn mật khẩu";
       } else {
         passInput.type = "password";
-        btnTogglePass.innerText = "👁️ Hiện mật khẩu";
+        btnTogglePass.innerText = "Hiện mật khẩu";
       }
     });
   }
@@ -3618,14 +3606,14 @@ function bindPortalEvents() {
     const password = document.getElementById("portalTxtLoginPass")?.value.trim();
 
     if (!userOrPhone || !password) {
-      alert("❌ Vui lòng nhập đầy đủ Số điện thoại/Email và Mật khẩu.");
+      alert("Vui lòng nhập đầy đủ số điện thoại/email và mật khẩu.");
       return;
     }
 
     const btnSub = document.getElementById("btnPortalSubmitLogin");
     if (btnSub) {
       btnSub.disabled = true;
-      btnSub.innerText = "⏳ Đang xác thực tài khoản...";
+      btnSub.innerText = "Đang xác thực tài khoản...";
     }
 
     try {
@@ -3638,14 +3626,14 @@ function bindPortalEvents() {
       if (data.success && data.user) {
         onLoginSuccess(data.user, data.user.role);
       } else {
-        alert("❌ " + (data.error || "Số điện thoại / Email hoặc Mật khẩu không chính xác!"));
+        alert(data.error || "Số điện thoại / Email hoặc mật khẩu không chính xác.");
       }
     } catch (err) {
       alert("Lỗi kết nối máy chủ: " + err.message);
     } finally {
       if (btnSub) {
         btnSub.disabled = false;
-        btnSub.innerText = "🚀 Đăng Nhập Vào Hệ Thống";
+        btnSub.innerText = "Đăng nhập hệ thống";
       }
     }
   }
@@ -3691,23 +3679,23 @@ function applyUserRole(role, user = null) {
   const tabHistoryBtn = document.getElementById("tabBtnHistory");
   const tabUsersBtn = document.getElementById("tabBtnUsers");
 
-  let rawName = user ? (user.full_name || user.email || user.phone) : (role === "admin" ? "Sếp Tổng" : (role === "manager" ? "Quản lý" : "Công nhân"));
+  let rawName = user ? (user.full_name || user.email || user.phone) : (role === "admin" ? "Ban giám đốc" : (role === "manager" ? "Quản lý" : "Nhân viên"));
   const cleanName = String(rawName).replace(/\s*\(Admin\)/gi, '').replace(/\s*\(Quản lý\)/gi, '').replace(/\s*\(Công nhân\)/gi, '').trim();
 
   // Update Avatar Popover Menu (Mockup Màn 2)
   const popName = document.getElementById("popoverUserName");
   const popRole = document.getElementById("popoverUserRole");
   if (popName) {
-    popName.innerText = cleanName || (role === "admin" ? "Sếp Tổng" : (role === "manager" ? "Quản Lý" : "Công Nhân Kiểm Kê"));
+    popName.innerText = cleanName || (role === "admin" ? "Ban giám đốc" : (role === "manager" ? "Quản lý" : "Nhân viên kiểm kê"));
   }
   if (popRole) {
-    popRole.innerText = role === "admin" ? "Vai trò: Sếp Tổng (Admin)" : (role === "manager" ? "Vai trò: Quản lý" : "Vai trò: Công nhân");
+    popRole.innerText = role === "admin" ? "Vai trò: Ban giám đốc (Admin)" : (role === "manager" ? "Vai trò: Quản lý điều hành" : "Vai trò: Nhân viên kiểm kê");
   }
 
   if (role === "admin") {
     if (badge) {
       badge.className = "role-badge is-admin";
-      badge.innerHTML = `👑 ${cleanName} (Admin)`;
+      badge.innerHTML = `${cleanName} · Admin`;
     }
     // Sếp Admin có quyền xem HẾT các tab (Tab 1, Tab 2, Tab 3, Tab 4)
     if (tabManageBtn) {
@@ -3725,7 +3713,7 @@ function applyUserRole(role, user = null) {
   } else if (role === "manager") {
     if (badge) {
       badge.className = "role-badge is-manager";
-      badge.innerHTML = `⭐ ${cleanName} (Quản lý)`;
+      badge.innerHTML = `${cleanName} · Quản lý`;
     }
     if (tabManageBtn) {
       tabManageBtn.classList.remove("hidden");
@@ -3749,7 +3737,7 @@ function applyUserRole(role, user = null) {
     // Công nhân CHỈ XEM Tab 1 và Tab 2
     if (badge) {
       badge.className = "role-badge is-worker";
-      badge.innerHTML = `👤 ${cleanName} (Công nhân)`;
+      badge.innerHTML = `${cleanName} · Kiểm kê`;
     }
     if (tabManageBtn) {
       tabManageBtn.classList.add("hidden");
@@ -3829,7 +3817,7 @@ async function handleSendPhoneOTP() {
   const phoneInp = document.getElementById("txtAuthPhone");
   const rawPhone = phoneInp ? phoneInp.value.trim() : "";
   if (!rawPhone || rawPhone.length < 9) {
-    alert("❌ Vui lòng nhập đúng định dạng số điện thoại (ví dụ: 0818189868 hoặc 0901234567).");
+    alert("Vui lòng nhập đúng định dạng số điện thoại (ví dụ: 0818189868 hoặc 0901234567).");
     return;
   }
 
@@ -3837,7 +3825,7 @@ async function handleSendPhoneOTP() {
   const btnSend = document.getElementById("btnSendPhoneOTP");
   if (btnSend) {
     btnSend.disabled = true;
-    btnSend.innerText = "⏳ Đang gửi SMS...";
+    btnSend.innerText = "Đang gửi SMS...";
   }
 
   try {
@@ -3862,7 +3850,7 @@ async function handleSendPhoneOTP() {
       txtOtp.focus();
     }
     startOtpCountdown();
-    showToast(`📩 Đã gửi tin nhắn SMS chứa mã OTP về số ${rawPhone}! Vui lòng kiểm tra tin nhắn SMS.`);
+    showToast(`Đã gửi tin nhắn SMS chứa mã OTP về số ${rawPhone}.`);
   } catch (err) {
     console.error("Firebase SMS error:", err);
     if (modalRecaptchaVerifier) {
@@ -3872,11 +3860,11 @@ async function handleSendPhoneOTP() {
         });
       } catch(e) {}
     }
-    alert("❌ Lỗi gửi tin nhắn SMS: " + err.message);
+    alert("Lỗi gửi tin nhắn SMS: " + err.message);
   } finally {
     if (btnSend) {
       btnSend.disabled = false;
-      btnSend.innerText = "📩 Gửi Mã OTP";
+      btnSend.innerText = "Gửi mã OTP";
     }
   }
 }
@@ -3904,14 +3892,14 @@ async function handleConfirmAuth() {
   const password = (document.getElementById("txtAuthPassword")?.value || "").trim();
 
   if (!emailOrPhone || !password) {
-    alert("❌ Vui lòng nhập đầy đủ Số điện thoại/Email và Mật khẩu.");
+    alert("Vui lòng nhập đầy đủ số điện thoại/email và mật khẩu.");
     return;
   }
 
   const btnConfirm = document.getElementById("btnConfirmAuth");
   if (btnConfirm) {
     btnConfirm.disabled = true;
-    btnConfirm.innerText = "⏳ Đang xác thực...";
+    btnConfirm.innerText = "Đang xác thực...";
   }
 
   try {
@@ -3925,14 +3913,14 @@ async function handleConfirmAuth() {
     if (data.success && data.user) {
       onLoginSuccess(data.user, data.user.role);
     } else {
-      alert("❌ " + (data.error || "Số điện thoại / Email hoặc Mật khẩu không chính xác!"));
+      alert(data.error || "Số điện thoại / Email hoặc mật khẩu không chính xác.");
     }
   } catch (err) {
     alert("Lỗi đăng nhập: " + err.message);
   } finally {
     if (btnConfirm) {
       btnConfirm.disabled = false;
-      btnConfirm.innerText = "🚀 Xác Nhận Đăng Nhập";
+      btnConfirm.innerText = "Xác nhận đăng nhập";
     }
   }
 }
@@ -3966,34 +3954,36 @@ function renderUsersTable() {
   const statTotalTab3 = document.getElementById("statTotalUsersTab3");
   if (statTotalTab3) statTotalTab3.innerText = `${appState.usersList.length}`;
   const statTotalTab4 = document.getElementById("statTotalUsersBadge");
-  if (statTotalTab4) statTotalTab4.innerText = `${appState.usersList.length} người`;
+  if (statTotalTab4) statTotalTab4.innerText = `${appState.usersList.length} tài khoản`;
 
   if (!tbody) return;
   if (appState.usersList.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 20px; color: #94a3b8;">Chưa có tài khoản nào. Hãy bấm nút '➕ Thêm Người Dùng Mới' ở trên.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 20px; color: #64748b;">Chưa có tài khoản nào. Hãy điền biểu mẫu bên trên để cấp quyền mới.</td></tr>`;
     return;
   }
 
   tbody.innerHTML = appState.usersList.map(u => {
-    let roleBadge = `<span class="user-role-badge is-worker">👤 Công Nhân</span>`;
+    let roleBadge = `<span class="user-role-badge is-worker">Nhân viên kiểm kê</span>`;
     if (u.role === "admin") {
-      roleBadge = `<span class="user-role-badge is-admin">👑 Admin (Sếp Tổng)</span>`;
+      roleBadge = `<span class="user-role-badge is-admin">Ban giám đốc (Admin)</span>`;
     } else if (u.role === "manager") {
-      roleBadge = `<span class="user-role-badge is-manager">⭐ Manager (Quản Lý)</span>`;
+      roleBadge = `<span class="user-role-badge is-manager">Quản lý điều hành</span>`;
     }
 
     return `
       <tr>
-        <td><strong style="color:#0369a1;">${u.email || '--'}</strong></td>
-        <td><strong>${u.phone || '--'}</strong></td>
-        <td>${u.full_name || 'Chưa đặt tên'}</td>
+        <td><strong class="mono-code">${u.email || '--'}</strong></td>
+        <td class="mono-num"><strong>${u.phone || '--'}</strong></td>
+        <td><strong>${u.full_name || 'Chưa đặt tên'}</strong></td>
         <td>${roleBadge}</td>
-        <td><span style="font-family:monospace; font-weight:700; background:#f8fafc; padding:2px 6px; border-radius:4px;">${u.password || 'Admin@123456'}</span></td>
-        <td><span style="font-family:monospace; font-weight:700; background:#f1f5f9; padding:2px 6px; border-radius:4px;">${u.pin_code || '1234'}</span></td>
-        <td><span style="color: ${u.is_active ? '#16a34a' : '#dc2626'}; font-weight:700;">${u.is_active ? '● Hoạt động' : '● Đã khóa'}</span></td>
+        <td><span class="mono-code">${u.password || 'Admin@123456'}</span></td>
+        <td><span class="mono-code">${u.pin_code || '1234'}</span></td>
+        <td><span style="color: ${u.is_active ? '#0d6e5b' : '#c81e51'}; font-weight:700; font-size:0.78rem;">${u.is_active ? '● Hoạt động' : '● Đã khóa'}</span></td>
         <td>
-          <button class="btn btn-warning btn-edit-user" data-id="${u.id}">Sửa</button>
-          <button class="btn btn-danger btn-delete-user" data-id="${u.id}" ${u.role === 'admin' ? 'disabled title="Không thể xóa tài khoản Admin chính"' : ''}>Xóa</button>
+          <div style="display:flex; gap:6px; justify-content:center;">
+            <button class="btn-action-icon btn-edit btn-edit-user" data-id="${u.id}">Sửa</button>
+            <button class="btn-action-icon btn-del btn-delete-user" data-id="${u.id}" ${u.role === 'admin' ? 'disabled title="Không thể xóa tài khoản Admin chính"' : ''}>Xóa</button>
+          </div>
         </td>
       </tr>
     `;
@@ -4013,26 +4003,24 @@ function renderUsersTable() {
       document.getElementById("userPinCode").value = user.pin_code || "1234";
 
       const formTitle = document.getElementById("userFormTitle");
-      if (formTitle) formTitle.innerHTML = `✏️ Chỉnh Sửa Tài Khoản: <strong>${user.full_name}</strong>`;
+      if (formTitle) formTitle.innerHTML = `Chỉnh sửa tài khoản: <strong>${user.full_name}</strong>`;
       const formBadge = document.getElementById("userFormModeBadge");
       if (formBadge) {
-        formBadge.innerText = "Chế độ: Đang chỉnh sửa";
-        formBadge.style.background = "#fef3c7";
-        formBadge.style.color = "#b45309";
+        formBadge.innerText = "Chế độ: Chỉnh sửa";
+        formBadge.classList.add("is-editing");
       }
 
       const btnSubmit = document.getElementById("btnSubmitUser");
       if (btnSubmit) {
-        btnSubmit.innerText = "💾 Cập Nhật Quyền";
-        btnSubmit.style.background = "#d97706";
+        btnSubmit.innerText = "Cập nhật quyền";
       }
       const btnCancel = document.getElementById("btnCancelEditUser");
-      if (btnCancel) btnCancel.style.display = "inline-block";
+      if (btnCancel) btnCancel.style.display = "inline-flex";
 
       const hintEl = document.getElementById("userFormHint");
       if (hintEl) {
         hintEl.style.display = "block";
-        hintEl.innerHTML = `✏️ Đang chỉnh sửa tài khoản: <strong>${user.full_name}</strong> (${user.phone || user.email || id}). Bấm nút <strong>"✕ Hủy Chỉnh Sửa (Về Thêm Mới)"</strong> nếu bạn muốn thêm người dùng mới khác.`;
+        hintEl.innerHTML = `Đang chỉnh sửa tài khoản: <strong>${user.full_name}</strong> (${user.phone || user.email || id}). Bấm <strong>"Hủy chỉnh sửa"</strong> nếu muốn thêm tài khoản mới.`;
       }
 
       const formUser = document.getElementById("formAddUser");
@@ -4051,7 +4039,7 @@ function renderUsersTable() {
           const res = await fetch(`/api/admin/users?id=${id}&_t=${Date.now()}`, { method: "DELETE" });
           const data = await res.json();
           if (data.success) {
-            showToast("🗑️ Đã xóa người dùng thành công!");
+            showToast("Đã xóa người dùng khỏi hệ thống.");
             if (data.users && Array.isArray(data.users)) {
               appState.usersList = data.users;
               renderUsersTable();
@@ -4082,13 +4070,11 @@ function handleUserFormPhoneInput() {
   if (!cleanPhone && !emailVal) {
     if (hintEl) hintEl.style.display = "none";
     if (btnSubmit) {
-      btnSubmit.innerText = "💾 Lưu Tài Khoản Mới";
-      btnSubmit.style.background = "#0f766e";
+      btnSubmit.innerText = "Lưu tài khoản mới";
     }
     if (formBadge) {
       formBadge.innerText = "Chế độ: Thêm mới";
-      formBadge.style.background = "#e0f2fe";
-      formBadge.style.color = "#0369a1";
+      formBadge.classList.remove("is-editing");
     }
     return;
   }
@@ -4099,30 +4085,26 @@ function handleUserFormPhoneInput() {
   ) : null;
 
   if (existing) {
-    const roleText = existing.role === 'admin' ? 'Admin (Sếp Tổng)' : existing.role === 'manager' ? 'Manager (Quản Lý)' : 'Worker (Công Nhân)';
+    const roleText = existing.role === 'admin' ? 'Ban giám đốc (Admin)' : existing.role === 'manager' ? 'Quản lý điều hành' : 'Nhân viên kiểm kê';
     if (hintEl) {
       hintEl.style.display = "block";
-      hintEl.innerHTML = `ℹ️ Số điện thoại/Email này đã thuộc tài khoản: <strong>${existing.full_name}</strong> (Vai trò: <em>${roleText}</em>). Khi bạn bấm Lưu, hệ thống sẽ cập nhật thông tin cho tài khoản này. Nếu muốn thêm người mới, vui lòng đổi số khác.`;
+      hintEl.innerHTML = `Số điện thoại/Email này đã thuộc tài khoản <strong>${existing.full_name}</strong> (Vai trò: <em>${roleText}</em>). Khi bấm Lưu, hệ thống sẽ cập nhật thông tin cho tài khoản này.`;
     }
     if (btnSubmit) {
-      btnSubmit.innerText = `💾 Cập Nhật Quyền (${existing.full_name})`;
-      btnSubmit.style.background = "#d97706";
+      btnSubmit.innerText = `Cập nhật quyền (${existing.full_name})`;
     }
     if (formBadge) {
-      formBadge.innerText = "Trùng SĐT/Email cũ";
-      formBadge.style.background = "#fef3c7";
-      formBadge.style.color = "#b45309";
+      formBadge.innerText = "Cập nhật tài khoản cũ";
+      formBadge.classList.add("is-editing");
     }
   } else {
     if (hintEl) hintEl.style.display = "none";
     if (btnSubmit) {
-      btnSubmit.innerText = "💾 Lưu Tài Khoản Mới";
-      btnSubmit.style.background = "#0f766e";
+      btnSubmit.innerText = "Lưu tài khoản mới";
     }
     if (formBadge) {
       formBadge.innerText = "Chế độ: Thêm mới";
-      formBadge.style.background = "#e0f2fe";
-      formBadge.style.color = "#0369a1";
+      formBadge.classList.remove("is-editing");
     }
   }
 }
@@ -4144,18 +4126,16 @@ function resetUserForm() {
   if (elPin) elPin.value = "1234";
 
   const formTitle = document.getElementById("userFormTitle");
-  if (formTitle) formTitle.innerHTML = `➕ Thêm Tài Khoản & Phân Quyền Mới`;
+  if (formTitle) formTitle.innerHTML = `Thêm tài khoản và phân quyền mới`;
   const formBadge = document.getElementById("userFormModeBadge");
   if (formBadge) {
     formBadge.innerText = "Chế độ: Thêm mới";
-    formBadge.style.background = "#e0f2fe";
-    formBadge.style.color = "#0369a1";
+    formBadge.classList.remove("is-editing");
   }
 
   const elSubmit = document.getElementById("btnSubmitUser");
   if (elSubmit) {
-    elSubmit.innerText = "💾 Lưu Tài Khoản Mới";
-    elSubmit.style.background = "#0f766e";
+    elSubmit.innerText = "Lưu tài khoản mới";
   }
   const elCancel = document.getElementById("btnCancelEditUser");
   if (elCancel) elCancel.style.display = "none";

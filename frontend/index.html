@@ -22,7 +22,12 @@
   <link rel="apple-touch-icon" sizes="192x192" href="icon-192.png">
   <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png">
 
-  <link rel="stylesheet" href="styles.css?v=20261013_1700">
+  <!-- Typography: Be Vietnam Pro (UI) & JetBrains Mono (Tabular Data) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="styles.css?v=20261016_1000">
   
   <!-- cdn for sheetjs (xlsx) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -34,7 +39,7 @@
 <body>
 
   <!-- TOAST NOTIFICATION -->
-  <div id="toastNotification" class="toast-popup">✅ Đã lưu dữ liệu thành công!</div>
+  <div id="toastNotification" class="toast-popup">Đã lưu dữ liệu</div>
 
   <!-- ========================================================
        DEDICATED FULL-SCREEN LOGIN PORTAL (CỔNG ĐĂNG NHẬP RIÊNG BIỆT)
@@ -44,12 +49,12 @@
       
       <!-- PORTAL HEADER -->
       <div class="login-portal-header">
-        <div class="login-portal-logo">🧵</div>
-        <h1>D&D LONG AN - HỆ THỐNG WIP TRACKING</h1>
-        <p>Hệ Thống Kiểm Kê Dở Dang, Đối Chiếu Nhập Xuất Tồn & Quản Lý Tiến Độ Chuyền May</p>
-        <div style="margin-top: 10px;">
+        <div class="login-portal-brand-mark">D&amp;D LONG AN</div>
+        <h1>Hệ thống kiểm kê dở dang &amp; đối chiếu chuyền may</h1>
+        <p>Theo dõi luân chuyển bán thành phẩm (WIP), cân đối nhập xuất tồn và nhật ký sản lượng theo từng lô</p>
+        <div style="margin-top: 12px;">
           <button type="button" id="btnPortalInstallApp" class="btn-install-pwa" style="display: none;">
-            📲 Cài Đặt Ứng Dụng (Thêm Vào Màn Hình Chính)
+            Cài đặt ứng dụng vào màn hình chính
           </button>
         </div>
       </div>
@@ -57,19 +62,19 @@
       <!-- 3 ROLES INFORMATIONAL CARDS -->
       <div class="login-roles-grid">
         <div class="login-role-choice-card is-admin-card" id="cardRoleAdmin" data-role="admin">
-          <div class="r-icon">👑</div>
-          <div class="r-title">Sếp Tổng Quản Trị</div>
-          <div class="r-desc">Toàn quyền các Tab & Phân quyền</div>
+          <div class="r-code">01</div>
+          <div class="r-title">Ban giám đốc</div>
+          <div class="r-desc">Toàn quyền báo cáo, đơn hàng &amp; phân quyền</div>
         </div>
         <div class="login-role-choice-card is-manager-card" id="cardRoleManager" data-role="manager">
-          <div class="r-icon">⭐</div>
-          <div class="r-title">Quản Lý Điều Hành</div>
-          <div class="r-desc">Xem toàn bộ báo cáo & tiến độ</div>
+          <div class="r-code">02</div>
+          <div class="r-title">Quản lý điều hành</div>
+          <div class="r-desc">Theo dõi toàn bộ báo cáo, tiến độ &amp; PO</div>
         </div>
         <div class="login-role-choice-card is-worker-card" id="cardRoleWorker" data-role="worker">
-          <div class="r-icon">👤</div>
-          <div class="r-title">Công Nhân Kiểm Kê</div>
-          <div class="r-desc">Chỉ nhập liệu 2 Tab kiểm kê</div>
+          <div class="r-code">03</div>
+          <div class="r-title">Nhân viên kiểm kê</div>
+          <div class="r-desc">Nhập số liệu kiểm kê tại các trạm</div>
         </div>
       </div>
 
@@ -77,33 +82,33 @@
       <div class="login-portal-body">
         <form id="formPortalLogin" autocomplete="on">
           <div class="form-group" style="margin-bottom: 16px;">
-            <label for="portalTxtLoginUser" style="font-weight: 700; font-size: 13.5px; color: #1e293b; display: block; margin-bottom: 6px;">
-              📱 Số Điện Thoại hoặc Email Đăng Nhập:
+            <label for="portalTxtLoginUser" class="portal-field-label">
+              Số điện thoại hoặc email đăng nhập
             </label>
-            <input type="text" id="portalTxtLoginUser" class="form-control font-bold" placeholder="Nhập số điện thoại (ví dụ: 0818189868) hoặc email..." required autocomplete="username" inputmode="text" style="width: 100%; padding: 12px 14px; font-size: 15px; border-radius: 8px;">
+            <input type="text" id="portalTxtLoginUser" class="form-control portal-input" placeholder="Nhập số điện thoại (ví dụ: 0818189868) hoặc email" required autocomplete="username" inputmode="text">
           </div>
 
           <div class="form-group" style="margin-bottom: 16px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-              <label for="portalTxtLoginPass" style="font-weight: 700; font-size: 13.5px; color: #1e293b;">
-                🔒 Mật Khẩu:
+              <label for="portalTxtLoginPass" class="portal-field-label" style="margin-bottom: 0;">
+                Mật khẩu
               </label>
-              <button type="button" id="btnToggleShowPass" style="background: none; border: none; font-size: 12.5px; color: #0284c7; cursor: pointer; font-weight: 700;">
-                👁️ Hiện mật khẩu
+              <button type="button" id="btnToggleShowPass" class="btn-link-subtle">
+                Hiện mật khẩu
               </button>
             </div>
-            <input type="password" id="portalTxtLoginPass" class="form-control font-bold" placeholder="Nhập mật khẩu..." required autocomplete="current-password" style="width: 100%; padding: 12px 14px; font-size: 15px; border-radius: 8px;">
+            <input type="password" id="portalTxtLoginPass" class="form-control portal-input" placeholder="Nhập mật khẩu" required autocomplete="current-password">
           </div>
 
-          <div class="form-group" style="margin-bottom: 20px; display: flex; align-items: center; gap: 8px;">
-            <input type="checkbox" id="chkRememberMe" checked style="width: 18px; height: 18px; cursor: pointer; accent-color: #0f766e;">
-            <label for="chkRememberMe" style="font-size: 13px; color: #334155; font-weight: 600; cursor: pointer; user-select: none;">
-              Ghi nhớ đăng nhập trên thiết bị này (không cần đăng nhập lại)
+          <div class="form-group portal-remember-row">
+            <input type="checkbox" id="chkRememberMe" checked>
+            <label for="chkRememberMe">
+              Duy trì đăng nhập trên thiết bị này
             </label>
           </div>
 
-          <button type="submit" class="login-btn-submit" id="btnPortalSubmitLogin" style="padding: 13px; font-size: 15px;">
-            🚀 Đăng Nhập Vào Hệ Thống
+          <button type="submit" class="login-btn-submit" id="btnPortalSubmitLogin">
+            Đăng nhập hệ thống
           </button>
         </form>
       </div>
@@ -115,7 +120,7 @@
        ======================================================== -->
   <div id="appMainWrapper" style="display: none;">
 
-    <!-- STICKY HEADER WRAPPER (FREEZE TOP AREA: FILTERS, ACCOUNT & TABS AS IN HÌNH 2) -->
+    <!-- STICKY HEADER WRAPPER -->
     <div class="sticky-header-wrapper">
       <!-- TOP APP BAR WITH FILTERS & USER AUTHENTICATION -->
       <header class="top-app-bar compact-header">
@@ -123,14 +128,14 @@
           <div class="top-filters-group">
             <div class="filter-item pill-filter-customer">
               <span class="pill-prefix">KH</span>
-              <label for="selectCustomer" class="sr-only-mobile">KHÁCH HÀNG:</label>
+              <label for="selectCustomer" class="sr-only-mobile">Khách hàng</label>
               <select id="selectCustomer" class="form-control select-customer-styled">
                 <!-- Dynamically populated -->
               </select>
             </div>
             <div class="filter-item pill-filter-po">
               <span class="pill-prefix">PO</span>
-              <label for="selectPO" class="sr-only-mobile">ĐƠN HÀNG / PO:</label>
+              <label for="selectPO" class="sr-only-mobile">Đơn hàng / PO</label>
               <select id="selectPO" class="form-control select-po-styled">
                 <!-- Dynamically populated -->
               </select>
@@ -138,32 +143,32 @@
           </div>
 
           <div class="user-action-cluster">
-            <button type="button" id="btnInstallPWA" class="btn-install-pwa desktop-only-pwa" style="display: none;" title="Cài đặt ứng dụng về thiết bị">📲 Cài Ứng Dụng</button>
-            <button type="button" id="btnForceRefreshApp" class="desktop-only-btn" title="Xóa cache và cập nhật phiên bản mới nhất" style="background:#0284c7; color:#ffffff; border:none; padding:6px 12px; border-radius:6px; font-weight:700; font-size:13px; cursor:pointer; display:inline-flex; align-items:center; gap:5px;">⚡ Cập Nhật App</button>
-            <span class="role-badge is-admin desktop-only-role" id="currentRoleBadge">👑 Sếp Tổng Quản Trị</span>
-            <button class="btn-role-switch desktop-only-btn" id="btnSwitchRole" title="Đổi quyền hoặc đăng nhập tài khoản khác">🔄 Đổi Quyền</button>
-            <button class="btn-logout desktop-only-btn" id="btnLogout" title="Đăng xuất khỏi hệ thống">🚪 Đăng Xuất</button>
+            <button type="button" id="btnInstallPWA" class="btn-install-pwa desktop-only-pwa" style="display: none;" title="Cài đặt ứng dụng về thiết bị">Cài ứng dụng</button>
+            <button type="button" id="btnForceRefreshApp" class="btn-header-action desktop-only-btn" title="Xóa bộ nhớ đệm và tải phiên bản mới nhất">Làm mới ứng dụng</button>
+            <span class="role-badge is-admin desktop-only-role" id="currentRoleBadge">Ban giám đốc</span>
+            <button class="btn-role-switch desktop-only-btn" id="btnSwitchRole" title="Đổi quyền hoặc đăng nhập tài khoản khác">Đổi tài khoản</button>
+            <button class="btn-logout desktop-only-btn" id="btnLogout" title="Đăng xuất khỏi hệ thống">Đăng xuất</button>
 
             <!-- AVATAR BUTTON (BẤM ICON NGƯỜI) -->
-            <button type="button" class="btn-user-avatar" id="btnUserAvatar" title="Thông tin người dùng & Quyền hạn">
-              <span class="avatar-icon">👤</span>
+            <button type="button" class="btn-user-avatar" id="btnUserAvatar" title="Thông tin người dùng &amp; quyền hạn">
+              <span class="avatar-icon">TK</span>
             </button>
 
-            <!-- USER POPOVER MENU (MÀN 2 KHI BẤM ICON NGƯỜI) -->
+            <!-- USER POPOVER MENU -->
             <div class="user-popover-menu" id="userPopoverMenu" style="display: none;">
               <div class="user-popover-header">
-                <div class="user-popover-name" id="popoverUserName">Công Nhân Kiểm Kê</div>
-                <div class="user-popover-role" id="popoverUserRole">Vai trò: Công nhân</div>
+                <div class="user-popover-name" id="popoverUserName">Nhân viên kiểm kê</div>
+                <div class="user-popover-role" id="popoverUserRole">Vai trò: Nhân viên</div>
               </div>
               <div class="user-popover-divider"></div>
               <button type="button" class="popover-item text-primary" id="btnPopoverRefreshApp">
-                <span class="p-icon">⚡</span> Cập nhật phiên bản mới
+                Làm mới phiên bản
               </button>
               <button type="button" class="popover-item" id="btnPopoverSwitchRole">
-                <span class="p-icon">🔄</span> Đổi quyền
+                Đổi tài khoản
               </button>
               <button type="button" class="popover-item text-danger" id="btnPopoverLogout">
-                <span class="p-icon">🚪</span> Đăng xuất
+                Đăng xuất
               </button>
             </div>
           </div>
@@ -173,22 +178,26 @@
       <!-- TAB NAVIGATION -->
       <nav class="nav-tabs">
         <button class="tab-btn active" data-tab="tab-wip">
-          <span class="tab-txt-desktop">📊 1. Báo Cáo Đối Chiếu Nhập Xuất Tồn</span>
-          <span class="tab-txt-mobile">📊 Đối chiếu NXT</span>
+          <span class="tab-num">01</span>
+          <span class="tab-txt-desktop">Đối chiếu nhập xuất tồn</span>
+          <span class="tab-txt-mobile">Đối chiếu NXT</span>
         </button>
         <button class="tab-btn" id="tabBtnDeptLogs" data-tab="tab-flow-log">
-          <span class="tab-txt-desktop">📜 2. Báo Cáo Đối Chiếu & Theo Dõi Sản Lượng</span>
-          <span class="tab-txt-mobile">📜 Báo cáo lô</span>
+          <span class="tab-num">02</span>
+          <span class="tab-txt-desktop">Nhật ký sản lượng bộ phận</span>
+          <span class="tab-txt-mobile">Sản lượng lô</span>
         </button>
         <button class="tab-btn manager-only-tab" id="tabBtnManage" data-tab="tab-manage">
-          <span class="tab-txt-desktop">⚙️ 3. Quản Lý Khách Hàng & Đơn Hàng PO</span>
-          <span class="tab-txt-mobile">⚙️ KH & PO</span>
+          <span class="tab-num">03</span>
+          <span class="tab-txt-desktop">Khách hàng &amp; đơn hàng PO</span>
+          <span class="tab-txt-mobile">KH &amp; PO</span>
         </button>
         <button class="tab-btn admin-only-tab" id="tabBtnUsers" data-tab="tab-users">
-          <span class="tab-txt-desktop">👑 4. Phân Quyền & Quản Lý SĐT / Tài Khoản</span>
-          <span class="tab-txt-mobile">👑 Phân quyền</span>
+          <span class="tab-num">04</span>
+          <span class="tab-txt-desktop">Phân quyền &amp; tài khoản</span>
+          <span class="tab-txt-mobile">Phân quyền</span>
         </button>
-        <div class="status-tag" id="reportStatusTag">TRẠNG THÁI: BẢN NHÁP</div>
+        <div class="status-tag" id="reportStatusTag">Bản nháp</div>
       </nav>
     </div>
 
@@ -202,31 +211,31 @@
       <div class="action-toolbar">
         <div class="btn-group-left">
           <button class="btn btn-primary" id="btnAddBatch">
-            ➕ Thêm Lô Mới
+            + Thêm lô mới
           </button>
-          <button type="button" class="btn btn-warning" id="btnToolbarSweepTail" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff; font-weight: 700; border: none;" title="Vét số lượng Chuẩn Bị còn nợ vào Lô riêng biệt">
-            ⚡ Vét Lô Số Đuôi
+          <button type="button" class="btn btn-amber-action" id="btnToolbarSweepTail" title="Vét số lượng chuẩn bị còn nợ vào lô riêng biệt">
+            Vét lô số đuôi
           </button>
-          <button type="button" class="btn btn-danger font-bold btn-kiem-tra-pulse" id="btnOpenGlobalBalanceDesktop" onclick="openFactoryBalanceModal()" title="Mở Popup kiểm tra cân đối toàn bộ nhà máy">
-            ⚖️ Kiểm tra
+          <button type="button" class="btn btn-danger btn-kiem-tra-pulse" id="btnOpenGlobalBalanceDesktop" onclick="openFactoryBalanceModal()" title="Mở bảng kiểm tra cân đối toàn bộ nhà máy">
+            Kiểm tra cân đối
           </button>
           <button class="btn btn-outline" id="btnRefresh">
-            🔄 Tải Lại Dữ Liệu
+            Tải lại dữ liệu
           </button>
-          <span class="keyboard-hint">💡 Phím tắt: Dùng <strong>Enter</strong> để lưu, <strong>4 Phím Mũi Tên (◀ ▲ ▼ ▶)</strong> để chuyển ô, <strong>Ctrl+V</strong> để dán từ Excel</span>
+          <span class="keyboard-hint">Phím tắt: <strong>Enter</strong> lưu · <strong>4 phím mũi tên</strong> chuyển ô · <strong>Ctrl+V</strong> dán từ Excel</span>
         </div>
         <div class="btn-group-right">
           <button class="btn btn-secondary" id="btnSaveDraft">
-            💾 Lưu Nháp
+            Lưu nháp
           </button>
           <button class="btn btn-success" id="btnSubmitReport">
-            ✅ Chốt Sổ Cuối Ngày
+            Chốt sổ cuối ngày
           </button>
-          <button class="btn btn-info" id="btnExportExcel">
-            📊 Xuất Excel
+          <button class="btn btn-outline" id="btnExportExcel">
+            Xuất Excel
           </button>
-          <button class="btn btn-dark" onclick="window.print()">
-            🖨️ In Báo Cáo
+          <button class="btn btn-outline" onclick="window.print()">
+            In báo cáo
           </button>
         </div>
       </div>
@@ -234,14 +243,14 @@
       <!-- MOBILE ACTION BAR (1 HÀNG DUY NHẤT: VÉT LÔ [BADGE] - ◀ NGÀY ▶ - ...) -->
       <div class="mobile-action-bar">
         <!-- Nút Vét Lô với Badge Đỏ nợ -->
-        <button type="button" class="btn-mobile-vet-lo" id="btnMobileVetLo" title="Vét số lượng Chuẩn Bị còn nợ vào Lô riêng">
+        <button type="button" class="btn-mobile-vet-lo" id="btnMobileVetLo" title="Vét số lượng chuẩn bị còn nợ vào lô riêng">
           <span class="vet-lo-badge" id="mobileVetLoBadge">0</span>
           <span class="vet-lo-text">Vét lô</span>
         </button>
 
         <!-- Nút Kiểm Tra Nhanh trên Mobile -->
-        <button type="button" class="btn-mobile-balance-fast btn-kiem-tra-pulse" id="btnOpenGlobalBalanceMobile" onclick="openFactoryBalanceModal()" title="Mở popup kiểm tra toàn nhà máy">
-          ⚖️ Kiểm tra
+        <button type="button" class="btn-mobile-balance-fast btn-kiem-tra-pulse" id="btnOpenGlobalBalanceMobile" onclick="openFactoryBalanceModal()" title="Mở bảng kiểm tra toàn nhà máy">
+          Kiểm tra
         </button>
 
         <!-- Cụm chọn ngày -->
@@ -249,36 +258,35 @@
           <button type="button" class="btn-mobile-date-nav" id="btnMobilePrevDay" title="Hôm trước">◀</button>
           <div class="mobile-date-box" id="mobileDateBox" title="Chạm để chọn ngày">
             <span id="mobileDateDisplay">03/10/2026</span>
-            <span class="cal-ico">📅</span>
             <input type="date" id="reportDateMobile" class="mobile-date-hidden-input">
           </div>
           <button type="button" class="btn-mobile-date-nav" id="btnMobileNextDay" title="Hôm sau">▶</button>
         </div>
 
-        <!-- Nút ... với Popover Menu (MÀN 3 KHI BẤM NÚT ...) -->
+        <!-- Nút ... với Popover Menu -->
         <div class="mobile-more-cluster">
           <button type="button" class="btn-mobile-more" id="btnMobileMore" title="Tùy chọn tác vụ">···</button>
           <div class="more-popover-menu" id="morePopoverMenu" style="display: none;">
             <button type="button" class="popover-item" id="btnMoreBalance" onclick="openFactoryBalanceModal()">
-              <span class="p-icon">⚖️</span> Kiểm tra cân đối
+              Kiểm tra cân đối
             </button>
             <button type="button" class="popover-item" id="btnMoreRefresh">
-              <span class="p-icon">🔄</span> Tải lại dữ liệu
+              Tải lại dữ liệu
             </button>
             <button type="button" class="popover-item" id="btnMoreExport">
-              <span class="p-icon">📊</span> Xuất Excel
+              Xuất Excel
             </button>
             <button type="button" class="popover-item" id="btnMorePrint">
-              <span class="p-icon">🖨️</span> In báo cáo
+              In báo cáo
             </button>
           </div>
         </div>
       </div>
 
-      <!-- MOBILE KPI CARD (BÁO CÁO ĐỐI CHIẾU NHẬP XUẤT TỒN THU GỌN / MỞ RỘNG BẰNG MŨI TÊN) -->
+      <!-- MOBILE KPI CARD -->
       <div class="mobile-kpi-card" id="mobileKpiCard">
         <div class="mobile-kpi-header-wrap" id="btnToggleMobileKpi" title="Chạm để mở rộng hoặc thu gọn bảng">
-          <div class="mobile-kpi-title">BÁO CÁO ĐỐI CHIẾU NHẬP XUẤT TỒN</div>
+          <div class="mobile-kpi-title">Tổng hợp đối chiếu nhập xuất tồn</div>
           <div class="kpi-arrow-container">
             <span class="kpi-toggle-arrow" id="kpiToggleArrow">▼</span>
           </div>
@@ -317,12 +325,12 @@
         <!-- HEADER NẰM NGANG CÙNG DÒNG VỚI BỘ CHỌN NGÀY -->
         <div class="report-header-banner">
           <div class="banner-title-group">
-            <h1 class="sheet-title">BÁO CÁO ĐỐI CHIẾU NHẬP XUẤT TỒN</h1>
-            <span class="sheet-subtitle">Theo Dõi Kiểm Kê Dở Dang (WIP) & Cân Đối Hao Hụt Chuyền May</span>
+            <h1 class="sheet-title">Sổ đối chiếu nhập xuất tồn theo lô</h1>
+            <span class="sheet-subtitle">Kiểm kê bán thành phẩm (WIP) tại 5 trạm và phân tích chênh lệch trên chuyền may</span>
           </div>
 
           <div class="banner-date-picker">
-            <label for="reportDate">📅 Ngày Báo Cáo:</label>
+            <label for="reportDate">Ngày báo cáo</label>
             <div class="date-input-wrapper">
               <button class="btn-date-nav" id="btnPrevDay" title="Hôm trước">◀</button>
               <input type="date" id="reportDate" class="report-date-control">
@@ -335,28 +343,28 @@
         <div class="summary-card-wrapper">
           <table class="excel-summary-table">
             <tr>
-              <td class="lbl-summary cell-header">Ngày</td>
+              <td class="lbl-summary cell-header">Ngày báo cáo</td>
               <td class="val-summary cell-val font-semibold" id="summaryDateVal">--</td>
-              <td class="lbl-summary bg-prep-hdr">CHUẨN BỊ còn nợ (đôi)</td>
+              <td class="lbl-summary bg-prep-hdr">Chuẩn bị còn nợ (đôi)</td>
               <td class="val-summary bg-prep-val" id="summaryPrepDebt">0</td>
-              <td colspan="2" class="cell-sweep-action" style="padding: 4px 10px; text-align: left; vertical-align: middle;">
-                <button type="button" class="btn-sweep-tail" id="btnOpenSweepTailModal" title="Vét số lượng Chuẩn Bị còn nợ vào một Lô riêng biệt">
-                  ⚡ Vét Số Đuôi Vào Lô Riêng
+              <td colspan="2" class="cell-sweep-action">
+                <button type="button" class="btn-sweep-tail" id="btnOpenSweepTailModal" title="Vét số lượng chuẩn bị còn nợ vào một lô riêng biệt">
+                  Vét số đuôi vào lô riêng
                 </button>
               </td>
             </tr>
             <tr>
-              <td class="lbl-summary cell-header">PO</td>
+              <td class="lbl-summary cell-header">Mã PO</td>
               <td class="val-summary cell-val bold-txt" id="summaryPoNum">--</td>
               <td colspan="4" class="blank-cell"></td>
             </tr>
             <tr>
-              <td class="lbl-summary cell-header">Tổng đơn (đôi)</td>
+              <td class="lbl-summary cell-header">Kế hoạch đơn (đôi)</td>
               <td class="val-summary cell-val bold-txt" id="summaryPoPlan">0</td>
-              <td class="lbl-summary bg-sum-hdr">TỔNG NHẬN (đôi)</td>
-              <td class="lbl-summary bg-sum-hdr">TỔNG XUẤT CHO KH (đôi)</td>
-              <td class="lbl-summary bg-sum-hdr">TỔNG TỒN THỰC TẾ (đôi)</td>
-              <td class="lbl-summary bg-sum-hdr">TỔNG THIẾU (đôi)</td>
+              <td class="lbl-summary bg-sum-hdr">Tổng nhận (đôi)</td>
+              <td class="lbl-summary bg-sum-hdr">Tổng xuất KH (đôi)</td>
+              <td class="lbl-summary bg-sum-hdr">Tồn thực tế (đôi)</td>
+              <td class="lbl-summary bg-sum-hdr">Tổng thiếu (đôi)</td>
             </tr>
             <tr>
               <td colspan="2" class="blank-cell"></td>
@@ -377,36 +385,39 @@
 
     </section>
 
-    <!-- TAB 2: BÁO CÁO ĐỐI CHIẾU NHẬP XUẤT TỒN + THEO DÕI SẢN LƯỢNG (HỢP NHẤT LIỀN MẠCH) -->
+    <!-- TAB 2: BÁO CÁO ĐỐI CHIẾU NHẬP XUẤT TỒN + THEO DÕI SẢN LƯỢNG -->
     <section id="tab-flow-log" class="tab-pane">
       
       <!-- TOOLBAR NÚT TÁC VỤ CHO TAB 2 -->
       <div class="action-toolbar">
         <div class="btn-group-left">
-          <button class="btn btn-secondary" id="btnSaveDeptLogs">
-            💾 Lưu Sản Lượng
+          <button class="btn btn-primary" id="btnSaveDeptLogs">
+            Lưu sản lượng
           </button>
           <button class="btn btn-outline" id="btnRefreshDeptLogs">
-            🔄 Tải Lại
+            Tải lại
           </button>
-          <span class="keyboard-hint">💡 Tất cả các ô hoàn toàn cho nhập dữ liệu. Dòng Tổng Cộng hiển thị OKE khi Tổng Xuất Kho TP = Tổng Nhập Vào.</span>
+          <span class="keyboard-hint">Nhập trực tiếp vào từng ô. Trạng thái đạt <strong>Hoàn tất (OKE)</strong> khi Tổng xuất kho TP khớp Tổng nhập vào.</span>
         </div>
         <div class="btn-group-right">
-          <button class="btn btn-info" id="btnExportDeptExcel">
-            📊 Xuất Excel
+          <button class="btn btn-outline" id="btnExportDeptExcel">
+            Xuất Excel
           </button>
-          <button class="btn btn-dark" onclick="window.print()">
-            🖨️ In Báo Cáo
+          <button class="btn btn-outline" onclick="window.print()">
+            In báo cáo
           </button>
         </div>
       </div>
 
-      <!-- MAIN TAB 3 CONTAINER -->
+      <!-- MAIN TAB 2 CONTAINER -->
       <div class="excel-sheet-wrapper">
         
         <!-- TITLE BANNER -->
-        <div class="dept-main-header">
-          <h1 class="sheet-title" style="text-align:center; margin-bottom:12px;">BÁO CÁO ĐỐI CHIẾU NHẬP XUẤT TỒN + THEO DÕI SẢN LƯỢNG</h1>
+        <div class="report-header-banner dept-header-banner">
+          <div class="banner-title-group">
+            <h1 class="sheet-title">Nhật ký đối chiếu nhập xuất tồn &amp; sản lượng bộ phận</h1>
+            <span class="sheet-subtitle">Theo dõi luỹ kế bàn giao giữa Phối đôi, Đóng gói và Kho thành phẩm theo từng lô</span>
+          </div>
         </div>
 
         <!-- TOP SUMMARY TABLE & SECTION TITLE -->
@@ -414,21 +425,21 @@
           <div class="dept-summary-wrapper">
             <table class="dept-summary-table">
               <tr>
-                <td class="lbl-dept-sum bg-hdr-cyan">Ngày</td>
+                <td class="lbl-dept-sum bg-hdr-cyan">Ngày báo cáo</td>
                 <td class="val-dept-sum font-semibold" id="deptSummaryDate">--</td>
-                <td class="lbl-dept-sum bg-hdr-slate">CHUẨN BỊ còn nợ (đôi)</td>
+                <td class="lbl-dept-sum bg-hdr-slate">Chuẩn bị còn nợ (đôi)</td>
                 <td class="val-dept-sum bold-txt" id="deptSummaryDebt">0</td>
               </tr>
               <tr>
-                <td class="lbl-dept-sum bg-hdr-cyan">PO</td>
+                <td class="lbl-dept-sum bg-hdr-cyan">Mã PO</td>
                 <td class="val-dept-sum bold-txt" id="deptSummaryPO">--</td>
                 <td colspan="2" class="blank-cell"></td>
               </tr>
               <tr>
-                <td class="lbl-dept-sum bg-hdr-slate">Tổng đơn (đôi)</td>
-                <td class="lbl-dept-sum bg-hdr-slate">TỔNG NHẬN (đôi)</td>
-                <td class="lbl-dept-sum bg-hdr-slate">TỔNG XUẤT CHO KH (đôi)</td>
-                <td class="lbl-dept-sum bg-hdr-slate">TỒN CUỐI NGÀY (đôi)</td>
+                <td class="lbl-dept-sum bg-hdr-slate">Kế hoạch đơn (đôi)</td>
+                <td class="lbl-dept-sum bg-hdr-slate">Tổng nhận (đôi)</td>
+                <td class="lbl-dept-sum bg-hdr-slate">Tổng xuất KH (đôi)</td>
+                <td class="lbl-dept-sum bg-hdr-slate">Tồn cuối ngày (đôi)</td>
               </tr>
               <tr>
                 <td class="val-dept-sum bold-txt" id="deptSummaryPlan">0</td>
@@ -440,11 +451,11 @@
           </div>
 
           <div class="dept-section-title-right">
-            <h3>BÁO THEO DÕI SẢN LƯỢNG CÁC BỘ PHẬN</h3>
+            <h3>Sổ theo dõi sản lượng các bộ phận</h3>
           </div>
         </div>
 
-        <!-- DYNAMIC BATCH LIST (LEFT SUMMARY TABLE + RIGHT DEPARTMENT LOG TABLE) -->
+        <!-- DYNAMIC BATCH LIST -->
         <div id="deptBatchesContainer" class="dept-batches-container">
           <!-- Injected dynamically per batch via JavaScript -->
         </div>
@@ -453,25 +464,25 @@
 
     </section>
 
-    <!-- TAB 4: QUẢN LÝ KHÁCH HÀNG, PO & TÀI KHOẢN PHÂN QUYỀN (DÀNH CHO SẾP) -->
+    <!-- TAB 3: QUẢN LÝ KHÁCH HÀNG & ĐƠN HÀNG PO -->
     <section id="tab-manage" class="tab-pane">
 
       <!-- STATS KPI BANNER FOR ALL COMPANIES -->
       <div class="manage-stats-banner">
         <div class="stat-card">
-          <span class="stat-label">🏢 Tổng Số Công Ty / KH</span>
+          <span class="stat-label">Khách hàng / đối tác</span>
           <span class="stat-value" id="statTotalCust">3</span>
         </div>
         <div class="stat-card">
-          <span class="stat-label">📦 Tổng Số Đơn Hàng / PO</span>
+          <span class="stat-label">Đơn hàng / PO đang chạy</span>
           <span class="stat-value" id="statTotalPO">3</span>
         </div>
         <div class="stat-card">
-          <span class="stat-label">🎯 Tổng Kế Hoạch Đơn Hàng</span>
+          <span class="stat-label">Tổng sản lượng kế hoạch</span>
           <span class="stat-value" id="statTotalPlan">5.123 đôi</span>
         </div>
         <div class="stat-card">
-          <span class="stat-label">👥 Tổng Tài Khoản Hệ Thống</span>
+          <span class="stat-label">Tài khoản nhân sự</span>
           <span class="stat-value" id="statTotalUsersTab3">3</span>
         </div>
       </div>
@@ -480,35 +491,35 @@
         
         <!-- CARD 1: QUẢN LÝ KHÁCH HÀNG -->
         <div class="manage-card">
-          <div class="manage-card-header" style="display:flex; justify-content:space-between; align-items:center;">
-            <h3>🏢 1. Danh Sách Khách Hàng (<span id="statCustHeaderCount">0 Công Ty</span>)</h3>
-            <span style="font-size:12px; color:#0284c7; font-weight:600;">👉 Nhấp vào dòng để xem PO</span>
+          <div class="manage-card-header">
+            <h3>Danh sách khách hàng (<span id="statCustHeaderCount">0 công ty</span>)</h3>
+            <span class="manage-header-hint">Chọn dòng để lọc PO</span>
           </div>
           <div class="manage-card-body">
             <form id="formAddCustomer" class="form-grid">
               <input type="hidden" id="editCustId" value="">
               <div class="form-group">
-                <label>Tên Khách Hàng / Công Ty:</label>
-                <input type="text" id="custName" class="form-control" placeholder="Ví dụ: Puma Global, Nike, D&D Long An..." required>
+                <label for="custName">Tên khách hàng / công ty</label>
+                <input type="text" id="custName" class="form-control" placeholder="Ví dụ: Puma Global, Nike, D&amp;D Long An..." required>
               </div>
               <div class="form-group">
-                <label>Mã Khách Hàng:</label>
-                <input type="text" id="custCode" class="form-control" placeholder="Ví dụ: PUMA, NIKE, D&D..." required>
+                <label for="custCode">Mã viết tắt</label>
+                <input type="text" id="custCode" class="form-control" placeholder="Ví dụ: PUMA, NIKE, DD..." required>
               </div>
-              <div style="display:flex; gap:8px;">
-                <button type="submit" class="btn btn-primary" id="btnSubmitCust">➕ Thêm Khách Hàng</button>
-                <button type="button" class="btn btn-secondary" id="btnCancelEditCust" style="display:none;">Hủy Sửa</button>
+              <div class="form-actions-row">
+                <button type="submit" class="btn btn-primary" id="btnSubmitCust">+ Thêm khách hàng</button>
+                <button type="button" class="btn btn-outline" id="btnCancelEditCust" style="display:none;">Hủy chỉnh sửa</button>
               </div>
             </form>
 
-            <div class="table-responsive" style="margin-top: 15px;">
+            <div class="table-responsive" style="margin-top: 16px;">
               <table class="flow-log-table table-clickable-customers" id="tableCustomers">
                 <thead>
                   <tr>
                     <th>Mã KH</th>
-                    <th>Tên Khách Hàng</th>
-                    <th>Số PO</th>
-                    <th style="width: 140px; text-align:center;">Thao Tác</th>
+                    <th>Tên khách hàng</th>
+                    <th>Số đơn PO</th>
+                    <th style="width: 140px; text-align:center;">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody id="tbodyCustomers">
@@ -521,58 +532,58 @@
 
         <!-- CARD 2: QUẢN LÝ ĐƠN HÀNG / PO & CHI TIẾT LÔ HÀNG -->
         <div class="manage-card">
-          <div class="manage-card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-            <h3>📦 2. Chi Tiết Đơn Hàng / PO (<span id="lblSelectedCustTitle" style="color:#0284c7; font-weight:800;">Tất Cả</span>)</h3>
-            <span class="badge-checker-ok" id="badgeSelectedCustPoCount" style="font-size:12px; padding:4px 10px;">0 PO</span>
+          <div class="manage-card-header">
+            <h3>Đơn hàng PO — <span id="lblSelectedCustTitle" class="cust-accent-name">Tất cả</span></h3>
+            <span class="badge-checker-ok" id="badgeSelectedCustPoCount">0 PO</span>
           </div>
           <div class="manage-card-body">
             <form id="formAddPO" class="form-grid">
               <input type="hidden" id="editOrderId" value="">
 
-              <div class="form-row" style="display:flex; gap:10px;">
-                <div class="form-group" style="flex:1;">
-                  <label>Khách Hàng:</label>
+              <div class="form-row-2col">
+                <div class="form-group">
+                  <label for="poCustomerSelect">Khách hàng</label>
                   <select id="poCustomerSelect" class="form-control" required>
                     <!-- Populated dynamically -->
                   </select>
                 </div>
-                <div class="form-group" style="flex:1;">
-                  <label>Số PO:</label>
+                <div class="form-group">
+                  <label for="poNumber">Số PO</label>
                   <input type="text" id="poNumber" class="form-control" placeholder="Ví dụ: PO-050, PO-100..." required>
                 </div>
               </div>
 
-              <div class="form-row" style="display:flex; gap:10px;">
-                <div class="form-group" style="flex:1;">
-                  <label>Mã Style / Tên Đơn:</label>
-                  <input type="text" id="poStyleCode" class="form-control" placeholder="Ví dụ: Mã Style Alpha 050..." required>
+              <div class="form-row-2col">
+                <div class="form-group">
+                  <label for="poStyleCode">Mã hàng (Style)</label>
+                  <input type="text" id="poStyleCode" class="form-control" placeholder="Ví dụ: Style Alpha 050..." required>
                 </div>
-                <div class="form-group" style="flex:1;">
-                  <label>Chuyền May:</label>
+                <div class="form-group">
+                  <label for="poLineName">Chuyền sản xuất</label>
                   <input type="text" id="poLineName" class="form-control" placeholder="Ví dụ: Chuyền 1 - Xưởng 2..." required>
                 </div>
               </div>
 
               <div class="form-group">
-                <label>Tổng Kế Hoạch PO (đôi):</label>
+                <label for="poPlanTotal">Tổng kế hoạch PO (đôi)</label>
                 <input type="number" id="poPlanTotal" class="form-control font-bold" placeholder="Ví dụ: 1623" required>
               </div>
 
               <!-- PHẦN CHỌN SỐ LÔ VÀ NHẬP TỪNG LÔ + SỐ ĐUÔI -->
               <div class="batch-setup-box">
                 <div class="batch-setup-header">
-                  <label for="selectBatchCount" class="font-bold">🏷️ Chọn Số Lượng Lô Cần Chia:</label>
+                  <label for="selectBatchCount" class="font-bold">Cấu hình chia lô sản xuất</label>
                   <select id="selectBatchCount" class="form-control select-batch-count">
-                    <option value="1">1 Lô + Số Đuôi</option>
-                    <option value="2" selected>2 Lô + Số Đuôi</option>
-                    <option value="3">3 Lô + Số Đuôi</option>
-                    <option value="4">4 Lô + Số Đuôi</option>
-                    <option value="5">5 Lô + Số Đuôi</option>
-                    <option value="6">6 Lô + Số Đuôi</option>
-                    <option value="7">7 Lô + Số Đuôi</option>
-                    <option value="8">8 Lô + Số Đuôi</option>
-                    <option value="9">9 Lô + Số Đuôi</option>
-                    <option value="10">10 Lô + Số Đuôi</option>
+                    <option value="1">1 lô + số đuôi</option>
+                    <option value="2" selected>2 lô + số đuôi</option>
+                    <option value="3">3 lô + số đuôi</option>
+                    <option value="4">4 lô + số đuôi</option>
+                    <option value="5">5 lô + số đuôi</option>
+                    <option value="6">6 lô + số đuôi</option>
+                    <option value="7">7 lô + số đuôi</option>
+                    <option value="8">8 lô + số đuôi</option>
+                    <option value="9">9 lô + số đuôi</option>
+                    <option value="10">10 lô + số đuôi</option>
                   </select>
                 </div>
 
@@ -583,27 +594,27 @@
 
                 <!-- LIVE SUM CHECKER -->
                 <div class="batch-sum-checker">
-                  <span>Tổng các Lô đã chia: <strong id="lblCurrentSumBatches">0</strong> / <span id="lblTargetPoPlan">0</span> đôi</span>
+                  <span>Tổng các lô đã chia: <strong id="lblCurrentSumBatches">0</strong> / <span id="lblTargetPoPlan">0</span> đôi</span>
                   <span id="lblBatchSumStatus" class="badge-checker-ok">Khớp kế hoạch</span>
                 </div>
               </div>
 
-              <div style="display:flex; gap:8px; margin-top: 15px;">
-                <button type="submit" class="btn btn-primary" id="btnSubmitPO">💾 Lưu Đơn Hàng & Cấu Hình Lô</button>
-                <button type="button" class="btn btn-secondary" id="btnCancelEditPO" style="display:none;">Hủy Sửa</button>
+              <div class="form-actions-row" style="margin-top: 12px;">
+                <button type="submit" class="btn btn-primary" id="btnSubmitPO">Lưu đơn hàng &amp; cấu hình lô</button>
+                <button type="button" class="btn btn-outline" id="btnCancelEditPO" style="display:none;">Hủy chỉnh sửa</button>
               </div>
             </form>
 
-            <div class="table-responsive" style="margin-top: 15px;">
+            <div class="table-responsive" style="margin-top: 16px;">
               <table class="flow-log-table" id="tableOrders">
                 <thead>
                   <tr>
                     <th>Số PO</th>
-                    <th>Mã Style</th>
-                    <th>Chuyền May</th>
-                    <th>Kế Hoạch</th>
-                    <th>Chi Tiết Lô & Số Đuôi</th>
-                    <th>Thao Tác</th>
+                    <th>Mã hàng</th>
+                    <th>Chuyền may</th>
+                    <th>Kế hoạch</th>
+                    <th>Phân bổ lô &amp; số đuôi</th>
+                    <th>Thao tác</th>
                   </tr>
                 </thead>
                 <tbody id="tbodyOrders">
@@ -618,85 +629,85 @@
 
     </section>
 
-    <!-- TAB 5: PHÂN QUYỀN & QUẢN LÝ SĐT / TÀI KHOẢN (DÀNH CHO SẾP TỔNG & ADMIN) -->
+    <!-- TAB 4: PHÂN QUYỀN & QUẢN LÝ TÀI KHOẢN -->
     <section id="tab-users" class="tab-pane">
-      <div class="manage-layout-grid" style="grid-template-columns: 1fr;">
+      <div class="manage-layout-grid">
         
-        <div class="manage-card" style="box-shadow: 0 4px 18px rgba(0,0,0,0.08);">
-          <div class="manage-card-header" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: #ffffff; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <div class="manage-card">
+          <div class="manage-card-header user-manage-header">
             <div>
-              <h3 style="font-size: 16px;">👑 QUẢN TRỊ VIÊN & PHÂN QUYỀN HỆ THỐNG</h3>
-              <p style="font-size: 12px; color: #94a3b8; margin-top: 3px;">Sếp Tổng ghi nhận Số Điện Thoại, Email và thiết lập vai trò (Sếp Tổng / Quản Lý / Công Nhân) cho nhân viên</p>
+              <h3>Phân quyền &amp; quản lý tài khoản nhân sự</h3>
+              <p class="manage-card-subtitle">Cấp phát số điện thoại, email đăng nhập và thiết lập quyền truy cập theo vị trí công việc</p>
             </div>
-            <div style="display:flex; align-items:center; gap:10px;">
-              <button type="button" class="btn btn-success font-bold" id="btnAddNewUserTop" style="font-size:13px; padding:7px 15px; background:#10b981; border:none; border-radius:6px; cursor:pointer; color:#ffffff; display:inline-flex; align-items:center; gap:6px;">
-                ➕ Thêm Người Dùng Mới
+            <div class="user-header-actions">
+              <button type="button" class="btn btn-primary" id="btnAddNewUserTop">
+                + Thêm tài khoản mới
               </button>
-              <span class="user-role-badge is-admin" id="statTotalUsersBadge" style="font-size:12.5px; padding: 5px 12px;">0 người</span>
+              <span class="user-role-badge is-admin" id="statTotalUsersBadge">0 người</span>
             </div>
           </div>
           
           <div class="manage-card-body">
             <!-- FORM THÊM / CẬP NHẬT USER VÀ SĐT -->
-            <form id="formAddUser" class="form-grid" style="background: #f8fafc; padding: 18px; border-radius: 10px; border: 1.5px solid #cbd5e1; margin-bottom: 20px;">
+            <form id="formAddUser" class="form-grid user-permission-form">
               <input type="hidden" id="editUserId" value="">
 
-              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; padding-bottom:10px; border-bottom:1.5px solid #e2e8f0; flex-wrap:wrap; gap:8px;">
-                <h4 id="userFormTitle" style="margin:0; font-size:15px; color:#0f766e; display:flex; align-items:center; gap:6px;">
-                  ➕ Thêm Tài Khoản & Phân Quyền Mới
+              <div class="user-form-topbar">
+                <h4 id="userFormTitle">
+                  Thêm tài khoản &amp; phân quyền mới
                 </h4>
-                <span id="userFormModeBadge" style="font-size:12px; font-weight:700; background:#e0f2fe; color:#0369a1; padding:4px 10px; border-radius:5px;">
+                <span id="userFormModeBadge" class="user-form-mode-badge">
                   Chế độ: Thêm mới
                 </span>
               </div>
 
-              <div id="userFormHint" style="display:none; background:#e0f2fe; color:#0369a1; padding:10px 14px; border-radius:6px; font-size:13px; margin-bottom:14px; border:1px solid #bae6fd; font-weight:500;"></div>
+              <div id="userFormHint" class="user-form-hint" style="display:none;"></div>
 
-              <div class="form-row" style="display:flex; gap:12px; flex-wrap: wrap;">
-                <div class="form-group" style="flex:1; min-width: 240px;">
-                  <label style="font-weight: 700; color: #1e293b;">📲 Số Điện Thoại (Dùng Đăng Nhập & Nhận OTP SMS):</label>
-                  <input type="tel" id="userPhone" class="form-control font-bold" placeholder="Ví dụ: 0901234567..." inputmode="tel">
+              <div class="form-row-2col">
+                <div class="form-group">
+                  <label for="userPhone">Số điện thoại đăng nhập</label>
+                  <input type="tel" id="userPhone" class="form-control font-bold" placeholder="Ví dụ: 0901234567" inputmode="tel">
                 </div>
-                <div class="form-group" style="flex:1; min-width: 240px;">
-                  <label style="font-weight: 700; color: #1e293b;">📧 Email / Tài Khoản Đăng Nhập:</label>
-                  <input type="text" id="userEmail" class="form-control font-bold" placeholder="Ví dụ: nhanvien@ddlongan.com hoặc sdt...">
+                <div class="form-group">
+                  <label for="userEmail">Email / tên tài khoản</label>
+                  <input type="text" id="userEmail" class="form-control font-bold" placeholder="Ví dụ: nhanvien@ddlongan.com">
                 </div>
               </div>
 
-              <div class="form-row" style="display:flex; gap:12px; flex-wrap: wrap; margin-top: 10px;">
-                <div class="form-group" style="flex:1; min-width: 240px;">
-                  <label style="font-weight: 700; color: #1e293b;">👤 Họ và Tên Người Dùng:</label>
-                  <input type="text" id="userFullName" class="form-control" placeholder="Ví dụ: Nguyễn Văn A (Tổ trưởng Chuyền 1)..." required>
+              <div class="form-row-2col">
+                <div class="form-group">
+                  <label for="userFullName">Họ và tên nhân sự</label>
+                  <input type="text" id="userFullName" class="form-control" placeholder="Ví dụ: Nguyễn Văn A (Tổ trưởng Chuyền 1)" required>
                 </div>
-                <div class="form-group" style="flex:1; min-width: 240px;">
-                  <label style="font-weight: 700; color: #1e293b;">👑 Phân Quyền Vai Trò:</label>
-                  <select id="userRoleSelect" class="form-control font-bold" style="border: 2px solid #0f766e;">
-                    <option value="admin">👑 Sếp Tổng (Toàn quyền tất cả các Tab & Phân quyền)</option>
-                    <option value="manager">⭐ Quản lý (Xem tất cả các Tab & Tiến độ)</option>
-                    <option value="worker" selected>👤 Công nhân (Chỉ xem & nhập 2 Tab kiểm kê)</option>
+                <div class="form-group">
+                  <label for="userRoleSelect">Vai trò truy cập</label>
+                  <select id="userRoleSelect" class="form-control font-bold">
+                    <option value="admin">Ban giám đốc (Toàn quyền hệ thống &amp; phân quyền)</option>
+                    <option value="manager">Quản lý điều hành (Xem toàn bộ báo cáo &amp; quản lý PO)</option>
+                    <option value="worker" selected>Nhân viên kiểm kê (Chỉ xem &amp; nhập 2 tab kiểm kê)</option>
                   </select>
                 </div>
               </div>
 
-              <div class="form-row" style="display:flex; gap:12px; flex-wrap: wrap; margin-top: 10px;">
-                <div class="form-group" style="flex:1; min-width: 240px;">
-                  <label style="font-weight: 700; color: #1e293b;">🔒 Mật Khẩu Đăng Nhập:</label>
-                  <input type="text" id="userPassword" class="form-control font-bold" placeholder="Nhập mật khẩu..." value="Admin@123456" required>
+              <div class="form-row-2col">
+                <div class="form-group">
+                  <label for="userPassword">Mật khẩu đăng nhập</label>
+                  <input type="text" id="userPassword" class="form-control font-bold" placeholder="Nhập mật khẩu" value="Admin@123456" required>
                 </div>
-                <div class="form-group" style="flex:1; min-width: 240px;">
-                  <label style="font-weight: 700; color: #1e293b;">🔑 Mã PIN Dự Phòng (4 - 6 số):</label>
+                <div class="form-group">
+                  <label for="userPinCode">Mã PIN dự phòng (4–6 số)</label>
                   <input type="text" id="userPinCode" class="form-control font-bold" placeholder="Ví dụ: 1234" value="1234" maxlength="6" inputmode="numeric">
                 </div>
               </div>
 
-              <div style="display:flex; gap:10px; margin-top: 16px; align-items: center; flex-wrap: wrap;">
-                <button type="submit" class="btn btn-primary font-bold" id="btnSubmitUser" style="padding: 10px 22px; font-size: 14px; background:#0f766e; border:none; cursor:pointer;">
-                  💾 Lưu Tài Khoản Mới
+              <div class="form-actions-row user-form-footer">
+                <button type="submit" class="btn btn-primary" id="btnSubmitUser">
+                  Lưu tài khoản mới
                 </button>
-                <button type="button" class="btn btn-secondary font-bold" id="btnCancelEditUser" style="display:none; padding: 10px 18px; background:#64748b; color:#ffffff; border:none; cursor:pointer;">
-                  ✕ Hủy Chỉnh Sửa (Về Thêm Mới)
+                <button type="button" class="btn btn-outline" id="btnCancelEditUser" style="display:none;">
+                  Hủy chỉnh sửa
                 </button>
-                <small style="color: #64748b; margin-left: 8px;">* Nhân viên sau khi được lưu có thể dùng SĐT hoặc Email để đăng nhập ngay trên mọi thiết bị.</small>
+                <small class="form-helper-note">Nhân sự có thể dùng số điện thoại hoặc email vừa cấp để đăng nhập ngay trên mọi thiết bị.</small>
               </div>
             </form>
 
@@ -705,14 +716,14 @@
               <table class="flow-log-table" id="tableUsers">
                 <thead>
                   <tr>
-                    <th>Email / Tài Khoản</th>
-                    <th>Số Điện Thoại</th>
-                    <th>Họ và Tên</th>
-                    <th>Vai Trò Phân Quyền</th>
-                    <th>Mật Khẩu</th>
+                    <th>Email / tài khoản</th>
+                    <th>Số điện thoại</th>
+                    <th>Họ và tên</th>
+                    <th>Vai trò</th>
+                    <th>Mật khẩu</th>
                     <th>Mã PIN</th>
-                    <th>Trạng Thái</th>
-                    <th>Thao Tác</th>
+                    <th>Trạng thái</th>
+                    <th>Thao tác</th>
                   </tr>
                 </thead>
                 <tbody id="tbodyUsers">
@@ -731,69 +742,58 @@
 
   <!-- MODAL VÉT SỐ ĐUÔI TẠO LÔ RIÊNG BIỆT (QUẢN LÝ NHƯ LÔ 1, LÔ 2) -->
   <div id="modalSweepTailBatch" class="modal-overlay">
-    <div class="modal-card modal-sweep-card" style="max-width: 520px; border-radius: 14px; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.25);">
-      <div class="modal-header modal-sweep-header" style="background: linear-gradient(135deg, #0f766e, #0369a1); color: #ffffff; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;">
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <span style="font-size: 24px;">⚡</span>
-          <div>
-            <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: #ffffff;">VÉT HÀNG CHUẨN BỊ NỢ VÀO LÔ SỐ ĐUÔI RIÊNG</h3>
-            <span style="font-size: 12px; color: #e0f2fe; display: block; margin-top: 2px;">Khởi tạo một Lô độc lập quản lý đầy đủ 5 công đoạn như Lô 1 & Lô 2</span>
-          </div>
+    <div class="modal-card modal-sweep-card">
+      <div class="modal-header modal-sweep-header">
+        <div>
+          <h3>Vét hàng chuẩn bị nợ vào lô số đuôi riêng</h3>
+          <span class="modal-hdr-sub">Khởi tạo một lô độc lập quản lý đầy đủ 5 công đoạn như Lô 1 &amp; Lô 2</span>
         </div>
-        <button class="btn-close-modal" id="btnCloseSweepTailModal" style="color: #ffffff; font-size: 22px; cursor: pointer; background: transparent; border: none;">×</button>
+        <button class="btn-close-modal" id="btnCloseSweepTailModal">×</button>
       </div>
 
-      <div class="modal-body" style="padding: 20px 24px; background: #ffffff;">
-        <div class="sweep-info-callout" style="background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px;">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-size: 13.5px; font-weight: 700; color: #166534;">📦 Số lượng Chuẩn Bị đang nợ PO:</span>
-            <span id="sweepModalDebtDisplay" style="font-size: 18px; font-weight: 900; color: #15803d;">0 đôi</span>
+      <div class="modal-body">
+        <div class="sweep-info-callout">
+          <div class="sweep-callout-top">
+            <span>Số lượng chuẩn bị đang nợ PO</span>
+            <span id="sweepModalDebtDisplay" class="sweep-debt-num">0 đôi</span>
           </div>
-          <div style="font-size: 12px; color: #166534; margin-top: 5px; line-height: 1.4;">
-            Toàn bộ lượng hàng nợ này sẽ được xuất vào chuyền may và tạo một <strong>Thẻ Lô riêng biệt</strong> để kiểm kê độc lập.
+          <div class="sweep-callout-desc">
+            Lượng hàng nợ này sẽ được xuất vào chuyền may và tạo một <strong>Phiếu lô riêng biệt</strong> để kiểm kê độc lập.
           </div>
         </div>
 
         <form id="formSweepTailBatch" onsubmit="event.preventDefault();">
           <div class="form-group" style="margin-bottom: 14px;">
-            <label for="txtSweepBatchName" style="font-weight: 700; color: #1e293b; display: block; margin-bottom: 6px; font-size: 13.5px;">
-              🏷️ Tên Lô Riêng Mới:
-            </label>
-            <input type="text" id="txtSweepBatchName" class="form-control font-bold" value="Lô Số Đuôi" required style="width: 100%; border: 1.5px solid #0f766e; padding: 9px 12px; border-radius: 6px;">
-            <small style="color: #64748b; font-size: 12px; display: block; margin-top: 4px;">Gợi ý: <em>Lô Số Đuôi, Lô 3 - Số Đuôi, Lô Vét...</em></small>
+            <label for="txtSweepBatchName">Tên lô riêng mới</label>
+            <input type="text" id="txtSweepBatchName" class="form-control font-bold" value="Lô Số Đuôi" required>
+            <small class="form-helper-note">Gợi ý: Lô Số Đuôi, Lô 3 - Số Đuôi, Lô Vét...</small>
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+          <div class="form-row-2col" style="margin-bottom: 14px;">
             <div class="form-group">
-              <label for="numSweepQty" style="font-weight: 700; color: #1e293b; display: block; margin-bottom: 6px; font-size: 13.5px;">
-                📥 Số lượng vào chuyền:
-              </label>
-              <input type="number" id="numSweepQty" class="form-control font-bold text-teal-700" min="1" required style="width: 100%; font-size: 16px; border: 1.5px solid #0f766e; padding: 9px 12px; border-radius: 6px;">
-              <small style="color: #64748b; font-size: 11.5px; display: block; margin-top: 4px;">Có thể chỉnh nếu thực nhận lệch</small>
+              <label for="numSweepQty">Số lượng vào chuyền</label>
+              <input type="number" id="numSweepQty" class="form-control font-bold" min="1" required>
+              <small class="form-helper-note">Có thể chỉnh nếu thực nhận lệch</small>
             </div>
 
             <div class="form-group">
-              <label for="txtSweepDate" style="font-weight: 700; color: #1e293b; display: block; margin-bottom: 6px; font-size: 13.5px;">
-                📅 Ngày nhận hàng:
-              </label>
-              <input type="date" id="txtSweepDate" class="form-control font-bold" required style="width: 100%; padding: 9px 12px; border-radius: 6px;">
-              <small style="color: #64748b; font-size: 11.5px; display: block; margin-top: 4px;">Ngày bắt đầu may Lô Đuôi</small>
+              <label for="txtSweepDate">Ngày nhận hàng</label>
+              <input type="date" id="txtSweepDate" class="form-control font-bold" required>
+              <small class="form-helper-note">Ngày bắt đầu may lô đuôi</small>
             </div>
           </div>
 
           <div class="form-group" style="margin-bottom: 6px;">
-            <label for="txtSweepNote" style="font-weight: 700; color: #1e293b; display: block; margin-bottom: 6px; font-size: 13.5px;">
-              📝 Ghi chú bàn giao vét đuôi:
-            </label>
-            <input type="text" id="txtSweepNote" class="form-control" placeholder="Ví dụ: Chuẩn bị giao vét phôi đợt cuối..." value="Chuẩn bị bàn giao vét đuôi đợt cuối" style="width: 100%; padding: 9px 12px; border-radius: 6px;">
+            <label for="txtSweepNote">Ghi chú bàn giao vét đuôi</label>
+            <input type="text" id="txtSweepNote" class="form-control" placeholder="Ví dụ: Chuẩn bị giao vét phôi đợt cuối..." value="Chuẩn bị bàn giao vét đuôi đợt cuối">
           </div>
         </form>
       </div>
 
-      <div class="modal-footer" style="padding: 14px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 10px;">
-        <button type="button" class="btn btn-secondary" id="btnCancelSweepTailModal">Hủy bỏ</button>
-        <button type="button" class="btn btn-success font-bold" id="btnConfirmSweepTailBatch" style="padding: 9px 20px; font-size: 14px; background: #059669; border: none; border-radius: 6px; color: #ffffff; cursor: pointer;">
-          ⚡ Khởi Tạo Lô & Bàn Giao Vào Chuyền
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" id="btnCancelSweepTailModal">Hủy bỏ</button>
+        <button type="button" class="btn btn-primary" id="btnConfirmSweepTailBatch">
+          Khởi tạo lô &amp; bàn giao vào chuyền
         </button>
       </div>
     </div>
@@ -803,88 +803,80 @@
   <div id="modalRoleAuth" class="modal-overlay">
     <div class="modal-card modal-auth-card">
       <div class="modal-header">
-        <h3 id="modalRoleTitle">🔐 Đăng Nhập Tài Khoản Khác / Đổi Quyền</h3>
+        <h3 id="modalRoleTitle">Đổi tài khoản đăng nhập</h3>
         <button class="btn-close-modal" id="btnCloseRoleModal">×</button>
       </div>
 
       <div class="modal-body" style="padding: 20px;">
         <div class="form-group" style="margin-bottom: 14px;">
-          <label for="txtAuthEmail" style="font-weight: 700; color: #1e293b; display: block; margin-bottom: 5px;">
-            📱 Số Điện Thoại hoặc Email:
-          </label>
-          <input type="text" id="txtAuthEmail" class="form-control font-bold" placeholder="Nhập số điện thoại hoặc email..." autocomplete="username" style="width: 100%;">
+          <label for="txtAuthEmail">Số điện thoại hoặc email</label>
+          <input type="text" id="txtAuthEmail" class="form-control font-bold" placeholder="Nhập số điện thoại hoặc email" autocomplete="username" style="width: 100%;">
         </div>
 
         <div class="form-group" style="margin-bottom: 14px;">
-          <label for="txtAuthPassword" style="font-weight: 700; color: #1e293b; display: block; margin-bottom: 5px;">
-            🔒 Mật Khẩu:
-          </label>
-          <input type="password" id="txtAuthPassword" class="form-control font-bold" placeholder="Nhập mật khẩu..." autocomplete="current-password" style="width: 100%;">
+          <label for="txtAuthPassword">Mật khẩu</label>
+          <input type="password" id="txtAuthPassword" class="form-control font-bold" placeholder="Nhập mật khẩu" autocomplete="current-password" style="width: 100%;">
         </div>
       </div>
 
       <div class="modal-footer">
-        <button class="btn btn-secondary" id="btnCancelRoleModal">Đóng</button>
-        <button class="btn btn-primary" id="btnConfirmAuth">🚀 Xác Nhận Đăng Nhập</button>
+        <button class="btn btn-outline" id="btnCancelRoleModal">Đóng</button>
+        <button class="btn btn-primary" id="btnConfirmAuth">Xác nhận đăng nhập</button>
       </div>
     </div>
   </div>
 
   <!-- MODAL HƯỚNG DẪN CÀI ĐẶT APP CHO IPHONE / IPAD (IOS SAFARI) -->
   <div id="modalIosInstall" class="modal-overlay">
-    <div class="modal-card" style="max-width: 440px; text-align: center; border-radius: 16px;">
-      <div class="modal-header" style="background: linear-gradient(135deg, #0f766e, #0369a1); color: #ffffff; border-radius: 16px 16px 0 0;">
-        <h3 style="margin:0; font-size: 16px; color:#ffffff;">📲 Cài Đặt App Trên iPhone / iPad</h3>
-        <button class="btn-close-modal" id="btnCloseIosModal" style="color: #ffffff;">×</button>
+    <div class="modal-card" style="max-width: 440px;">
+      <div class="modal-header">
+        <h3>Cài đặt ứng dụng trên iPhone / iPad</h3>
+        <button class="btn-close-modal" id="btnCloseIosModal">×</button>
       </div>
-      <div class="modal-body" style="padding: 24px 20px; text-align: left;">
-        <div style="display:flex; align-items:center; gap: 12px; margin-bottom: 16px;">
-          <div style="font-size: 32px;">🍏</div>
-          <div>
-            <strong style="font-size: 15px; color:#0f172a; display:block;">Thêm vào Màn hình chính</strong>
-            <span style="font-size: 12.5px; color:#64748b;">Mở ứng dụng ngay lập tức như app gốc, không cần qua trình duyệt.</span>
-          </div>
+      <div class="modal-body" style="padding: 20px; text-align: left;">
+        <div style="margin-bottom: 14px;">
+          <strong style="font-size: 15px; color:#0f172a; display:block;">Thêm vào màn hình chính</strong>
+          <span style="font-size: 12.5px; color:#64748b;">Mở ứng dụng ngay lập tức như ứng dụng độc lập, không cần qua trình duyệt.</span>
         </div>
 
         <div class="ios-step-item">
           <div class="ios-step-num">1</div>
           <div class="ios-step-text">
-            Nhấn vào nút <strong>Chia sẻ (Share) <span style="font-size: 16px;">⎙ / 📤</span></strong> ở thanh công cụ dưới đáy trình duyệt Safari.
+            Nhấn vào nút <strong>Chia sẻ (Share)</strong> ở thanh công cụ dưới đáy trình duyệt Safari.
           </div>
         </div>
 
         <div class="ios-step-item">
           <div class="ios-step-num">2</div>
           <div class="ios-step-text">
-            Cuộn xuống danh sách tác vụ và chọn <strong>"Thêm vào MH chính" (Add to Home Screen ➕)</strong>.
+            Cuộn xuống danh sách tác vụ và chọn <strong>Thêm vào MH chính (Add to Home Screen)</strong>.
           </div>
         </div>
 
         <div class="ios-step-item">
           <div class="ios-step-num">3</div>
           <div class="ios-step-text">
-            Nhấn nút <strong>"Thêm" (Add)</strong> ở góc trên bên phải màn hình. Biểu tượng App WIP May D&D sẽ xuất hiện trên màn hình chính của bạn!
+            Nhấn nút <strong>Thêm (Add)</strong> ở góc trên bên phải màn hình để hoàn tất.
           </div>
         </div>
       </div>
-      <div class="modal-footer" style="justify-content: center; background: #f8fafc; border-radius: 0 0 16px 16px;">
-        <button class="btn btn-primary" id="btnGotItIosModal" style="padding: 10px 30px; font-weight: 700;">Đã Hiểu</button>
+      <div class="modal-footer">
+        <button class="btn btn-primary" id="btnGotItIosModal">Đã hiểu</button>
       </div>
     </div>
   </div>
 
   <!-- ========================================================
-       MODAL: KIỂM TRA CÂN ĐỐI TOÀN NHÀ MÁY (HÌNH 2 MOCKUP)
+       MODAL: KIỂM TRA CÂN ĐỐI TOÀN NHÀ MÁY
        Độc lập tất cả PO, tồn tại xuyên suốt toàn ứng dụng
        ======================================================== -->
   <div id="modalFactoryBalance" class="modal-overlay" style="display: none;">
     <div class="modal-card modal-factory-balance-card">
       <div class="modal-header modal-factory-balance-hdr">
         <div class="fb-hdr-left">
-          <div class="fb-hdr-icon">⚖️</div>
           <div>
-            <h3 class="fb-hdr-title">KIỂM TRA CÂN ĐỐI</h3>
-            <div class="fb-hdr-sub">Toàn bộ nhà máy (Tất cả PO phát sinh)</div>
+            <h3 class="fb-hdr-title">Kiểm tra cân đối toàn nhà máy</h3>
+            <div class="fb-hdr-sub">Tổng hợp tất cả đơn hàng PO phát sinh trong ngày</div>
           </div>
         </div>
         <button type="button" class="btn-close-modal" id="btnCloseFactoryBalanceModal" title="Đóng">✕</button>
@@ -894,12 +886,12 @@
         <!-- Date Selector & Source Info Row -->
         <div class="fb-date-row">
           <div class="fb-date-picker-wrap">
-            <span class="fb-date-lbl">📅 Ngày kiểm tra:</span>
+            <span class="fb-date-lbl">Ngày kiểm tra</span>
             <input type="date" id="fbReportDate" class="fb-date-input">
             <span class="fb-prev-date-badge" id="fbPrevDateBadge" title="Nguồn số liệu tồn trước đó">Tồn qua: --</span>
           </div>
           <div class="fb-status-badge-wrap">
-            <span class="fb-status-badge badge-pending" id="fbStatusBadge">⏳ Chờ nhập TP</span>
+            <span class="fb-status-badge badge-pending" id="fbStatusBadge">Chờ nhập TP</span>
           </div>
         </div>
 
@@ -913,44 +905,44 @@
             <div class="fb-calc-item fb-item-calc">
               <span class="fb-ci-label">Tồn hôm qua</span>
               <span class="fb-ci-val text-blue font-black" id="fbTonHomQua">0</span>
-              <span class="fb-ci-hint">(Máy tự tính)</span>
+              <span class="fb-ci-hint">Hệ thống tự tính</span>
             </div>
 
-            <div class="fb-calc-op text-emerald-600">+</div>
+            <div class="fb-calc-op">+</div>
 
             <!-- 2. Thành phẩm hôm nay (1 ô cho nhập) -->
             <div class="fb-calc-item fb-item-input">
-              <span class="fb-ci-label font-bold text-amber-900">✨ Thành phẩm hôm nay</span>
-              <input type="number" id="fbThanhPhamInput" class="fb-minimal-input" placeholder="Nhập TP..." title="Nhập thành phẩm hôm nay của tất cả PO">
-              <span class="fb-ci-hint text-amber-700">⚡ Nhập để lưu</span>
+              <span class="fb-ci-label font-bold text-amber-900">Thành phẩm hôm nay</span>
+              <input type="number" id="fbThanhPhamInput" class="fb-minimal-input" placeholder="Nhập TP" title="Nhập thành phẩm hôm nay của tất cả PO">
+              <span class="fb-ci-hint text-amber-700">Nhập để đối chiếu</span>
             </div>
 
-            <div class="fb-calc-op text-rose-600">-</div>
+            <div class="fb-calc-op">−</div>
 
             <!-- 3. Xuất hôm nay (tự cộng) -->
             <div class="fb-calc-item fb-item-calc">
               <span class="fb-ci-label">Xuất hôm nay</span>
               <span class="fb-ci-val text-rose font-black" id="fbXuatHomNay">0</span>
-              <span class="fb-ci-hint">(Máy tự cộng)</span>
+              <span class="fb-ci-hint">Hệ thống tự cộng</span>
             </div>
 
-            <div class="fb-calc-op text-indigo-700">=</div>
+            <div class="fb-calc-op">=</div>
 
             <!-- 4. Tồn hôm nay (QC + Phối đôi + Đóng gói + Kho TP của tất cả PO) -->
             <div class="fb-calc-item fb-item-calc fb-item-total">
               <span class="fb-ci-label text-teal-900 font-bold">Tồn hôm nay</span>
               <span class="fb-ci-val text-teal-700 font-black" id="fbTonHomNay">0</span>
-              <span class="fb-ci-hint text-teal-800">(QC + Phối + ĐG + Kho TP)</span>
+              <span class="fb-ci-hint text-teal-800">QC + Phối + ĐG + Kho TP</span>
             </div>
 
           </div>
 
           <!-- 1 Ô DUY NHẤT: HIỂN THỊ ĐỦ HAY LỆCH HAY DƯ BAO NHIÊU -->
           <div class="fb-single-result-card is-pending" id="fbSingleResultBox">
-            <div class="fb-sr-icon" id="fbResIcon">⏳</div>
+            <div class="fb-sr-icon" id="fbResIcon">●</div>
             <div class="fb-sr-body">
-              <div class="fb-sr-badge" id="fbResBadge">CHỜ NHẬP THÀNH PHẨM HÔM NAY</div>
-              <div class="fb-sr-message" id="fbResMessage">Vui lòng nhập Thành phẩm hôm nay vào ô màu vàng ở trên để kiểm tra đối chiếu.</div>
+              <div class="fb-sr-badge" id="fbResBadge">Chờ nhập thành phẩm hôm nay</div>
+              <div class="fb-sr-message" id="fbResMessage">Nhập số lượng thành phẩm hôm nay vào ô trên để kiểm tra cân đối với tồn thực tế.</div>
             </div>
           </div>
 
@@ -958,12 +950,12 @@
       </div>
 
       <div class="modal-footer fb-modal-footer">
-        <button type="button" class="btn btn-outline" id="btnRefreshFactoryBalance">🔄 Tính Lại Từ Đầu</button>
+        <button type="button" class="btn btn-outline" id="btnRefreshFactoryBalance">Tính lại số liệu</button>
         <button type="button" class="btn btn-primary" id="btnCloseFactoryBalanceModalBtn">Đóng</button>
       </div>
     </div>
   </div>
 
-  <script src="app.js?v=20261015_2130"></script>
+  <script src="app.js?v=20261016_1000"></script>
 </body>
 </html>
