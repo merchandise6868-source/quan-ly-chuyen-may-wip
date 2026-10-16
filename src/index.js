@@ -1,95 +1,52 @@
 // Memory database initial seed (fallback for local dev without D1)
 const INITIAL_DB = {
   customers: [
-    { id: "cust-1", code: "CASUM", name: "CAO SU MÀU" },
-    { id: "cust-2", code: "Lth", name: "Liên Thái" },
-    { id: "cust-3", code: "MP", name: "MẠNH PHÁT" }
+    { id: "cust-1791885118290", code: "CASUM", name: "CAO SU MÀU" },
+    { id: "cust-1790383482005", code: "Lth", name: "Liên Thái" },
+    { id: "cust-1792141543754", code: "MP", name: "MẠNH PHÁT" }
   ],
   orders: [
     {
-      id: "po-050",
-      customer_id: "cust-2", // Liên Thái
-      style_code: "Mã Style Alpha 050",
-      po_number: "PO-050",
-      line_name: "Chuyền 1 - Xưởng 2",
+      id: "po-1792143170857",
+      customer_id: "cust-1792141543754", // MẠNH PHÁT
+      style_code: "296507-003",
+      po_number: "MEXICO",
+      line_name: "Chuyền A",
+      po_plan: 4582,
+      tail_sweep_date: "2026-10-16",
+      tail_batch_name: "Lô Số Đuôi",
+      default_batches: [
+        { id: "b-1", batch_name: "Lô 1", batch_plan: 1150, into_sewing: 950 },
+        { id: "b-2", batch_name: "Lô 2", batch_plan: 900, into_sewing: 0 },
+        { id: "b-3", batch_name: "Lô 3", batch_plan: 940, into_sewing: 0 },
+        { id: "b-4", batch_name: "Lô 4", batch_plan: 850, into_sewing: 0 },
+        { id: "b-5", batch_name: "Lô 5", batch_plan: 742, into_sewing: 0 }
+      ]
+    },
+    {
+      id: "po-1790384969934",
+      customer_id: "cust-1790383482005", // Liên Thái
+      style_code: "DA-260",
+      po_number: "050",
+      line_name: "Tự phân bổ",
       po_plan: 1623,
       tail_sweep_date: "2026-09-23",
       tail_batch_name: "Lô Số Đuôi",
       default_batches: [
-        { id: "b1", batch_name: "Lô 1", batch_plan: 1230, into_sewing: 1230 },
-        { id: "b2", batch_name: "Lô 2", batch_plan: 267, into_sewing: 267 },
-        { id: "b3", batch_name: "Lô Số Đuôi", batch_plan: 126, into_sewing: 126, is_tail_batch: true }
+        { id: "b-1", batch_name: "Lô 1", batch_plan: 1230, into_sewing: 1230 },
+        { id: "b-2", batch_name: "Lô 2", batch_plan: 237, into_sewing: 237 },
+        { id: "b-3", batch_name: "Lô Số Đuôi", batch_plan: 156, into_sewing: 156, is_tail_batch: true }
       ]
     },
     {
-      id: "po-casum-01",
-      customer_id: "cust-1", // CASUM
-      style_code: "Style CASUM Alpha",
-      po_number: "PO-CS01",
-      line_name: "Chuyền 1 - Xưởng 1",
-      po_plan: 2000,
-      tail_sweep_date: "2026-10-16",
-      tail_batch_name: "Lô Số Đuôi",
+      id: "po-1791885748919",
+      customer_id: "cust-1791885118290", // CAO SU MÀU
+      style_code: "DCP007-NELLIE",
+      po_number: "2000000652",
+      line_name: "Chuyền C",
+      po_plan: 756,
       default_batches: [
-        { id: "b-cs1", batch_name: "Lô 1", batch_plan: 1000, into_sewing: 1000 },
-        { id: "b-cs2", batch_name: "Lô 2", batch_plan: 850, into_sewing: 850 },
-        { id: "b-cs3", batch_name: "Lô Số Đuôi", batch_plan: 150, into_sewing: 150, is_tail_batch: true }
-      ]
-    },
-    {
-      id: "po-mp-01",
-      customer_id: "cust-3", // MẠNH PHÁT
-      style_code: "MEXICO",
-      po_number: "296507-003",
-      line_name: "Chuyền 2 - Xưởng 2",
-      po_plan: 4582,
-      tail_sweep_date: "2026-10-16",
-      tail_batch_name: "Lô Số Đuôi",
-      default_batches: [
-        { id: "b-mp1", batch_name: "Lô 1", batch_plan: 1150, into_sewing: 1150 },
-        { id: "b-mp2", batch_name: "Lô 2", batch_plan: 1150, into_sewing: 1150 },
-        { id: "b-mp3", batch_name: "Lô 3", batch_plan: 1150, into_sewing: 1150 },
-        { id: "b-mp4", batch_name: "Lô Số Đuôi", batch_plan: 1132, into_sewing: 1132, is_tail_batch: true }
-      ]
-    },
-    {
-      id: "296507-003",
-      customer_id: "cust-3", // MẠNH PHÁT alias PO
-      style_code: "MEXICO",
-      po_number: "296507-003",
-      line_name: "Chuyền 2 - Xưởng 2",
-      po_plan: 4582,
-      tail_sweep_date: "2026-10-16",
-      tail_batch_name: "Lô Số Đuôi",
-      default_batches: [
-        { id: "b-mp1", batch_name: "Lô 1", batch_plan: 1150, into_sewing: 1150 },
-        { id: "b-mp2", batch_name: "Lô 2", batch_plan: 1150, into_sewing: 1150 },
-        { id: "b-mp3", batch_name: "Lô 3", batch_plan: 1150, into_sewing: 1150 },
-        { id: "b-mp4", batch_name: "Lô Số Đuôi", batch_plan: 1132, into_sewing: 1132, is_tail_batch: true }
-      ]
-    },
-    {
-      id: "po-dd-01",
-      customer_id: "cust-1", // CASUM
-      style_code: "Áo Polo CS-01",
-      po_number: "PO-DD-01",
-      line_name: "Chuyền 2",
-      po_plan: 2000,
-      default_batches: [
-        { id: "b-dd1", batch_name: "Lô 1", batch_plan: 1000, into_sewing: 1000 },
-        { id: "b-dd2", batch_name: "Lô 2", batch_plan: 1000, into_sewing: 1000 }
-      ]
-    },
-    {
-      id: "po-nk-01",
-      customer_id: "cust-3", // MẠNH PHÁT
-      style_code: "Quần Short MP-99",
-      po_number: "PO-NK-01",
-      line_name: "Chuyền 3",
-      po_plan: 1500,
-      default_batches: [
-        { id: "b-nk1", batch_name: "Lô 1", batch_plan: 750, into_sewing: 750 },
-        { id: "b-nk2", batch_name: "Lô 2", batch_plan: 750, into_sewing: 750 }
+        { id: "b-1", batch_name: "Lô 1", batch_plan: 756, into_sewing: 756 }
       ]
     }
   ],
@@ -566,6 +523,10 @@ async function initD1Tables(db) {
 
     // Ensure customers CASUM, Liên Thái, MẠNH PHÁT exist and match exactly
     try {
+      // Purge dummy/faulty legacy records
+      await db.prepare("DELETE FROM customers WHERE id IN ('cust-1', 'cust-2', 'cust-3')").run();
+      await db.prepare("DELETE FROM po_orders WHERE id IN ('po-050', 'po-casum-01', 'po-mp-01', '296507-003', 'po-dd-01', 'po-nk-01')").run();
+
       for (const c of INITIAL_DB.customers) {
         await db.prepare("INSERT INTO customers (id, name, code) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, code=excluded.code").bind(c.id, c.name, c.code).run();
       }
@@ -1258,16 +1219,28 @@ export default {
       if (url.pathname === '/api/metadata' && request.method === 'GET') {
         if (env && env.DB) {
           try {
-            const { results: customers } = await env.DB.prepare("SELECT * FROM customers ORDER BY name ASC").all();
-            const { results: ordersRaw } = await env.DB.prepare("SELECT * FROM po_orders ORDER BY created_at DESC").all();
+            const { results: rawCustomers } = await env.DB.prepare("SELECT * FROM customers WHERE id NOT IN ('cust-1', 'cust-2', 'cust-3') ORDER BY name ASC").all();
+            const { results: ordersRaw } = await env.DB.prepare("SELECT * FROM po_orders WHERE id NOT IN ('po-050', 'po-casum-01', 'po-mp-01', '296507-003', 'po-dd-01', 'po-nk-01') ORDER BY created_at DESC").all();
             const orders = (ordersRaw || []).map(o => ({
               ...o,
               default_batches: typeof o.default_batches === 'string' ? JSON.parse(o.default_batches || '[]') : (o.default_batches || [])
             }));
+
+            // Deduplicate customers by normalized name
+            const seenNames = new Set();
+            const customers = [];
+            for (const c of (rawCustomers || [])) {
+              const normName = (c.name || '').trim().toLowerCase();
+              if (!seenNames.has(normName)) {
+                seenNames.add(normName);
+                customers.push(c);
+              }
+            }
+
             return Response.json({
               success: true,
-              customers: customers || [],
-              orders: orders || [],
+              customers,
+              orders,
               current_date: new Date().toISOString().split('T')[0]
             }, { headers });
           } catch (err) {
@@ -1275,10 +1248,22 @@ export default {
           }
         }
 
+        const seenNames = new Set();
+        const customers = [];
+        for (const c of (memoryDB.customers || [])) {
+          if (['cust-1', 'cust-2', 'cust-3'].includes(c.id)) continue;
+          const normName = (c.name || '').trim().toLowerCase();
+          if (!seenNames.has(normName)) {
+            seenNames.add(normName);
+            customers.push(c);
+          }
+        }
+        const orders = (memoryDB.orders || []).filter(o => !['po-050', 'po-casum-01', 'po-mp-01', '296507-003', 'po-dd-01', 'po-nk-01'].includes(o.id));
+
         return Response.json({
           success: true,
-          customers: memoryDB.customers,
-          orders: memoryDB.orders,
+          customers,
+          orders,
           current_date: new Date().toISOString().split('T')[0]
         }, { headers });
       }

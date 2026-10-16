@@ -966,8 +966,18 @@ async function fetchMetadata() {
     const res = await fetch("/api/metadata");
     const data = await res.json();
     if (data.success) {
-      appState.customers = data.customers;
-      appState.orders = data.orders;
+      const validCustomers = (data.customers || []).filter(c => !['cust-1', 'cust-2', 'cust-3'].includes(c.id));
+      const seenNames = new Set();
+      const uniqueCustomers = [];
+      for (const c of validCustomers) {
+        const normName = (c.name || '').trim().toLowerCase();
+        if (!seenNames.has(normName)) {
+          seenNames.add(normName);
+          uniqueCustomers.push(c);
+        }
+      }
+      appState.customers = uniqueCustomers.length > 0 ? uniqueCustomers : (data.customers || []);
+      appState.orders = (data.orders || []).filter(o => !['po-050', 'po-casum-01', 'po-mp-01', '296507-003', 'po-dd-01', 'po-nk-01'].includes(o.id));
       populateCustomerSelect();
       renderManageTab();
     }
@@ -975,9 +985,9 @@ async function fetchMetadata() {
     console.warn("Lỗi khi tải metadata từ máy chủ, kích hoạt dữ liệu dự phòng:", err);
     if (!appState.customers || appState.customers.length === 0) {
       appState.customers = [
-        { id: "cust-1", name: "CAO SU MÀU", code: "CASUM" },
-        { id: "cust-2", name: "Liên Thái", code: "Lth" },
-        { id: "cust-3", name: "MẠNH PHÁT", code: "MP" }
+        { id: "cust-1791885118290", name: "CAO SU MÀU", code: "CASUM" },
+        { id: "cust-1790383482005", name: "Liên Thái", code: "Lth" },
+        { id: "cust-1792141543754", name: "MẠNH PHÁT", code: "MP" }
       ];
       populateCustomerSelect();
       renderManageTab();

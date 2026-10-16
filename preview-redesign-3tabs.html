@@ -1,0 +1,1474 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bản Thiết Kế Mới 3 Tab (Đề Xuất Note, Nhập Kho Dòng, Sổ Quỹ Tối Giản) - D&D Long An</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Google Fonts: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- html2canvas for Screenshot Feature -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            navy: {
+              DEFAULT: '#27457A',
+              50: '#F0F3F8',
+              100: '#DDE4F0',
+              200: '#B8C7E0',
+              600: '#27457A',
+              700: '#1F3964',
+              800: '#172B4D',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+      background-color: #F8FAFC;
+      color: #0F172A;
+    }
+
+    /* Style cho Giấy Note (Sticky Note Card) */
+    .note-card {
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+      cursor: pointer;
+    }
+    .note-card:hover {
+      transform: translateY(-4px) rotate(-0.5deg);
+      box-shadow: 0 12px 24px -6px rgba(15, 23, 42, 0.12), 0 4px 8px -2px rgba(15, 23, 42, 0.06);
+    }
+    .note-card:active {
+      transform: translateY(-1px) scale(0.99);
+    }
+
+    /* Băng dính Washi Tape giả lập trên đầu giấy note */
+    .washi-tape {
+      position: absolute;
+      top: -10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 70px;
+      height: 20px;
+      background: rgba(255, 255, 255, 0.65);
+      backdrop-filter: blur(2px);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      border-left: 2px dashed rgba(0,0,0,0.1);
+      border-right: 2px dashed rgba(0,0,0,0.1);
+      z-index: 10;
+    }
+
+    /* Mép gập giấy ở góc dưới */
+    .paper-curl {
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      width: 0;
+      height: 0;
+      border-style: solid;
+      border-width: 0 0 18px 18px;
+      border-color: transparent transparent #E2E8F0 transparent;
+      filter: drop-shadow(-1px -1px 1px rgba(0,0,0,0.05));
+    }
+
+    /* Hiệu ứng flash khi chụp ảnh */
+    @keyframes screenFlash {
+      0% { opacity: 0; }
+      50% { opacity: 0.9; }
+      100% { opacity: 0; }
+    }
+    .capture-flash {
+      position: fixed;
+      inset: 0;
+      background: white;
+      pointer-events: none;
+      z-index: 99999;
+      animation: screenFlash 0.35s ease-out;
+    }
+
+    /* Định dạng số kế toán */
+    .tabular-nums {
+      font-variant-numeric: tabular-nums;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-[#F8FAFC]">
+
+  <!-- TOP HEADER / BANNER THÔNG BÁO XEM THỬ -->
+  <header class="bg-white border-b border-[#E2E8F0] sticky top-0 z-40 shadow-xs">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-[#27457A] text-white flex items-center justify-center font-bold text-sm shadow-sm">
+            D&D
+          </div>
+          <div>
+            <h1 class="text-base font-bold text-[#0F172A] flex items-center gap-2">
+              <span>Bản Demo Thiết Kế Mới 3 Tab</span>
+              <span class="text-[11px] font-semibold bg-[#E0F2FE] text-[#0369A1] px-2 py-0.5 rounded-full border border-[#BAE6FD]">Xem Thử Trước Duyệt</span>
+            </h1>
+            <p class="text-xs text-[#64748B]">
+              Đề xuất mua hàng ô Note (chụp gửi Sếp) · Nhập kho theo Dòng & Kiểm đếm · Sổ quỹ tối giản
+            </p>
+          </div>
+        </div>
+
+        <!-- 3 TAB SWITCHER ĐỘC LẬP -->
+        <nav class="flex items-center p-1 bg-[#F1F5F9] rounded-xl border border-[#E2E8F0] overflow-x-auto text-xs font-semibold gap-1">
+          <button onclick="switchPreviewTab('preview-tab-dx')" id="btn-tab-dx" class="px-3.5 py-2 rounded-lg transition-all flex items-center gap-1.5 bg-[#27457A] text-white shadow-xs cursor-pointer">
+            <i data-lucide="sticky-note" class="w-4 h-4"></i>
+            <span>1. Đề Xuất (Note & Chụp)</span>
+          </button>
+          <button onclick="switchPreviewTab('preview-tab-nk')" id="btn-tab-nk" class="px-3.5 py-2 rounded-lg transition-all flex items-center gap-1.5 text-[#475569] hover:text-[#0F172A] hover:bg-white/80 cursor-pointer">
+            <i data-lucide="list-checks" class="w-4 h-4"></i>
+            <span>2. Nhập Kho (Dạng Dòng)</span>
+          </button>
+          <button onclick="switchPreviewTab('preview-tab-sq')" id="btn-tab-sq" class="px-3.5 py-2 rounded-lg transition-all flex items-center gap-1.5 text-[#475569] hover:text-[#0F172A] hover:bg-white/80 cursor-pointer">
+            <i data-lucide="wallet" class="w-4 h-4"></i>
+            <span>3. Sổ Quỹ (Tối Giản)</span>
+          </button>
+          <button onclick="switchPreviewTab('ALL')" id="btn-tab-all" class="px-3 py-2 rounded-lg transition-all flex items-center gap-1 text-[#64748B] hover:text-[#0F172A] hover:bg-white/80 cursor-pointer border border-transparent hover:border-[#CBD5E1]" title="Hiện toàn bộ 3 tab trên cùng 1 trang để cuộn xem liên tục">
+            <i data-lucide="layout-grid" class="w-3.5 h-3.5"></i>
+            <span>Xem cả 3 Tab</span>
+          </button>
+        </nav>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+
+    <!-- ========================================================================= -->
+    <!-- TAB 1: ĐỀ XUẤT MUA HÀNG DẠNG GIẤY NOTE CÓ NÚT CHỤP GỬI SẾP -->
+    <!-- ========================================================================= -->
+    <section id="preview-tab-dx" class="space-y-6">
+      <!-- Toolbar & Hướng Dẫn -->
+      <div class="bg-white rounded-2xl p-5 border border-[#E2E8F0] shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <h2 class="text-lg font-bold text-[#0F172A]">Sổ Theo Dõi Đề Xuất Mua Hàng</h2>
+            <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-[#FEF08A] text-[#854D0E] border border-[#FDE047]">
+              📌 Phong Cách Giấy Note
+            </span>
+          </div>
+          <p class="text-xs text-[#64748B] mt-1">
+            Bấm vào bất kỳ tờ note nào bên dưới để mở <strong class="text-[#27457A]">Phiếu Trình Ký</strong> và bấm nút <strong class="text-[#059669]">📸 Chụp Ảnh Gửi Sếp</strong> qua Zalo.
+          </p>
+        </div>
+
+        <!-- Filter Segmented Control -->
+        <div class="flex items-center gap-2 flex-wrap">
+          <div class="inline-flex p-1 bg-[#F1F5F9] border border-[#E2E8F0] rounded-xl text-xs font-medium">
+            <button onclick="filterNotes('ALL')" id="note-flt-ALL" class="note-filter-btn px-3 py-1.5 rounded-lg bg-white text-[#27457A] shadow-xs font-bold">Tất cả (4)</button>
+            <button onclick="filterNotes('Chờ duyệt')" id="note-flt-Chờ duyệt" class="note-filter-btn px-3 py-1.5 rounded-lg text-[#64748B] hover:text-[#0F172A]">Chờ duyệt (2)</button>
+            <button onclick="filterNotes('Đã duyệt')" id="note-flt-Đã duyệt" class="note-filter-btn px-3 py-1.5 rounded-lg text-[#64748B] hover:text-[#0F172A]">Đã duyệt (1)</button>
+            <button onclick="filterNotes('Đã lập DNTT')" id="note-flt-Đã lập DNTT" class="note-filter-btn px-3 py-1.5 rounded-lg text-[#64748B] hover:text-[#0F172A]">Đã lập DNTT (1)</button>
+          </div>
+          <button onclick="alert('Mở form tạo phiếu đề xuất mới')" class="px-3.5 py-2 bg-[#27457A] hover:bg-[#1F3964] text-white rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition">
+            <i data-lucide="plus-circle" class="w-4 h-4"></i>
+            <span>+ Tạo Đề Xuất Mới</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- LƯỚI CÁC Ô NOTE (NOTE GRID) -->
+      <div id="notes-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 pt-2">
+
+        <!-- NOTE 1: Chờ duyệt (Màu Vàng Note Cổ Điển) -->
+        <div class="note-card bg-[#FEF9C3] border-2 border-[#FDE047] rounded-2xl p-5 shadow-sm relative flex flex-col justify-between min-h-[290px]"
+             data-status="Chờ duyệt"
+             onclick="openSlipModal(sampleProposals[0])">
+          <div class="washi-tape"></div>
+          <div class="paper-curl"></div>
+          <div>
+            <div class="flex items-center justify-between border-b border-[#FEF08A] pb-2.5 mb-3">
+              <span class="font-mono text-xs font-bold text-[#854D0E] bg-white/70 px-2 py-0.5 rounded border border-[#FDE047]">
+                DX26-10-13-02
+              </span>
+              <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#FEF08A] text-[#854D0E] border border-[#FACC15]">
+                ⏳ Chờ duyệt
+              </span>
+            </div>
+
+            <div class="text-xs text-[#713F12] space-y-1 mb-3">
+              <div class="font-bold text-sm text-[#0F172A] flex items-center gap-1">
+                <span>Hoàng Ngọc Anh Chi</span>
+                <span class="text-[11px] font-normal text-[#854D0E]">(311)</span>
+              </div>
+              <div class="text-[11px] text-[#854D0E]">Bộ phận: <strong>Văn Phòng</strong> · 13/10/2026</div>
+              <div class="inline-block px-2 py-0.5 rounded bg-white/80 text-[10px] font-semibold text-[#854D0E] border border-[#FEF08A]">
+                Công cụ sản xuất
+              </div>
+            </div>
+
+            <!-- Danh sách vắn tắt mặt hàng -->
+            <div class="bg-white/80 rounded-xl p-2.5 border border-[#FEF08A] space-y-1.5 text-xs text-[#334155]">
+              <div class="font-bold text-[11px] text-[#854D0E] flex justify-between items-center">
+                <span>2 món hàng:</span>
+                <span class="font-mono font-bold text-[#0F172A]">1.700.000 đ</span>
+              </div>
+              <ul class="text-[11px] space-y-0.5 list-disc list-inside text-[#475569]">
+                <li><strong class="text-[#0F172A]">Keo hồ 170:</strong> 2 thùng</li>
+                <li><strong class="text-[#0F172A]">Viết định vị:</strong> 3 bịch</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="mt-4 pt-3 border-t border-[#FEF08A] flex items-center justify-between text-[11px]">
+            <span class="text-[#854D0E] font-medium italic">Cho chuyền dán quai</span>
+            <span class="text-[#27457A] font-bold flex items-center gap-1 group-hover:underline">
+              <span>Bấm xem & chụp</span>
+              <i data-lucide="camera" class="w-3.5 h-3.5"></i>
+            </span>
+          </div>
+        </div>
+
+        <!-- NOTE 2: Chờ duyệt (Màu Xanh Lam Nhạt) -->
+        <div class="note-card bg-[#E0F2FE] border-2 border-[#BAE6FD] rounded-2xl p-5 shadow-sm relative flex flex-col justify-between min-h-[290px]"
+             data-status="Chờ duyệt"
+             onclick="openSlipModal(sampleProposals[1])">
+          <div class="washi-tape"></div>
+          <div class="paper-curl"></div>
+          <div>
+            <div class="flex items-center justify-between border-b border-[#BAE6FD] pb-2.5 mb-3">
+              <span class="font-mono text-xs font-bold text-[#0369A1] bg-white/70 px-2 py-0.5 rounded border border-[#BAE6FD]">
+                DX26-10-12-02
+              </span>
+              <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#BAE6FD] text-[#0369A1] border border-[#7DD3FC]">
+                ⏳ Chờ duyệt
+              </span>
+            </div>
+
+            <div class="text-xs text-[#0C4A6E] space-y-1 mb-3">
+              <div class="font-bold text-sm text-[#0F172A] flex items-center gap-1">
+                <span>Hoàng Ngọc Anh Chi</span>
+                <span class="text-[11px] font-normal text-[#0369A1]">(311)</span>
+              </div>
+              <div class="text-[11px] text-[#0369A1]">Bộ phận: <strong>Văn Phòng</strong> · 12/10/2026</div>
+              <div class="inline-block px-2 py-0.5 rounded bg-white/80 text-[10px] font-semibold text-[#0369A1] border border-[#BAE6FD]">
+                Bảo trì máy
+              </div>
+            </div>
+
+            <div class="bg-white/80 rounded-xl p-2.5 border border-[#BAE6FD] space-y-1.5 text-xs text-[#334155]">
+              <div class="font-bold text-[11px] text-[#0369A1] flex justify-between items-center">
+                <span>2 món hàng:</span>
+                <span class="font-mono font-bold text-[#0F172A]">1.600.000 đ</span>
+              </div>
+              <ul class="text-[11px] space-y-0.5 list-disc list-inside text-[#475569]">
+                <li><strong class="text-[#0F172A]">Máy may:</strong> 12 cái</li>
+                <li><strong class="text-[#0F172A]">Máy lập trình:</strong> 2 cái</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="mt-4 pt-3 border-t border-[#BAE6FD] flex items-center justify-between text-[11px]">
+            <span class="text-[#0369A1] font-medium italic">Sửa máy may hư</span>
+            <span class="text-[#27457A] font-bold flex items-center gap-1">
+              <span>Bấm xem & chụp</span>
+              <i data-lucide="camera" class="w-3.5 h-3.5"></i>
+            </span>
+          </div>
+        </div>
+
+        <!-- NOTE 3: Đã duyệt (Màu Xanh Mint Nhạt) -->
+        <div class="note-card bg-[#DCFCE7] border-2 border-[#BBF7D0] rounded-2xl p-5 shadow-sm relative flex flex-col justify-between min-h-[290px]"
+             data-status="Đã duyệt"
+             onclick="openSlipModal(sampleProposals[2])">
+          <div class="washi-tape"></div>
+          <div class="paper-curl"></div>
+          <div>
+            <div class="flex items-center justify-between border-b border-[#BBF7D0] pb-2.5 mb-3">
+              <span class="font-mono text-xs font-bold text-[#15803D] bg-white/70 px-2 py-0.5 rounded border border-[#BBF7D0]">
+                DX26-10-12-01
+              </span>
+              <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#BBF7D0] text-[#15803D] border border-[#86EFAC]">
+                ✅ Đã duyệt
+              </span>
+            </div>
+
+            <div class="text-xs text-[#14532D] space-y-1 mb-3">
+              <div class="font-bold text-sm text-[#0F172A] flex items-center gap-1">
+                <span>Bùi Thị Lành</span>
+                <span class="text-[11px] font-normal text-[#15803D]">(133)</span>
+              </div>
+              <div class="text-[11px] text-[#15803D]">Bộ phận: <strong>Tổ May</strong> · 12/10/2026</div>
+              <div class="inline-block px-2 py-0.5 rounded bg-white/80 text-[10px] font-semibold text-[#15803D] border border-[#BBF7D0]">
+                Công cụ sản xuất
+              </div>
+            </div>
+
+            <div class="bg-white/80 rounded-xl p-2.5 border border-[#BBF7D0] space-y-1.5 text-xs text-[#334155]">
+              <div class="font-bold text-[11px] text-[#15803D] flex justify-between items-center">
+                <span>1 món hàng:</span>
+                <span class="font-mono font-bold text-[#0F172A]">850.000 đ</span>
+              </div>
+              <ul class="text-[11px] space-y-0.5 list-disc list-inside text-[#475569]">
+                <li><strong class="text-[#0F172A]">Keo phun:</strong> 1 thùng</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="mt-4 pt-3 border-t border-[#BBF7D0] flex items-center justify-between text-[11px]">
+            <span class="text-[#15803D] font-medium italic">Chị Lành may xin</span>
+            <span class="text-[#27457A] font-bold flex items-center gap-1">
+              <span>Bấm xem & chụp</span>
+              <i data-lucide="camera" class="w-3.5 h-3.5"></i>
+            </span>
+          </div>
+        </div>
+
+        <!-- NOTE 4: Đã lập DNTT (Màu Tím Pastel) -->
+        <div class="note-card bg-[#F3E8FF] border-2 border-[#E9D5FF] rounded-2xl p-5 shadow-sm relative flex flex-col justify-between min-h-[290px]"
+             data-status="Đã lập DNTT"
+             onclick="openSlipModal(sampleProposals[3])">
+          <div class="washi-tape"></div>
+          <div class="paper-curl"></div>
+          <div>
+            <div class="flex items-center justify-between border-b border-[#E9D5FF] pb-2.5 mb-3">
+              <span class="font-mono text-xs font-bold text-[#7E22CE] bg-white/70 px-2 py-0.5 rounded border border-[#E9D5FF]">
+                DX26-10-10-02
+              </span>
+              <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#E9D5FF] text-[#7E22CE] border border-[#D8B4FE]">
+                ⚡ Đã lập DNTT
+              </span>
+            </div>
+
+            <div class="text-xs text-[#581C87] space-y-1 mb-3">
+              <div class="font-bold text-sm text-[#0F172A] flex items-center gap-1">
+                <span>Nguyễn Trường An</span>
+                <span class="text-[11px] font-normal text-[#7E22CE]">(518)</span>
+              </div>
+              <div class="text-[11px] text-[#7E22CE]">Bộ phận: <strong>Tổ trưởng C</strong> · 10/10/2026</div>
+              <div class="inline-block px-2 py-0.5 rounded bg-white/80 text-[10px] font-semibold text-[#7E22CE] border border-[#E9D5FF]">
+                Công cụ sản xuất
+              </div>
+            </div>
+
+            <div class="bg-white/80 rounded-xl p-2.5 border border-[#E9D5FF] space-y-1.5 text-xs text-[#334155]">
+              <div class="font-bold text-[11px] text-[#7E22CE] flex justify-between items-center">
+                <span>7 món hàng:</span>
+                <span class="font-mono font-bold text-[#0F172A]">305.635 đ</span>
+              </div>
+              <ul class="text-[11px] space-y-0.5 list-disc list-inside text-[#475569]">
+                <li><strong class="text-[#0F172A]">Suốt:</strong> 10 cái (45.000 đ)</li>
+                <li><strong class="text-[#0F172A]">Búa:</strong> 6 cái (192.000 đ)</li>
+                <li><strong class="text-[#0F172A]">Bình keo lớn:</strong> 10 cái...</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="mt-4 pt-3 border-t border-[#E9D5FF] flex items-center justify-between text-[11px]">
+            <span class="text-[#7E22CE] font-medium italic">Anh An lấy vật tư</span>
+            <span class="text-[#27457A] font-bold flex items-center gap-1">
+              <span>Bấm xem & chụp</span>
+              <i data-lucide="camera" class="w-3.5 h-3.5"></i>
+            </span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Banner Chuyển Nhanh Sang Tab 2 -->
+      <div class="mt-8 pt-4 border-t border-[#E2E8F0] flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-4 rounded-xl shadow-xs">
+        <span class="text-xs text-[#64748B]">Đã xong phần Đề Xuất Mua Hàng dạng Giấy Note.</span>
+        <button onclick="switchPreviewTab('preview-tab-nk')" class="px-4 py-2 bg-[#27457A] hover:bg-[#1F3964] text-white text-xs font-bold rounded-lg transition flex items-center gap-1.5 shadow-xs cursor-pointer">
+          <span>Xem tiếp Tab 2: Quản Lý Nhập Kho (Dạng Dòng)</span>
+          <i data-lucide="arrow-right" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 2: QUẢN LÝ NHẬP KHO DẠNG DÒNG (TABLE ROW + POPUP KIỂM ĐẾM) -->
+    <!-- ========================================================================= -->
+    <section id="preview-tab-nk" class="hidden space-y-6">
+      <div class="bg-white rounded-2xl border border-[#E2E8F0] shadow-xs overflow-hidden">
+        
+        <!-- Header Bảng -->
+        <div class="px-6 py-4 border-b border-[#E2E8F0] flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 class="text-base font-bold text-[#0F172A]">Quản Lý Phiếu Nhập Kho (Kiểm Đếm Hàng Giao)</h2>
+              <span class="text-[11px] font-semibold bg-[#E8F6EF] text-[#1B6E44] px-2.5 py-0.5 rounded-full border border-[#BDE5D1]">
+                Thiết Kế Dạng Dòng Gọn Gàng
+              </span>
+            </div>
+            <p class="text-xs text-[#64748B] mt-0.5">
+              Mỗi đơn hàng giao được xếp trên một dòng. Bấm nút <strong>"Kiểm Đếm"</strong> để xác nhận số lượng thực nhận.
+            </p>
+          </div>
+
+          <div class="flex items-center gap-2 flex-wrap">
+            <select id="wh-filter-status" onchange="filterWarehouseReceipts(this.value)" class="bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl px-3 py-1.5 text-xs font-semibold text-[#334155] outline-none">
+              <option value="ALL">Tất cả trạng thái</option>
+              <option value="Chờ nhập kho" selected>⏳ Chờ nhập kho (2)</option>
+              <option value="Đã hoàn thành">✅ Đã hoàn thành (1)</option>
+            </select>
+            <button onclick="alert('Mở modal nhập kho độc lập')" class="px-3.5 py-1.5 bg-[#27457A] hover:bg-[#1F3964] text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs">
+              <i data-lucide="plus" class="w-4 h-4"></i>
+              <span>+ Nhập Kho Hàng Có Sẵn</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Bảng Dòng Phiếu Nhập Kho (Table Rows) -->
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="bg-[#F8FAFC] border-b border-[#E2E8F0] text-[#475569] font-bold text-[11px] uppercase tracking-wider">
+                <th class="py-3 px-4">Mã Phiếu NK</th>
+                <th class="py-3 px-3">Mã ĐNTT Gốc</th>
+                <th class="py-3 px-4">Nhà Cung Cấp / Nguồn</th>
+                <th class="py-3 px-4">Mặt Hàng Cần Nhập</th>
+                <th class="py-3 px-3 text-right">Tổng Tiền Sổ Quỹ</th>
+                <th class="py-3 px-3 text-center">Người Nhận & Ngày</th>
+                <th class="py-3 px-3 text-center">Trạng Thái</th>
+                <th class="py-3 px-4 text-center">Thao Tác</th>
+              </tr>
+            </thead>
+            <tbody id="wh-receipts-table-body" class="divide-y divide-[#F1F5F9] font-medium text-[#1E293B]">
+              
+              <!-- Dòng 1: Chờ nhập kho -->
+              <tr id="wh-row-1" class="hover:bg-[#F8FAFC] transition">
+                <td class="py-3 px-4 font-mono font-bold text-[#27457A]">NK26-10-12-08</td>
+                <td class="py-3 px-3 font-mono text-[#64748B] text-[11px]">DN26-CC-09-29-02</td>
+                <td class="py-3 px-4 text-[#334155]">Mua cá nhân</td>
+                <td class="py-3 px-4">
+                  <div class="font-bold text-[#0F172A]">Tiền bạt</div>
+                  <div class="text-[11px] text-[#64748B]">SL dự kiến: <strong class="text-[#27457A] font-mono">1 cái</strong></div>
+                </td>
+                <td class="py-3 px-3 text-right font-mono font-bold text-[#059669]">1.000.000 đ</td>
+                <td class="py-3 px-3 text-center text-[#64748B] text-[11px]">
+                  <div>Hoàng Ngọc Anh Chi</div>
+                  <div class="text-[10px] text-[#94A3B8]">12/10/2026</div>
+                </td>
+                <td class="py-3 px-3 text-center" id="wh-status-cell-1">
+                  <span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#FEF08A] text-[#854D0E] border border-[#FDE047] whitespace-nowrap">
+                    ⏳ Chờ nhập kho
+                  </span>
+                </td>
+                <td class="py-3 px-4 text-center" id="wh-action-cell-1">
+                  <button onclick="openWhCheckModal({
+                    id: 'NK26-10-12-08',
+                    reqCode: 'DN26-CC-09-29-02',
+                    amount: '1.000.000 đ',
+                    supplier: 'Mua cá nhân',
+                    rowId: '1',
+                    items: [{ name: 'Tiền bạt che xưởng', unit: 'cái', expQty: 1 }]
+                  })" class="px-3.5 py-1.5 bg-[#27457A] hover:bg-[#1F3964] text-white rounded-lg text-xs font-bold shadow-xs transition flex items-center gap-1.5 mx-auto cursor-pointer">
+                    <i data-lucide="package-check" class="w-3.5 h-3.5"></i>
+                    <span>Kiểm Đếm</span>
+                  </button>
+                </td>
+              </tr>
+
+              <!-- Dòng 2: Chờ nhập kho (Nhiều món) -->
+              <tr id="wh-row-2" class="hover:bg-[#F8FAFC] transition">
+                <td class="py-3 px-4 font-mono font-bold text-[#27457A]">NK26-10-12-07</td>
+                <td class="py-3 px-3 font-mono text-[#64748B] text-[11px]">DN26-CC-09-29-01</td>
+                <td class="py-3 px-4 text-[#334155]">Mua cá nhân</td>
+                <td class="py-3 px-4">
+                  <div class="font-bold text-[#0F172A]">Bọc nylon + Ốc vít lưới gạch (2 món)</div>
+                  <div class="text-[11px] text-[#64748B]">Bọc: <strong class="font-mono">10 kg</strong> · Ốc vít: <strong class="font-mono">1 cái</strong></div>
+                </td>
+                <td class="py-3 px-3 text-right font-mono font-bold text-[#059669]">710.000 đ</td>
+                <td class="py-3 px-3 text-center text-[#64748B] text-[11px]">
+                  <div>Hoàng Ngọc Anh Chi</div>
+                  <div class="text-[10px] text-[#94A3B8]">12/10/2026</div>
+                </td>
+                <td class="py-3 px-3 text-center" id="wh-status-cell-2">
+                  <span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#FEF08A] text-[#854D0E] border border-[#FDE047] whitespace-nowrap">
+                    ⏳ Chờ nhập kho
+                  </span>
+                </td>
+                <td class="py-3 px-4 text-center" id="wh-action-cell-2">
+                  <button onclick="openWhCheckModal({
+                    id: 'NK26-10-12-07',
+                    reqCode: 'DN26-CC-09-29-01',
+                    amount: '710.000 đ',
+                    supplier: 'Mua cá nhân',
+                    rowId: '2',
+                    items: [
+                      { name: 'Bọc nylon đóng gói', unit: 'kg', expQty: 10 },
+                      { name: 'Ốc vít + lưới gạch', unit: 'cái', expQty: 1 }
+                    ]
+                  })" class="px-3.5 py-1.5 bg-[#27457A] hover:bg-[#1F3964] text-white rounded-lg text-xs font-bold shadow-xs transition flex items-center gap-1.5 mx-auto cursor-pointer">
+                    <i data-lucide="package-check" class="w-3.5 h-3.5"></i>
+                    <span>Kiểm Đếm</span>
+                  </button>
+                </td>
+              </tr>
+
+              <!-- Dòng 3: Đã hoàn thành -->
+              <tr class="hover:bg-[#F8FAFC] transition opacity-80">
+                <td class="py-3 px-4 font-mono font-bold text-[#64748B]">NK26-10-10-01</td>
+                <td class="py-3 px-3 font-mono text-[#64748B] text-[11px]">DN26-CC-09-20-03</td>
+                <td class="py-3 px-4 text-[#334155]">Đại lý kim khí Long An</td>
+                <td class="py-3 px-4">
+                  <div class="font-bold text-[#0F172A]">Mũi khoan bê tông 8mm</div>
+                  <div class="text-[11px] text-[#059669]">Đã nhập đủ: <strong class="font-mono">5 cái</strong></div>
+                </td>
+                <td class="py-3 px-3 text-right font-mono font-bold text-[#059669]">250.000 đ</td>
+                <td class="py-3 px-3 text-center text-[#64748B] text-[11px]">
+                  <div>Nguyễn Trường An</div>
+                  <div class="text-[10px] text-[#94A3B8]">10/10/2026</div>
+                </td>
+                <td class="py-3 px-3 text-center">
+                  <span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#DCFCE7] text-[#15803D] border border-[#BBF7D0] whitespace-nowrap">
+                    ✅ Đã hoàn thành
+                  </span>
+                </td>
+                <td class="py-3 px-4 text-center">
+                  <span class="text-[11px] text-[#64748B] italic">Đã vào kho & quỹ</span>
+                </td>
+              </tr>
+
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Khu vực xem nhanh Tồn kho sau khi nhập -->
+      <div class="bg-white rounded-2xl border border-[#E2E8F0] p-5 shadow-xs">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <i data-lucide="boxes" class="w-4 h-4 text-[#27457A]"></i>
+            <h3 class="text-sm font-bold text-[#0F172A]">Danh Sách Tồn Kho Vật Tư (Cập Nhật Tự Động)</h3>
+          </div>
+          <span class="text-xs text-[#64748B]">Tồn kho = Tổng đã nhập - Tổng đã xuất</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs text-left">
+            <thead class="bg-[#F8FAFC] text-[#475569] font-bold border-b border-[#E2E8F0]">
+              <tr>
+                <th class="py-2.5 px-3">Tên Vật Tư</th>
+                <th class="py-2.5 px-3 text-center">ĐVT</th>
+                <th class="py-2.5 px-3 text-right">Tổng Nhập</th>
+                <th class="py-2.5 px-3 text-right">Tổng Xuất</th>
+                <th class="py-2.5 px-3 text-right">Tồn Khả Dụng</th>
+                <th class="py-2.5 px-3 text-center">Trạng Thái</th>
+              </tr>
+            </thead>
+            <tbody id="inventory-preview-body" class="divide-y divide-[#F1F5F9]">
+              <tr>
+                <td class="py-2 px-3 font-semibold text-[#0F172A]">Mũi khoan bê tông 8mm</td>
+                <td class="py-2 px-3 text-center text-[#64748B]">cái</td>
+                <td class="py-2 px-3 text-right font-mono text-[#0F172A]">5</td>
+                <td class="py-2 px-3 text-right font-mono text-[#64748B]">2</td>
+                <td class="py-2 px-3 text-right font-mono font-bold text-[#27457A]">3</td>
+                <td class="py-2 px-3 text-center"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#DCFCE7] text-[#15803D]">Còn hàng</span></td>
+              </tr>
+              <tr id="inv-preview-new-row" class="hidden bg-[#F0FDF4]">
+                <td class="py-2 px-3 font-semibold text-[#0F172A]">Tiền bạt che xưởng</td>
+                <td class="py-2 px-3 text-center text-[#64748B]">cái</td>
+                <td class="py-2 px-3 text-right font-mono text-[#0F172A]">1</td>
+                <td class="py-2 px-3 text-right font-mono text-[#64748B]">0</td>
+                <td class="py-2 px-3 text-right font-mono font-bold text-[#27457A]">1</td>
+                <td class="py-2 px-3 text-center"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#DCFCE7] text-[#15803D]">Mới nhập</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Banner Chuyển Tab 2 -> Tab 3 -->
+      <div class="mt-8 pt-4 border-t border-[#E2E8F0] flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-4 rounded-xl shadow-xs">
+        <button onclick="switchPreviewTab('preview-tab-dx')" class="px-4 py-2 border border-[#CBD5E1] hover:bg-[#F1F5F9] text-[#475569] text-xs font-semibold rounded-lg transition flex items-center gap-1.5 cursor-pointer">
+          <i data-lucide="arrow-left" class="w-4 h-4"></i>
+          <span>Quay lại Tab 1: Đề Xuất (Giấy Note)</span>
+        </button>
+        <button onclick="switchPreviewTab('preview-tab-sq')" class="px-4 py-2 bg-[#27457A] hover:bg-[#1F3964] text-white text-xs font-bold rounded-lg transition flex items-center gap-1.5 shadow-xs cursor-pointer">
+          <span>Xem tiếp Tab 3: Sổ Quỹ Kế Toán (Tối Giản)</span>
+          <i data-lucide="arrow-right" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 3: SỔ QUỸ & NGÂN HÀNG (TỐI GIẢN, SIÊU SẠCH SẼ) -->
+    <!-- ========================================================================= -->
+    <section id="preview-tab-sq" class="hidden space-y-6">
+      
+      <!-- Thanh Điều Khiển Tối Giản -->
+      <div class="bg-white rounded-2xl p-5 border border-[#E2E8F0] shadow-xs space-y-4">
+        
+        <!-- Hàng 1: Phân Loại Sổ & Các Nút Hành Động -->
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-3 border-b border-[#F1F5F9]">
+          
+          <!-- Chuyển đổi Sổ Tiền Mặt vs Ví/Ngân Hàng (Segmented Minimal) -->
+          <div class="inline-flex p-1 bg-[#F1F5F9] border border-[#E2E8F0] rounded-xl text-xs font-bold">
+            <button onclick="switchFundLedger('CASH')" id="btn-fund-cash" class="px-4 py-2 rounded-lg bg-white text-[#27457A] shadow-xs flex items-center gap-1.5 transition">
+              <i data-lucide="banknote" class="w-4 h-4 text-[#059669]"></i>
+              <span>Sổ Tiền Mặt</span>
+            </button>
+            <button onclick="switchFundLedger('BANK')" id="btn-fund-bank" class="px-4 py-2 rounded-lg text-[#64748B] hover:text-[#0F172A] flex items-center gap-1.5 transition">
+              <i data-lucide="credit-card" class="w-4 h-4"></i>
+              <span>Ví Điện Tử & Ngân Hàng</span>
+            </button>
+          </div>
+
+          <!-- Các Nút Hành Động Nghiệp Vụ (Nhóm lại theo trật tự tối giản) -->
+          <div class="flex items-center gap-2 flex-wrap">
+            <button class="px-3.5 py-2 bg-[#D97706] hover:bg-[#B45309] text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs">
+              <i data-lucide="layers" class="w-4 h-4"></i>
+              <span>Rót Quỹ</span>
+            </button>
+            <button class="px-3.5 py-2 bg-[#059669] hover:bg-[#047857] text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs">
+              <i data-lucide="plus-circle" class="w-4 h-4"></i>
+              <span>+ Nhập Quỹ</span>
+            </button>
+            <button class="px-3.5 py-2 bg-[#DC2626] hover:bg-[#B91C1C] text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs">
+              <i data-lucide="minus-circle" class="w-4 h-4"></i>
+              <span>- Ghi Chi</span>
+            </button>
+            <div class="h-6 w-px bg-[#E2E8F0] mx-1 hidden sm:block"></div>
+            <button class="px-3 py-2 bg-white hover:bg-[#F8FAFC] border border-[#CBD5E1] text-[#334155] rounded-xl text-xs font-semibold transition flex items-center gap-1.5">
+              <i data-lucide="table" class="w-4 h-4 text-[#059669]"></i>
+              <span>Google Sheets</span>
+            </button>
+            <button class="px-3 py-2 bg-white hover:bg-[#F8FAFC] border border-[#CBD5E1] text-[#334155] rounded-xl text-xs font-semibold transition flex items-center gap-1.5" title="Đối chiếu dữ liệu">
+              <i data-lucide="scale" class="w-4 h-4 text-[#0284C7]"></i>
+              <span>Đối Chiếu</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Hàng 2: Bộ Lọc Thời Gian Tối Giản -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-[#475569]">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="font-semibold text-[#0F172A] flex items-center gap-1">
+              <i data-lucide="calendar" class="w-4 h-4 text-[#64748B]"></i>
+              <span>Thời gian:</span>
+            </span>
+            <div class="inline-flex p-0.5 bg-[#F1F5F9] border border-[#E2E8F0] rounded-lg font-medium text-[11px]">
+              <button class="px-2.5 py-1 bg-white text-[#27457A] rounded-md shadow-2xs font-bold">Tất cả</button>
+              <button class="px-2.5 py-1 text-[#64748B] hover:text-[#0F172A]">Tháng này</button>
+              <button class="px-2.5 py-1 text-[#64748B] hover:text-[#0F172A]">Tháng trước</button>
+            </div>
+            <div class="flex items-center gap-1 text-[11px]">
+              <input type="date" value="2026-10-01" class="border border-[#CBD5E1] bg-white rounded-lg px-2 py-1 text-[#0F172A] outline-none">
+              <span>đến</span>
+              <input type="date" value="2026-10-31" class="border border-[#CBD5E1] bg-white rounded-lg px-2 py-1 text-[#0F172A] outline-none">
+            </div>
+          </div>
+
+          <div class="flex items-center gap-3 font-mono font-bold text-xs">
+            <div class="bg-[#F0FDF4] px-3 py-1.5 rounded-lg border border-[#BBF7D0] text-[#15803D]">
+              Tổng Thu: +1.122.000 đ
+            </div>
+            <div class="bg-[#FEF2F2] px-3 py-1.5 rounded-lg border border-[#FECACA] text-[#DC2626]">
+              Tổng Chi: -509.000 đ
+            </div>
+            <div class="bg-[#F0F3F8] px-3 py-1.5 rounded-lg border border-[#DDE4F0] text-[#27457A]">
+              Tồn Quỹ: 613.000 đ
+            </div>
+          </div>
+        </div>
+
+        <!-- Hàng 3: Danh Mục Quỹ Con (Pill Tabs Tối Giản) -->
+        <div class="pt-2 border-t border-[#F1F5F9]">
+          <div class="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+            <button class="px-3 py-1.5 rounded-lg bg-[#27457A] text-white font-bold whitespace-nowrap shadow-2xs">
+              Văn phòng phẩm (613.000 đ)
+            </button>
+            <button class="px-3 py-1.5 rounded-lg bg-[#F1F5F9] hover:bg-[#E2E8F0] text-[#475569] font-medium whitespace-nowrap">
+              Vật tư sản xuất (1.450.000 đ)
+            </button>
+            <button class="px-3 py-1.5 rounded-lg bg-[#F1F5F9] hover:bg-[#E2E8F0] text-[#475569] font-medium whitespace-nowrap">
+              Quỹ y tế (500.000 đ)
+            </button>
+            <button class="px-3 py-1.5 rounded-lg bg-[#F1F5F9] hover:bg-[#E2E8F0] text-[#475569] font-medium whitespace-nowrap">
+              Xe giao hàng (820.000 đ)
+            </button>
+            <button class="px-3 py-1.5 rounded-lg bg-[#F1F5F9] hover:bg-[#E2E8F0] text-[#475569] font-medium whitespace-nowrap">
+              Công cụ sản xuất (3.100.000 đ)
+            </button>
+            <button class="px-3 py-1.5 rounded-lg bg-[#F1F5F9] hover:bg-[#E2E8F0] text-[#475569] font-medium whitespace-nowrap">
+              Bảo trì (450.000 đ)
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- BẢNG SỔ QUỸ TỐI GIẢN & SẠCH SẼ (THE CLEAN ACCOUNTING LEDGER) -->
+      <div class="bg-white rounded-2xl border border-[#E2E8F0] shadow-xs overflow-hidden">
+        <div class="px-6 py-3.5 bg-[#F8FAFC] border-b border-[#E2E8F0] flex items-center justify-between">
+          <div class="font-bold text-xs text-[#0F172A] uppercase tracking-wide">
+            SỔ QUỸ TIỀN MẶT · VĂN PHÒNG PHẨM (TRANG 01/01)
+          </div>
+          <div class="text-[11px] text-[#64748B]">
+            Đơn vị tính: VNĐ · Hiển thị định dạng số kế toán quốc tế
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="bg-white border-b border-[#CBD5E1] text-[#475569] font-bold text-[11px]">
+                <th class="py-3 px-4 w-32">Mã Quỹ</th>
+                <th class="py-3 px-3 w-24">Ngày Ghi Sổ</th>
+                <th class="py-3 px-3 w-28">Người Chi / Nhận</th>
+                <th class="py-3 px-3 w-24 text-center">Số Hiệu CT</th>
+                <th class="py-3 px-4">Diễn Giải Nội Dung Thu / Chi</th>
+                <th class="py-3 px-3 text-right w-28 text-[#059669]">Thu (1)</th>
+                <th class="py-3 px-3 text-right w-28 text-[#DC2626]">Chi (2)</th>
+                <th class="py-3 px-4 text-right w-32 text-[#27457A]">Tồn Lũy Kế (3)</th>
+                <th class="py-3 px-3 text-center w-16">Thao Tác</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-[#F1F5F9] font-medium text-[#1E293B]">
+              
+              <!-- Dòng 1: Chi tiền kéo -->
+              <tr class="hover:bg-[#F8FAFC] transition">
+                <td class="py-3 px-4 font-mono font-bold text-[#64748B]">TM26-08-04</td>
+                <td class="py-3 px-3 text-[#475569]">06/07/2026</td>
+                <td class="py-3 px-3 italic text-[#64748B]">Giang</td>
+                <td class="py-3 px-3 text-center text-[#94A3B8] font-mono text-[11px]">-</td>
+                <td class="py-3 px-4 font-medium text-[#0F172A]">Tiền mua kéo cắt giấy văn phòng</td>
+                <td class="py-3 px-3 text-right font-mono text-[#94A3B8]">-</td>
+                <td class="py-3 px-3 text-right font-mono font-bold text-[#DC2626]">20.000</td>
+                <td class="py-3 px-4 text-right font-mono font-bold text-[#DC2626]">-20.000</td>
+                <td class="py-3 px-3 text-center">
+                  <button class="p-1 text-[#94A3B8] hover:text-[#27457A] transition" title="Sửa dòng">
+                    <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+                  </button>
+                </td>
+              </tr>
+
+              <!-- Dòng 2: Nhập quỹ mang sang -->
+              <tr class="hover:bg-[#F8FAFC] transition bg-[#F0FDF4]/40">
+                <td class="py-3 px-4 font-mono font-bold text-[#059669]">TM26-VPP-07-21</td>
+                <td class="py-3 px-3 text-[#475569]">21/07/2026</td>
+                <td class="py-3 px-3 text-[#64748B]">Ban Giám Đốc</td>
+                <td class="py-3 px-3 text-center text-[#059669] font-mono text-[11px] font-bold">PT-01</td>
+                <td class="py-3 px-4 font-medium text-[#059669]">Mang sang: Rót nạp quỹ đầu kỳ</td>
+                <td class="py-3 px-3 text-right font-mono font-bold text-[#059669]">1.122.000</td>
+                <td class="py-3 px-3 text-right font-mono text-[#94A3B8]">-</td>
+                <td class="py-3 px-4 text-right font-mono font-bold text-[#27457A]">1.102.000</td>
+                <td class="py-3 px-3 text-center">
+                  <button class="p-1 text-[#94A3B8] hover:text-[#27457A] transition">
+                    <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+                  </button>
+                </td>
+              </tr>
+
+              <!-- Dòng 3: Chi đồ ăn -->
+              <tr class="hover:bg-[#F8FAFC] transition">
+                <td class="py-3 px-4 font-mono font-bold text-[#64748B]">TM26-07-31</td>
+                <td class="py-3 px-3 text-[#475569]">21/07/2026</td>
+                <td class="py-3 px-3 italic text-[#64748B]">Tiến</td>
+                <td class="py-3 px-3 text-center text-[#94A3B8] font-mono text-[11px]">-</td>
+                <td class="py-3 px-4 font-medium text-[#0F172A]">Tiền mua đồ ăn nhẹ chuyền C (C.Trang)</td>
+                <td class="py-3 px-3 text-right font-mono text-[#94A3B8]">-</td>
+                <td class="py-3 px-3 text-right font-mono font-bold text-[#DC2626]">40.000</td>
+                <td class="py-3 px-4 text-right font-mono font-bold text-[#27457A]">1.062.000</td>
+                <td class="py-3 px-3 text-center">
+                  <button class="p-1 text-[#94A3B8] hover:text-[#27457A] transition">
+                    <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+                  </button>
+                </td>
+              </tr>
+
+              <!-- Dòng 4: Mua giá đỡ điện thoại -->
+              <tr class="hover:bg-[#F8FAFC] transition">
+                <td class="py-3 px-4 font-mono font-bold text-[#64748B]">TM26-07-31</td>
+                <td class="py-3 px-3 text-[#475569]">22/07/2026</td>
+                <td class="py-3 px-3 italic text-[#64748B]">Tiến</td>
+                <td class="py-3 px-3 text-center text-[#94A3B8] font-mono text-[11px]">-</td>
+                <td class="py-3 px-4 font-medium text-[#0F172A]">Tiền mua giá đỡ điện thoại quét mã vạch</td>
+                <td class="py-3 px-3 text-right font-mono text-[#94A3B8]">-</td>
+                <td class="py-3 px-3 text-right font-mono font-bold text-[#DC2626]">49.000</td>
+                <td class="py-3 px-4 text-right font-mono font-bold text-[#27457A]">1.013.000</td>
+                <td class="py-3 px-3 text-center">
+                  <button class="p-1 text-[#94A3B8] hover:text-[#27457A] transition">
+                    <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+                  </button>
+                </td>
+              </tr>
+
+              <!-- Dòng 5: Mua đồ ăn A.Trí -->
+              <tr class="hover:bg-[#F8FAFC] transition">
+                <td class="py-3 px-4 font-mono font-bold text-[#64748B]">TM26-07-31</td>
+                <td class="py-3 px-3 text-[#475569]">22/07/2026</td>
+                <td class="py-3 px-3 italic text-[#64748B]">Tiến</td>
+                <td class="py-3 px-3 text-center text-[#94A3B8] font-mono text-[11px]">-</td>
+                <td class="py-3 px-4 font-medium text-[#0F172A]">Tiền mua đồ ăn trưa phụ xe (A.Trí)</td>
+                <td class="py-3 px-3 text-right font-mono text-[#94A3B8]">-</td>
+                <td class="py-3 px-3 text-right font-mono font-bold text-[#DC2626]">250.100</td>
+                <td class="py-3 px-4 text-right font-mono font-bold text-[#27457A]">762.900</td>
+                <td class="py-3 px-3 text-center">
+                  <button class="p-1 text-[#94A3B8] hover:text-[#27457A] transition">
+                    <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+                  </button>
+                </td>
+              </tr>
+
+              <!-- Dòng 6: Mua dao -->
+              <tr class="hover:bg-[#F8FAFC] transition">
+                <td class="py-3 px-4 font-mono font-bold text-[#64748B]">TM26-07-31</td>
+                <td class="py-3 px-3 text-[#475569]">22/07/2026</td>
+                <td class="py-3 px-3 italic text-[#64748B]">Tiến</td>
+                <td class="py-3 px-3 text-center text-[#94A3B8] font-mono text-[11px]">-</td>
+                <td class="py-3 px-4 font-medium text-[#0F172A]">Tiền mua dao trổ A.Trí</td>
+                <td class="py-3 px-3 text-right font-mono text-[#94A3B8]">-</td>
+                <td class="py-3 px-3 text-right font-mono font-bold text-[#DC2626]">110.000</td>
+                <td class="py-3 px-4 text-right font-mono font-bold text-[#27457A]">652.900</td>
+                <td class="py-3 px-3 text-center">
+                  <button class="p-1 text-[#94A3B8] hover:text-[#27457A] transition">
+                    <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+                  </button>
+                </td>
+              </tr>
+
+            </tbody>
+            <!-- TỔNG CỘNG CUỐI SỔ -->
+            <tfoot class="bg-[#F8FAFC] border-t-2 border-[#CBD5E1] font-bold text-xs text-[#0F172A]">
+              <tr>
+                <td colspan="5" class="py-3 px-4 text-right uppercase tracking-wider text-[#475569]">
+                  TỔNG CỘNG SỐ DƯ HIỆN TẠI (VNĐ):
+                </td>
+                <td class="py-3 px-3 text-right font-mono text-[#059669] text-sm">
+                  1.122.000
+                </td>
+                <td class="py-3 px-3 text-right font-mono text-[#DC2626] text-sm">
+                  469.100
+                </td>
+                <td class="py-3 px-4 text-right font-mono text-[#27457A] text-sm font-extrabold bg-[#E2E8F0]/40">
+                  652.900
+                </td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+      </div>
+
+      <!-- Banner Chuyển Tab 3 -> Tab khác -->
+      <div class="mt-8 pt-4 border-t border-[#E2E8F0] flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-4 rounded-xl shadow-xs">
+        <button onclick="switchPreviewTab('preview-tab-nk')" class="px-4 py-2 border border-[#CBD5E1] hover:bg-[#F1F5F9] text-[#475569] text-xs font-semibold rounded-lg transition flex items-center gap-1.5 cursor-pointer">
+          <i data-lucide="arrow-left" class="w-4 h-4"></i>
+          <span>Quay lại Tab 2: Nhập Kho (Dạng Dòng)</span>
+        </button>
+        <button onclick="switchPreviewTab('ALL')" class="px-4 py-2 bg-[#059669] hover:bg-[#047857] text-white text-xs font-bold rounded-lg transition flex items-center gap-1.5 shadow-xs cursor-pointer">
+          <i data-lucide="layout-grid" class="w-4 h-4"></i>
+          <span>Xem tất cả 3 Tab cùng lúc (Cuộn dọc)</span>
+        </button>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: PHIẾU TRÌNH KÝ ĐỀ XUẤT MUA HÀNG (CÓ NÚT CHỤP ẢNH GỬI SẾP) -->
+  <!-- ========================================================================= -->
+  <div id="modal-slip-preview" class="fixed inset-0 z-50 bg-[#0F172A]/70 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-[#CBD5E1] animate-scale-up space-y-4 my-8">
+      
+      <!-- Top Actions of Modal -->
+      <div class="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
+        <div class="flex items-center gap-2">
+          <span class="w-8 h-8 rounded-lg bg-[#FEF08A] text-[#854D0E] flex items-center justify-center font-bold">
+            <i data-lucide="file-text" class="w-4 h-4"></i>
+          </span>
+          <div>
+            <h3 class="font-bold text-[#0F172A] text-sm">Phiếu Trình Ký Đề Xuất Mua Hàng</h3>
+            <span class="text-[11px] text-[#64748B]">Dùng để in hoặc chụp ảnh gửi Sếp qua Zalo</span>
+          </div>
+        </div>
+
+        <button onclick="closeSlipModal()" class="text-[#94A3B8] hover:text-[#0F172A] p-1.5 rounded-lg hover:bg-[#F1F5F9] transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- VÙNG SẼ ĐƯỢC CHỤP ẢNH (SLIP CAPTURE AREA) -->
+      <div id="capture-slip-area" class="bg-white p-6 rounded-xl border border-[#CBD5E1] shadow-xs space-y-4 text-xs text-[#0F172A]">
+        
+        <!-- Header Phiếu In -->
+        <div class="flex items-start justify-between border-b-2 border-[#0F172A] pb-3">
+          <div class="space-y-0.5">
+            <div class="font-extrabold text-sm tracking-wider text-[#27457A]">CÔNG TY TNHH SẢN XUẤT D&D LONG AN</div>
+            <div class="text-[11px] text-[#64748B]">Xưởng May & Gia Công Vật Tư - Long An</div>
+            <div class="text-[11px] font-mono text-[#475569]">Số hiệu: <span id="slip-modal-code" class="font-bold text-[#0F172A]">DX26-10-13-02</span></div>
+          </div>
+          <div class="text-right">
+            <div class="text-base font-extrabold text-[#0F172A] uppercase">GIẤY ĐỀ XUẤT MUA HÀNG</div>
+            <div class="text-[11px] text-[#64748B]">Ngày đề nghị: <strong id="slip-modal-date">13/10/2026 16:52</strong></div>
+            <span id="slip-modal-badge" class="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-bold bg-[#FEF08A] text-[#854D0E] border border-[#FDE047]">
+              Chờ duyệt
+            </span>
+          </div>
+        </div>
+
+        <!-- Thông Tin Người Đề Nghị -->
+        <div class="grid grid-cols-2 gap-3 bg-[#F8FAFC] p-3 rounded-lg border border-[#E2E8F0] text-xs">
+          <div><span class="text-[#64748B]">Người lập đề xuất:</span> <strong id="slip-modal-emp">Hoàng Ngọc Anh Chi (311)</strong></div>
+          <div><span class="text-[#64748B]">Bộ phận công tác:</span> <strong id="slip-modal-dept">Văn Phòng</strong></div>
+          <div><span class="text-[#64748B]">Hạng mục nguồn quỹ:</span> <span id="slip-modal-cat" class="font-semibold text-[#27457A]">Công cụ sản xuất</span></div>
+          <div><span class="text-[#64748B]">Mục đích sử dụng:</span> <span id="slip-modal-purpose" class="italic">Cho chuyền dán quai</span></div>
+        </div>
+
+        <!-- Bảng Kê Chi Tiết Mặt Hàng -->
+        <div>
+          <div class="font-bold text-xs uppercase mb-1.5 text-[#334155]">Bảng Kê Mặt Hàng Cần Mua:</div>
+          <table class="w-full text-xs border border-[#CBD5E1]">
+            <thead class="bg-[#F1F5F9] text-[#334155] border-b border-[#CBD5E1] font-bold">
+              <tr>
+                <th class="p-2 w-10 text-center border-r border-[#CBD5E1]">STT</th>
+                <th class="p-2 text-left border-r border-[#CBD5E1]">Tên Vật Tư / Hàng Hóa</th>
+                <th class="p-2 w-16 text-center border-r border-[#CBD5E1]">ĐVT</th>
+                <th class="p-2 w-20 text-center border-r border-[#CBD5E1]">Số Lượng</th>
+                <th class="p-2 w-28 text-right border-r border-[#CBD5E1]">Đơn Giá Ước Tính</th>
+                <th class="p-2 w-28 text-right">Thành Tiền</th>
+              </tr>
+            </thead>
+            <tbody id="slip-modal-items-tbody" class="divide-y divide-[#E2E8F0]">
+              <!-- Render tự động -->
+            </tbody>
+            <tfoot class="border-t-2 border-[#0F172A] bg-[#F8FAFC] font-bold text-xs">
+              <tr>
+                <td colspan="5" class="p-2 text-right uppercase text-[#475569]">Tổng cộng tiền đề xuất:</td>
+                <td class="p-2 text-right font-mono text-sm text-[#059669] font-extrabold" id="slip-modal-total">1.700.000 đ</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <!-- Chữ Ký Trình Ký (Rõ ràng như giấy thật) -->
+        <div class="grid grid-cols-2 gap-4 pt-4 text-center text-xs">
+          <div>
+            <div class="font-bold text-[#475569] uppercase">NGƯỜI ĐỀ XUẤT</div>
+            <div class="text-[11px] text-[#94A3B8] italic">(Ký & ghi rõ họ tên)</div>
+            <div class="h-14 flex items-end justify-center font-bold text-[#0F172A]" id="slip-sign-emp">Hoàng Ngọc Anh Chi</div>
+          </div>
+          <div>
+            <div class="font-bold text-[#475569] uppercase">BAN GIÁM ĐỐC DUYỆT</div>
+            <div class="text-[11px] text-[#94A3B8] italic">(Ký duyệt chi)</div>
+            <div class="h-14 flex items-end justify-center font-bold text-[#27457A]" id="slip-sign-boss">
+              <span class="text-[#94A3B8] font-normal italic">[Chờ Sếp ký duyệt]</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- FOOTER NÚT BẤM (CÓ NÚT CHỤP ẢNH TO RÕ CHO CÔNG NHÂN DỄ BẤM) -->
+      <div class="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-[#E2E8F0]">
+        <div class="text-xs text-[#64748B] flex items-center gap-1.5">
+          <i data-lucide="info" class="w-4 h-4 text-[#0284C7]"></i>
+          <span>Công nhân & nhân viên chỉ cần bấm nút <strong>Chụp Ảnh</strong> là có hình gửi Sếp ngay!</span>
+        </div>
+
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+          <button type="button" onclick="closeSlipModal()" class="w-1/3 sm:w-auto px-4 py-2.5 border border-[#CBD5E1] rounded-xl text-xs font-semibold text-[#475569] hover:bg-[#F1F5F9] transition">
+            Đóng
+          </button>
+          
+          <!-- NÚT CHỤP ẢNH GỬI SẾP NỔI BẬT NHẤT -->
+          <button type="button" id="btn-capture-slip" onclick="captureSlipToImage()" class="w-2/3 sm:w-auto px-5 py-2.5 bg-[#059669] hover:bg-[#047857] text-white rounded-xl text-xs font-extrabold shadow-md flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer">
+            <i data-lucide="camera" class="w-4 h-4"></i>
+            <span>📸 CHỤP ẢNH GỬI SẾP (ZALO)</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: KIỂM ĐẾM NHẬP KHO THỰC TẾ (KHI BẤM NÚT Ở TAB 2) -->
+  <!-- ========================================================================= -->
+  <div id="modal-wh-check" class="fixed inset-0 z-50 bg-[#0F172A]/70 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-5 shadow-2xl border border-[#CBD5E1] animate-scale-up space-y-4">
+      
+      <div class="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
+        <div class="flex items-center gap-2">
+          <span class="w-8 h-8 rounded-lg bg-[#E0F2FE] text-[#0369A1] flex items-center justify-center font-bold">
+            <i data-lucide="package-check" class="w-4 h-4"></i>
+          </span>
+          <div>
+            <h3 class="font-bold text-[#0F172A] text-sm">Kiểm Đếm Thực Nhận Hàng Vào Kho</h3>
+            <span class="text-[11px] text-[#64748B]">Phiếu NK: <strong id="wh-check-code" class="font-mono text-[#27457A]"></strong></span>
+          </div>
+        </div>
+        <button onclick="closeWhCheckModal()" class="text-[#94A3B8] hover:text-[#0F172A]">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="bg-[#F8FAFC] p-3 rounded-xl border border-[#E2E8F0] text-xs space-y-1 text-[#334155]">
+        <div class="flex justify-between"><span class="text-[#64748B]">Mã ĐNTT liên kết:</span><span id="wh-check-req" class="font-mono font-bold"></span></div>
+        <div class="flex justify-between"><span class="text-[#64748B]">Nhà cung cấp:</span><span id="wh-check-sup" class="font-semibold"></span></div>
+        <div class="flex justify-between"><span class="text-[#64748B]">Số tiền sẽ ghi Sổ Quỹ:</span><span id="wh-check-amount" class="font-mono font-bold text-[#059669]"></span></div>
+      </div>
+
+      <!-- Tình trạng Đủ / Thiếu -->
+      <div>
+        <label class="block text-xs font-bold text-[#334155] uppercase mb-1.5">Tình Trạng Nhận Hàng</label>
+        <div class="grid grid-cols-2 gap-2">
+          <button type="button" id="wh-btn-mode-full" onclick="setWhMode('ĐỦ')" class="py-2 px-3 rounded-xl border-2 border-[#059669] bg-[#F0FDF4] text-[#15803D] text-xs font-bold flex items-center justify-center gap-1.5 transition">
+            <i data-lucide="check-circle" class="w-4 h-4"></i>
+            <span>Nhập Đủ Hàng</span>
+          </button>
+          <button type="button" id="wh-btn-mode-part" onclick="setWhMode('THIẾU')" class="py-2 px-3 rounded-xl border border-[#CBD5E1] bg-white text-[#475569] text-xs font-medium flex items-center justify-center gap-1.5 transition">
+            <i data-lucide="alert-triangle" class="w-4 h-4 text-[#D97706]"></i>
+            <span>Nhập Thiếu / Một Phần</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Bảng kiểm đếm từng món -->
+      <div class="space-y-1.5">
+        <div class="flex items-center justify-between text-xs">
+          <span class="font-bold text-[#334155] uppercase">Số Lượng Thực Nhận:</span>
+          <button type="button" onclick="setWhReceiveAll()" class="text-[#059669] hover:underline font-semibold text-[11px] flex items-center gap-1">
+            <i data-lucide="check-check" class="w-3.5 h-3.5"></i>
+            <span>Nhận đủ tất cả</span>
+          </button>
+        </div>
+        <div class="border border-[#CBD5E1] rounded-xl overflow-hidden max-h-48 overflow-y-auto">
+          <table class="w-full text-xs">
+            <thead class="bg-[#F1F5F9] text-[#475569] font-bold border-b border-[#CBD5E1]">
+              <tr>
+                <th class="p-2 text-left">Mặt Hàng</th>
+                <th class="p-2 text-center w-14">ĐVT</th>
+                <th class="p-2 text-center w-16">Dự Kiến</th>
+                <th class="p-2 text-center w-24">Thực Nhận</th>
+              </tr>
+            </thead>
+            <tbody id="wh-check-items-tbody" class="divide-y divide-[#E2E8F0]">
+              <!-- Render động -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Thông tin người nhận -->
+      <div class="grid grid-cols-2 gap-3 text-xs">
+        <div>
+          <label class="block font-semibold text-[#475569] mb-1">Thủ kho / Người nhận *</label>
+          <input type="text" id="wh-receiver-input" value="Hoàng Ngọc Anh Chi" class="w-full border border-[#CBD5E1] bg-white rounded-lg px-2.5 py-1.5 text-[#0F172A] outline-none">
+        </div>
+        <div>
+          <label class="block font-semibold text-[#475569] mb-1">Ngày nhận thực tế *</label>
+          <input type="date" value="2026-10-16" class="w-full border border-[#CBD5E1] bg-white rounded-lg px-2.5 py-1.5 text-[#0F172A] outline-none font-mono">
+        </div>
+      </div>
+
+      <!-- Nút xác nhận hoàn thành -->
+      <div class="pt-2 flex items-center justify-end gap-2 border-t border-[#E2E8F0]">
+        <button type="button" onclick="closeWhCheckModal()" class="px-4 py-2 border border-[#CBD5E1] rounded-xl text-xs font-semibold text-[#475569] hover:bg-[#F1F5F9]">
+          Hủy
+        </button>
+        <button type="button" onclick="confirmWhComplete()" class="px-5 py-2 bg-[#27457A] hover:bg-[#1F3964] text-white rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5">
+          <i data-lucide="check" class="w-4 h-4"></i>
+          <span>Xác Nhận Nhập Kho & Ghi Sổ</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- TOAST THÔNG BÁO THÀNH CÔNG -->
+  <div id="toast-msg" class="fixed bottom-6 right-6 z-50 bg-[#0F172A] text-white text-xs font-medium px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 transform translate-y-16 opacity-0 transition-all duration-300 pointer-events-none">
+    <i data-lucide="check-circle" class="w-4 h-4 text-[#10B981]"></i>
+    <span id="toast-text">Thông báo...</span>
+  </div>
+
+  <!-- SCRIPT XỬ LÝ DEMO HOÀN CHỈNH -->
+  <script>
+    // Dữ liệu mẫu đề xuất mua hàng (Hình 1)
+    const sampleProposals = [
+      {
+        code: "DX26-10-13-02",
+        date: "13/10/2026 16:52",
+        emp: "Hoàng Ngọc Anh Chi (311)",
+        dept: "Văn Phòng",
+        category: "Công cụ sản xuất",
+        purpose: "Cho chuyền dán quai",
+        status: "Chờ duyệt",
+        totalAmount: 1700000,
+        items: [
+          { name: "Keo hồ 170", unit: "thùng", qty: 2, price: 700000 },
+          { name: "Viết định vị", unit: "bịch", qty: 3, price: 100000 }
+        ]
+      },
+      {
+        code: "DX26-10-12-02",
+        date: "12/10/2026 17:42",
+        emp: "Hoàng Ngọc Anh Chi (311)",
+        dept: "Văn Phòng",
+        category: "Bảo trì",
+        purpose: "Sửa máy may hư xưởng",
+        status: "Chờ duyệt",
+        totalAmount: 1600000,
+        items: [
+          { name: "Máy may", unit: "cái", qty: 12, price: 100000 },
+          { name: "Máy lập trình", unit: "cái", qty: 2, price: 200000 }
+        ]
+      },
+      {
+        code: "DX26-10-12-01",
+        date: "12/10/2026 08:29",
+        emp: "Bùi Thị Lành (133)",
+        dept: "May",
+        category: "Công cụ sản xuất",
+        purpose: "Chị Lành may xin thêm keo",
+        status: "Đã duyệt",
+        totalAmount: 850000,
+        items: [
+          { name: "Keo phun dán quai", unit: "thùng", qty: 1, price: 850000 }
+        ]
+      },
+      {
+        code: "DX26-10-10-02",
+        date: "10/10/2026 16:50",
+        emp: "Nguyễn Trường An (518)",
+        dept: "Tổ trưởng chuyền C",
+        category: "Công cụ sản xuất",
+        purpose: "Anh An lấy vật tư định kỳ",
+        status: "Đã lập DNTT",
+        totalAmount: 305635,
+        items: [
+          { name: "Suốt máy may", unit: "cái", qty: 10, price: 4500 },
+          { name: "Búa cao su", unit: "cái", qty: 6, price: 32000 },
+          { name: "Bình keo lớn", unit: "cái", qty: 10, price: 2500 },
+          { name: "Bình keo nhỏ", unit: "cái", qty: 10, price: 1600 },
+          { name: "Kìm đầu xéo số 11", unit: "vỉ", qty: 10, price: 2800 }
+        ]
+      }
+    ];
+
+    // Chuyển đổi giữa 3 Tab Preview
+    function switchPreviewTab(tabId) {
+      const idMap = {
+        'tab-dx': 'preview-tab-dx',
+        'tab-nk': 'preview-tab-nk',
+        'tab-sq': 'preview-tab-sq',
+        'preview-tab-dx': 'preview-tab-dx',
+        'preview-tab-nk': 'preview-tab-nk',
+        'preview-tab-sq': 'preview-tab-sq',
+        'ALL': 'ALL'
+      };
+      const resolved = idMap[tabId] || tabId;
+
+      const tabs = ['preview-tab-dx', 'preview-tab-nk', 'preview-tab-sq'];
+      const btns = ['btn-tab-dx', 'btn-tab-nk', 'btn-tab-sq', 'btn-tab-all'];
+
+      // Reset trạng thái các nút
+      btns.forEach(id => {
+        const b = document.getElementById(id);
+        if (b) {
+          b.className = "px-3.5 py-2 rounded-lg transition-all flex items-center gap-1.5 text-[#475569] hover:text-[#0F172A] hover:bg-white/80 cursor-pointer";
+        }
+      });
+
+      if (resolved === 'ALL') {
+        // Hiện cả 3 tab cùng lúc
+        tabs.forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.classList.remove('hidden');
+        });
+        const allBtn = document.getElementById('btn-tab-all');
+        if (allBtn) {
+          allBtn.className = "px-3 py-2 rounded-lg transition-all flex items-center gap-1 bg-[#27457A] text-white font-bold shadow-xs cursor-pointer";
+        }
+      } else {
+        // Chỉ hiện tab được chọn
+        tabs.forEach(id => {
+          const el = document.getElementById(id);
+          if (el) {
+            if (id === resolved) el.classList.remove('hidden');
+            else el.classList.add('hidden');
+          }
+        });
+
+        const activeBtnMap = {
+          'preview-tab-dx': 'btn-tab-dx',
+          'preview-tab-nk': 'btn-tab-nk',
+          'preview-tab-sq': 'btn-tab-sq'
+        };
+        const activeBtn = document.getElementById(activeBtnMap[resolved]);
+        if (activeBtn) {
+          activeBtn.className = "px-3.5 py-2 rounded-lg transition-all flex items-center gap-1.5 bg-[#27457A] text-white shadow-xs cursor-pointer font-bold";
+        }
+      }
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      if (window.lucide) window.lucide.createIcons();
+    }
+
+    // Lọc các ô note theo trạng thái
+    function filterNotes(status) {
+      document.querySelectorAll('.note-filter-btn').forEach(btn => {
+        btn.className = "note-filter-btn px-3 py-1.5 rounded-lg text-[#64748B] hover:text-[#0F172A]";
+      });
+      const activeBtn = document.getElementById('note-flt-' + status);
+      if (activeBtn) {
+        activeBtn.className = "note-filter-btn px-3 py-1.5 rounded-lg bg-white text-[#27457A] shadow-xs font-bold";
+      }
+
+      const cards = document.querySelectorAll('.note-card');
+      cards.forEach(card => {
+        if (status === 'ALL' || card.getAttribute('data-status') === status) {
+          card.classList.remove('hidden');
+        } else {
+          card.classList.add('hidden');
+        }
+      });
+    }
+
+    // Mở Pop-up Phiếu Trình Ký từ Note
+    let currentProposal = null;
+    function openSlipModal(data) {
+      currentProposal = data;
+      document.getElementById('slip-modal-code').textContent = data.code;
+      document.getElementById('slip-modal-date').textContent = data.date;
+      document.getElementById('slip-modal-emp').textContent = data.emp;
+      document.getElementById('slip-modal-dept').textContent = data.dept;
+      document.getElementById('slip-modal-cat').textContent = data.category;
+      document.getElementById('slip-modal-purpose').textContent = data.purpose;
+      document.getElementById('slip-sign-emp').textContent = data.emp.split('(')[0].trim();
+      
+      const badge = document.getElementById('slip-modal-badge');
+      badge.textContent = data.status;
+      if (data.status === 'Chờ duyệt') {
+        badge.className = "inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-bold bg-[#FEF08A] text-[#854D0E] border border-[#FDE047]";
+        document.getElementById('slip-sign-boss').innerHTML = '<span class="text-[#94A3B8] font-normal italic">[Chờ Sếp ký duyệt]</span>';
+      } else if (data.status === 'Đã duyệt') {
+        badge.className = "inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-bold bg-[#DCFCE7] text-[#15803D] border border-[#BBF7D0]";
+        document.getElementById('slip-sign-boss').innerHTML = '<span class="text-[#15803D] font-bold">Ban Giám Đốc (ĐÃ DUYỆT)</span>';
+      } else {
+        badge.className = "inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-bold bg-[#F3E8FF] text-[#7E22CE] border border-[#E9D5FF]";
+        document.getElementById('slip-sign-boss').innerHTML = '<span class="text-[#7E22CE] font-bold">Đã Chuyển ĐNTT</span>';
+      }
+
+      // Render table items
+      const tbody = document.getElementById('slip-modal-items-tbody');
+      tbody.innerHTML = data.items.map((it, idx) => `
+        <tr class="hover:bg-[#F8FAFC]">
+          <td class="p-2 text-center border-r border-[#CBD5E1] text-[#64748B] font-mono">${idx + 1}</td>
+          <td class="p-2 font-semibold text-[#0F172A] border-r border-[#CBD5E1]">${it.name}</td>
+          <td class="p-2 text-center text-[#64748B] border-r border-[#CBD5E1]">${it.unit}</td>
+          <td class="p-2 text-center font-mono font-bold text-[#27457A] border-r border-[#CBD5E1]">${it.qty}</td>
+          <td class="p-2 text-right font-mono text-[#64748B] border-r border-[#CBD5E1]">${it.price.toLocaleString('vi-VN')} đ</td>
+          <td class="p-2 text-right font-mono font-bold text-[#0F172A]">${(it.qty * it.price).toLocaleString('vi-VN')} đ</td>
+        </tr>
+      `).join('');
+
+      document.getElementById('slip-modal-total').textContent = data.totalAmount.toLocaleString('vi-VN') + ' đ';
+
+      document.getElementById('modal-slip-preview').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeSlipModal() {
+      document.getElementById('modal-slip-preview').classList.add('hidden');
+    }
+
+    // =========================================================================
+    // TÍNH NĂNG ĐẶC BIỆT: CHỤP ẢNH PHIẾU ĐỀ XUẤT ĐỂ GỬI SẾP QUA ZALO
+    // =========================================================================
+    async function captureSlipToImage() {
+      const captureArea = document.getElementById('capture-slip-area');
+      const btn = document.getElementById('btn-capture-slip');
+      const origHtml = btn.innerHTML;
+
+      btn.disabled = true;
+      btn.innerHTML = `<span class="animate-spin">⏳</span> Đang chụp ảnh...`;
+
+      // Tạo hiệu ứng flash camera
+      const flash = document.createElement('div');
+      flash.className = 'capture-flash';
+      document.body.appendChild(flash);
+      setTimeout(() => flash.remove(), 400);
+
+      try {
+        const canvas = await html2canvas(captureArea, {
+          scale: 2, // Độ phân giải 2x cực kỳ sắc nét
+          backgroundColor: '#FFFFFF',
+          useCORS: true,
+          logging: false
+        });
+
+        // 1. Tải file ảnh PNG về máy
+        const imgData = canvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.download = `Phieu-De-Xuat-${currentProposal ? currentProposal.code : 'D&D'}.png`;
+        link.href = imgData;
+        link.click();
+
+        // 2. Tự động sao chép ảnh vào Clipboard (nếu hỗ trợ)
+        if (navigator.clipboard && window.ClipboardItem) {
+          canvas.toBlob(blob => {
+            if (blob) {
+              navigator.clipboard.write([
+                new ClipboardItem({ 'image/png': blob })
+              ]).then(() => {
+                showToast("📸 Đã chụp & tải ảnh! Đã sao chép vào bộ nhớ tạm để Ctrl+V dán Zalo!");
+              }).catch(() => {
+                showToast("📸 Đã chụp & tải file ảnh về máy thành công!");
+              });
+            }
+          });
+        } else {
+          showToast("📸 Đã chụp & tải file ảnh phiếu đề xuất thành công!");
+        }
+
+      } catch (err) {
+        console.error("Lỗi chụp ảnh:", err);
+        showToast("Lỗi khi tạo ảnh phiếu, vui lòng thử lại!");
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = origHtml;
+        lucide.createIcons();
+      }
+    }
+
+    // =========================================================================
+    // MODAL KIỂM ĐẾM NHẬP KHO THỰC TẾ
+    // =========================================================================
+    let currentWhData = null;
+    function openWhCheckModal(data) {
+      currentWhData = data;
+      document.getElementById('wh-check-code').textContent = data.id;
+      document.getElementById('wh-check-req').textContent = data.reqCode;
+      document.getElementById('wh-check-sup').textContent = data.supplier;
+      document.getElementById('wh-check-amount').textContent = data.amount;
+
+      const tbody = document.getElementById('wh-check-items-tbody');
+      tbody.innerHTML = data.items.map((it, idx) => `
+        <tr class="hover:bg-[#F8FAFC]">
+          <td class="p-2 font-medium text-[#0F172A]">${it.name}</td>
+          <td class="p-2 text-center text-[#64748B]">${it.unit}</td>
+          <td class="p-2 text-center font-mono font-bold text-[#64748B]">${it.expQty}</td>
+          <td class="p-2 text-center">
+            <input type="number" step="any" min="0" value="${it.expQty}" class="wh-item-input w-20 text-center font-mono font-bold bg-[#F8FAFC] border border-[#CBD5E1] rounded-lg px-2 py-1 text-xs text-[#059669] focus:bg-white focus:border-[#27457A] outline-none">
+          </td>
+        </tr>
+      `).join('');
+
+      document.getElementById('modal-wh-check').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeWhCheckModal() {
+      document.getElementById('modal-wh-check').classList.add('hidden');
+    }
+
+    function setWhMode(mode) {
+      const btnFull = document.getElementById('wh-btn-mode-full');
+      const btnPart = document.getElementById('wh-btn-mode-part');
+      if (mode === 'ĐỦ') {
+        btnFull.className = "py-2 px-3 rounded-xl border-2 border-[#059669] bg-[#F0FDF4] text-[#15803D] text-xs font-bold flex items-center justify-center gap-1.5 transition";
+        btnPart.className = "py-2 px-3 rounded-xl border border-[#CBD5E1] bg-white text-[#475569] text-xs font-medium flex items-center justify-center gap-1.5 transition";
+      } else {
+        btnPart.className = "py-2 px-3 rounded-xl border-2 border-[#D97706] bg-[#FFFBEB] text-[#B45309] text-xs font-bold flex items-center justify-center gap-1.5 transition";
+        btnFull.className = "py-2 px-3 rounded-xl border border-[#CBD5E1] bg-white text-[#475569] text-xs font-medium flex items-center justify-center gap-1.5 transition";
+      }
+    }
+
+    function setWhReceiveAll() {
+      document.querySelectorAll('.wh-item-input').forEach(input => {
+        // Giữ nguyên số lượng dự kiến
+      });
+      setWhMode('ĐỦ');
+      showToast("Đã chọn nhận đủ toàn bộ số lượng!");
+    }
+
+    function confirmWhComplete() {
+      if (!currentWhData) return;
+      
+      const rowId = currentWhData.rowId;
+      const statusCell = document.getElementById('wh-status-cell-' + rowId);
+      const actionCell = document.getElementById('wh-action-cell-' + rowId);
+      
+      if (statusCell) {
+        statusCell.innerHTML = `
+          <span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#DCFCE7] text-[#15803D] border border-[#BBF7D0] whitespace-nowrap">
+            ✅ Đã hoàn thành
+          </span>
+        `;
+      }
+      if (actionCell) {
+        actionCell.innerHTML = `<span class="text-[11px] text-[#059669] font-semibold">Đã nhập kho xong</span>`;
+      }
+
+      // Hiện hàng tồn kho mới bên dưới
+      const newInvRow = document.getElementById('inv-preview-new-row');
+      if (newInvRow) newInvRow.classList.remove('hidden');
+
+      closeWhCheckModal();
+      showToast(`🎉 Đã hoàn tất nhập kho ${currentWhData.id} & ghi tự động vào tồn kho!`);
+    }
+
+    function filterWarehouseReceipts(val) {
+      const rows = document.querySelectorAll('#wh-receipts-table-body tr');
+      rows.forEach(r => {
+        if (val === 'ALL') {
+          r.classList.remove('hidden');
+        } else if (val === 'Chờ nhập kho') {
+          if (r.textContent.includes('Chờ nhập kho')) r.classList.remove('hidden');
+          else r.classList.add('hidden');
+        } else if (val === 'Đã hoàn thành') {
+          if (r.textContent.includes('Đã hoàn thành')) r.classList.remove('hidden');
+          else r.classList.add('hidden');
+        }
+      });
+    }
+
+    // Switch Sổ quỹ Tiền mặt vs Ngân hàng
+    function switchFundLedger(type) {
+      const btnCash = document.getElementById('btn-fund-cash');
+      const btnBank = document.getElementById('btn-fund-bank');
+      if (type === 'CASH') {
+        btnCash.className = "px-4 py-2 rounded-lg bg-white text-[#27457A] shadow-xs flex items-center gap-1.5 transition";
+        btnBank.className = "px-4 py-2 rounded-lg text-[#64748B] hover:text-[#0F172A] flex items-center gap-1.5 transition";
+      } else {
+        btnBank.className = "px-4 py-2 rounded-lg bg-white text-[#27457A] shadow-xs flex items-center gap-1.5 transition";
+        btnCash.className = "px-4 py-2 rounded-lg text-[#64748B] hover:text-[#0F172A] flex items-center gap-1.5 transition";
+      }
+    }
+
+    // Hàm hiện toast thông báo
+    function showToast(text) {
+      const toast = document.getElementById('toast-msg');
+      const txt = document.getElementById('toast-text');
+      txt.textContent = text;
+      toast.classList.remove('translate-y-16', 'opacity-0');
+      setTimeout(() => {
+        toast.classList.add('translate-y-16', 'opacity-0');
+      }, 3500);
+    }
+
+    // Khởi tạo icon
+    window.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+    });
+  </script>
+</body>
+</html>
