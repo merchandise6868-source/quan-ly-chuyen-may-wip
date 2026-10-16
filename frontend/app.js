@@ -1053,29 +1053,33 @@ async function loadReport() {
 
       // Kiểm tra thêm bộ nhớ cục bộ trên điện thoại (localStorage) để không bao giờ bị "duột" xuất/nhập tích luỹ từ ngày trước:
       try {
-        const poKeyPrefix = `dd_report_${poId}_`;
-        const altPoKeyPrefix = appState.currentPO && appState.currentPO.po_number ? `dd_report_${appState.currentPO.po_number}_` : null;
+        const poIdStr = String(poId || "");
+        const poNumStr = (appState.currentPO && appState.currentPO.po_number) ? String(appState.currentPO.po_number) : "";
         for (let i = 0; i < localStorage.length; i++) {
           const k = localStorage.key(i);
-          if (k && (k.startsWith(poKeyPrefix) || (altPoKeyPrefix && k.startsWith(altPoKeyPrefix)))) {
-            const kDate = k.replace(poKeyPrefix, "").replace(altPoKeyPrefix || "___", "");
-            if (kDate && kDate < date) {
-              const prevCached = JSON.parse(localStorage.getItem(k) || "{}");
-              if (prevCached && prevCached.batches) {
-                prevCached.batches.forEach(b => {
-                  const bName = b.batch_name;
-                  const bTrim = bName ? bName.trim() : "";
-                  const bOut = Math.max(Number(b.daily_out) || 0, Number(b.delivered) || 0);
-                  const bIn = Number(b.into_sewing) || 0;
-                  if (bOut > 0 && (!appState.cumExportsByBatch[bName] || appState.cumExportsByBatch[bName] === 0)) {
-                    appState.cumExportsByBatch[bName] = bOut;
-                    if (bTrim) appState.cumExportsByBatch[bTrim] = bOut;
-                  }
-                  if (bIn > 0 && (!appState.cumImportsByBatch[bName] || appState.cumImportsByBatch[bName] === 0)) {
-                    appState.cumImportsByBatch[bName] = bIn;
-                    if (bTrim) appState.cumImportsByBatch[bTrim] = bIn;
-                  }
-                });
+          if (k && (k.startsWith("dd_cache_report_") || k.startsWith("dd_report_"))) {
+            const matchesPo = (poIdStr && k.includes(poIdStr)) || (poNumStr && k.includes(poNumStr));
+            if (matchesPo) {
+              const parts = k.split("_");
+              const kDate = parts[parts.length - 1];
+              if (kDate && kDate < date && kDate.includes("-")) {
+                const prevCached = JSON.parse(localStorage.getItem(k) || "{}");
+                if (prevCached && prevCached.batches) {
+                  prevCached.batches.forEach(b => {
+                    const bName = b.batch_name;
+                    const bTrim = bName ? bName.trim() : "";
+                    const bOut = Math.max(Number(b.daily_out) || 0, Number(b.delivered) || 0);
+                    const bIn = Number(b.into_sewing) || 0;
+                    if (bOut > 0) {
+                      appState.cumExportsByBatch[bName] = Math.max(Number(appState.cumExportsByBatch[bName]) || 0, bOut);
+                      if (bTrim) appState.cumExportsByBatch[bTrim] = Math.max(Number(appState.cumExportsByBatch[bTrim]) || 0, bOut);
+                    }
+                    if (bIn > 0) {
+                      appState.cumImportsByBatch[bName] = Math.max(Number(appState.cumImportsByBatch[bName]) || 0, bIn);
+                      if (bTrim) appState.cumImportsByBatch[bTrim] = Math.max(Number(appState.cumImportsByBatch[bTrim]) || 0, bIn);
+                    }
+                  });
+                }
               }
             }
           }
@@ -1206,31 +1210,35 @@ async function loadReport() {
   } catch (err) {
     console.error("Lỗi tải báo cáo từ máy chủ, kiểm tra cache nội bộ:", err);
     try {
-      const poKeyPrefix = `dd_report_${poId}_`;
-      const altPoKeyPrefix = appState.currentPO && appState.currentPO.po_number ? `dd_report_${appState.currentPO.po_number}_` : null;
+      const poIdStr = String(poId || "");
+      const poNumStr = (appState.currentPO && appState.currentPO.po_number) ? String(appState.currentPO.po_number) : "";
       appState.cumExportsByBatch = appState.cumExportsByBatch || {};
       appState.cumImportsByBatch = appState.cumImportsByBatch || {};
       for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
-        if (k && (k.startsWith(poKeyPrefix) || (altPoKeyPrefix && k.startsWith(altPoKeyPrefix)))) {
-          const kDate = k.replace(poKeyPrefix, "").replace(altPoKeyPrefix || "___", "");
-          if (kDate && kDate < date) {
-            const prevCached = JSON.parse(localStorage.getItem(k) || "{}");
-            if (prevCached && prevCached.batches) {
-              prevCached.batches.forEach(b => {
-                const bName = b.batch_name;
-                const bTrim = bName ? bName.trim() : "";
-                const bOut = Math.max(Number(b.daily_out) || 0, Number(b.delivered) || 0);
-                const bIn = Number(b.into_sewing) || 0;
-                if (bOut > 0) {
-                  appState.cumExportsByBatch[bName] = (appState.cumExportsByBatch[bName] || 0) + bOut;
-                  if (bTrim) appState.cumExportsByBatch[bTrim] = (appState.cumExportsByBatch[bTrim] || 0) + bOut;
-                }
-                if (bIn > 0) {
-                  appState.cumImportsByBatch[bName] = (appState.cumImportsByBatch[bName] || 0) + bIn;
-                  if (bTrim) appState.cumImportsByBatch[bTrim] = (appState.cumImportsByBatch[bTrim] || 0) + bIn;
-                }
-              });
+        if (k && (k.startsWith("dd_cache_report_") || k.startsWith("dd_report_"))) {
+          const matchesPo = (poIdStr && k.includes(poIdStr)) || (poNumStr && k.includes(poNumStr));
+          if (matchesPo) {
+            const parts = k.split("_");
+            const kDate = parts[parts.length - 1];
+            if (kDate && kDate < date && kDate.includes("-")) {
+              const prevCached = JSON.parse(localStorage.getItem(k) || "{}");
+              if (prevCached && prevCached.batches) {
+                prevCached.batches.forEach(b => {
+                  const bName = b.batch_name;
+                  const bTrim = bName ? bName.trim() : "";
+                  const bOut = Math.max(Number(b.daily_out) || 0, Number(b.delivered) || 0);
+                  const bIn = Number(b.into_sewing) || 0;
+                  if (bOut > 0) {
+                    appState.cumExportsByBatch[bName] = Math.max(Number(appState.cumExportsByBatch[bName]) || 0, bOut);
+                    if (bTrim) appState.cumExportsByBatch[bTrim] = Math.max(Number(appState.cumExportsByBatch[bTrim]) || 0, bOut);
+                  }
+                  if (bIn > 0) {
+                    appState.cumImportsByBatch[bName] = Math.max(Number(appState.cumImportsByBatch[bName]) || 0, bIn);
+                    if (bTrim) appState.cumImportsByBatch[bTrim] = Math.max(Number(appState.cumImportsByBatch[bTrim]) || 0, bIn);
+                  }
+                });
+              }
             }
           }
         }

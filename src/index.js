@@ -259,13 +259,13 @@ const INITIAL_DB = {
           batch_name: "Lô 1",
           batch_plan: 1150,
           into_sewing: 950,
-          wip_sewing: 950,
+          wip_sewing: 700,
           wip_qc: 0,
-          wip_pairing: 0,
+          wip_pairing: 100,
           wip_packing: 0,
           wip_warehouse: 0,
-          daily_out: 0,
-          delivered: 0,
+          daily_out: 150,
+          delivered: 150,
           note_sewing: "Line 2",
           note_qc: "",
           note_pairing: "",
@@ -299,13 +299,13 @@ const INITIAL_DB = {
           batch_name: "Lô 1",
           batch_plan: 1150,
           into_sewing: 950,
-          wip_sewing: 950,
+          wip_sewing: 700,
           wip_qc: 0,
-          wip_pairing: 0,
+          wip_pairing: 100,
           wip_packing: 0,
           wip_warehouse: 0,
-          daily_out: 0,
-          delivered: 0,
+          daily_out: 150,
+          delivered: 150,
           note_sewing: "Line 2",
           note_qc: "",
           note_pairing: "",
@@ -362,7 +362,7 @@ const INITIAL_DB = {
     },
     "po-mp-01": {
       "Lô 1": [
-        { date: "15/10", nhap_phoi: 950, giao_dg: 0, nhap_kho: 0, xuat_kho: 0 },
+        { date: "15/10", nhap_phoi: 950, giao_dg: 0, nhap_kho: 0, xuat_kho: 150 },
         { date: "", nhap_phoi: "", giao_dg: "", nhap_kho: "", xuat_kho: "" }
       ],
       "Lô 2": [
@@ -371,7 +371,7 @@ const INITIAL_DB = {
     },
     "296507-003": {
       "Lô 1": [
-        { date: "15/10", nhap_phoi: 950, giao_dg: 0, nhap_kho: 0, xuat_kho: 0 },
+        { date: "15/10", nhap_phoi: 950, giao_dg: 0, nhap_kho: 0, xuat_kho: 150 },
         { date: "", nhap_phoi: "", giao_dg: "", nhap_kho: "", xuat_kho: "" }
       ],
       "Lô 2": [
