@@ -282,7 +282,32 @@ function showToast(msg = "✅ Đã lưu dữ liệu thành công!") {
   clearTimeout(toast._timeout);
   toast._timeout = setTimeout(() => {
     toast.classList.remove("show");
-  }, 2200);
+  }, 2500);
+}
+
+// SAFE SCROLL INTO VIEW (ACCOUNTING FOR FIXED / STICKY APP HEADERS)
+function safeScrollIntoView(element) {
+  if (!element) return;
+  const headerOffset = 140;
+  const elementRect = element.getBoundingClientRect();
+  const absoluteElementTop = elementRect.top + window.pageYOffset;
+  const targetY = Math.max(0, absoluteElementTop - headerOffset);
+  window.scrollTo({
+    top: targetY,
+    behavior: "smooth"
+  });
+}
+
+// HIGHLIGHT INPUT ERROR VISUALLY
+function highlightField(element) {
+  if (!element) return;
+  element.classList.add("input-error-highlight");
+  try {
+    element.focus();
+  } catch (e) {}
+  setTimeout(() => {
+    element.classList.remove("input-error-highlight");
+  }, 3500);
 }
 
 // FORCE HARD REFRESH & CLEAR PWA / CACHE
@@ -550,6 +575,22 @@ function bindEvents() {
   const poPlanInput = document.getElementById("poPlanTotal");
   if (poPlanInput) {
     poPlanInput.addEventListener("input", updateBatchSummaryCheck);
+  }
+
+  const btnAutoSum = document.getElementById("btnAutoSumPlan");
+  if (btnAutoSum) {
+    btnAutoSum.addEventListener("click", () => {
+      const container = document.getElementById("dynamicBatchInputsContainer") || document.getElementById("batchInputGrid");
+      const inputs = container ? container.querySelectorAll(".batch-card-input") : [];
+      let sum = 0;
+      inputs.forEach(inp => sum += (Number(inp.value) || 0));
+      const planInp = document.getElementById("poPlanTotal");
+      if (planInp) {
+        planInp.value = sum;
+        updateBatchSummaryCheck();
+        showToast(`💡 Đã lấy tổng các lô: ${sum.toLocaleString("vi-VN")} đôi`);
+      }
+    });
   }
 
   // Flow Log Modal (if present)
@@ -919,7 +960,16 @@ async function fetchMetadata() {
       renderManageTab();
     }
   } catch (err) {
-    console.error("Lỗi khi tải metadata:", err);
+    console.warn("Lỗi khi tải metadata từ máy chủ, kích hoạt dữ liệu dự phòng:", err);
+    if (!appState.customers || appState.customers.length === 0) {
+      appState.customers = [
+        { id: "cust-1", name: "CAO SU MÀU", code: "CASUM" },
+        { id: "cust-2", name: "Liên Thái", code: "Lth" },
+        { id: "cust-3", name: "MẠNH PHÁT", code: "MP" }
+      ];
+      populateCustomerSelect();
+      renderManageTab();
+    }
   }
 }
 
@@ -2619,11 +2669,7 @@ function initPOBatchInputs() {
   if (container && container.children.length === 0) {
     const selCount = document.getElementById("selectBatchCount") || document.getElementById("poBatchCountSelect");
     const count = selCount ? parseInt(selCount.value, 10) || 2 : 2;
-    renderBatchInputBoxes(count, [
-      { batch_name: "Lô 1", into_sewing: 1230 },
-      { batch_name: "Lô 2", into_sewing: 267 },
-      { batch_name: "Số đuôi", into_sewing: 126 }
-    ]);
+    renderBatchInputBoxes(count, []);
   }
 }
 
@@ -2649,24 +2695,22 @@ function renderBatchInputBoxes(count, initialBatches = null) {
   for (let i = 1; i <= count; i++) {
     const bName = `Lô ${i}`;
     let val = "";
-    if (initialBatches && Array.isArray(initialBatches)) {
+    if (initialBatches && Array.isArray(initialBatches) && initialBatches.length > 0) {
       const found = initialBatches.find(b => b.batch_name === bName);
       if (found) val = found.into_sewing || found.batch_plan || "";
     } else if (existingValues[bName] !== undefined) {
       val = existingValues[bName];
-    } else if (i === 1 && !initialBatches) {
-      val = 1230;
-    } else if (i === 2 && !initialBatches) {
-      val = 267;
     }
 
     const card = document.createElement("div");
     card.className = "batch-card-item";
     card.dataset.batchName = bName;
     card.innerHTML = `
-      <span class="batch-card-badge">${bName}</span>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span class="batch-card-badge">📦 ${bName}</span>
+        <span style="font-size:11px; color:#64748b;">Định mức (đôi):</span>
+      </div>
       <div class="batch-card-input-wrapper">
-        <label>Định mức (đôi)</label>
         <input type="number" class="batch-card-input" placeholder="0" value="${val}" min="0">
       </div>
     `;
@@ -2676,22 +2720,22 @@ function renderBatchInputBoxes(count, initialBatches = null) {
   // 2. Khung Số Đuôi
   const tailName = "Số đuôi";
   let tailVal = "";
-  if (initialBatches && Array.isArray(initialBatches)) {
+  if (initialBatches && Array.isArray(initialBatches) && initialBatches.length > 0) {
     const found = initialBatches.find(b => b.batch_name.toLowerCase().includes("đuôi") || b.batch_name === `Lô ${count + 1}`);
     if (found) tailVal = found.into_sewing || found.batch_plan || "";
   } else if (existingValues[tailName] !== undefined) {
     tailVal = existingValues[tailName];
-  } else if (!initialBatches) {
-    tailVal = 126;
   }
 
   const tailCard = document.createElement("div");
   tailCard.className = "batch-card-item is-tail";
   tailCard.dataset.batchName = tailName;
   tailCard.innerHTML = `
-    <span class="batch-card-badge">${tailName}</span>
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <span class="batch-card-badge">🏷️ ${tailName}</span>
+      <span style="font-size:11px; color:#7c3aed;">Định mức (đôi):</span>
+    </div>
     <div class="batch-card-input-wrapper">
-      <label>Định mức (đôi)</label>
       <input type="number" class="batch-card-input" placeholder="0" value="${tailVal}" min="0">
     </div>
   `;
@@ -2713,7 +2757,13 @@ function updateBatchSummaryCheck() {
   });
 
   const poPlanInput = document.getElementById("poPlanTotal");
-  const poPlan = Number(poPlanInput ? poPlanInput.value : 0) || 0;
+  let poPlan = Number(poPlanInput ? poPlanInput.value : 0) || 0;
+
+  // Auto-populate poPlanTotal if empty and user has entered batch inputs
+  if ((!poPlan || poPlan === 0) && totalBatchQty > 0 && poPlanInput && document.activeElement !== poPlanInput) {
+    poPlanInput.value = totalBatchQty;
+    poPlan = totalBatchQty;
+  }
 
   const elSum = document.getElementById("lblCurrentSumBatches") || document.getElementById("batchSumDisplay");
   if (elSum) elSum.innerText = totalBatchQty.toLocaleString("vi-VN");
@@ -2768,24 +2818,38 @@ function resetPOForm() {
   const selCount = document.getElementById("selectBatchCount") || document.getElementById("poBatchCountSelect");
   if (selCount) selCount.value = "2";
 
-  renderBatchInputBoxes(2, [
-    { batch_name: "Lô 1", into_sewing: 1230 },
-    { batch_name: "Lô 2", into_sewing: 267 },
-    { batch_name: "Số đuôi", into_sewing: 126 }
-  ]);
+  renderBatchInputBoxes(2, []);
 
   const btnSub = document.getElementById("btnSubmitPO");
-  if (btnSub) btnSub.innerText = "Lưu đơn hàng & cấu hình lô";
+  if (btnSub) btnSub.innerText = "💾 Lưu đơn hàng & cấu hình lô";
   const btnCan = document.getElementById("btnCancelEditPO");
   if (btnCan) btnCan.style.display = "none";
 }
 
 async function handleAddCustomer(e) {
-  e.preventDefault();
+  if (e && e.preventDefault) e.preventDefault();
   const id = document.getElementById("editCustId")?.value;
-  const name = document.getElementById("custName")?.value.trim();
-  const code = document.getElementById("custCode")?.value.trim();
-  if (!name || !code) return;
+  const nameEl = document.getElementById("custName");
+  const name = nameEl ? nameEl.value.trim() : "";
+  const codeEl = document.getElementById("custCode");
+  const code = codeEl ? codeEl.value.trim() : "";
+
+  if (!name) {
+    showToast("⚠️ Vui lòng nhập Tên khách hàng / công ty!");
+    if (nameEl) {
+      highlightField(nameEl);
+      safeScrollIntoView(nameEl);
+    }
+    return;
+  }
+  if (!code) {
+    showToast("⚠️ Vui lòng nhập Mã viết tắt của khách hàng!");
+    if (codeEl) {
+      highlightField(codeEl);
+      safeScrollIntoView(codeEl);
+    }
+    return;
+  }
 
   try {
     const res = await fetch("/api/customers", {
@@ -2798,6 +2862,8 @@ async function handleAddCustomer(e) {
       showToast(id ? "✅ Đã cập nhật khách hàng thành công!" : "✅ Đã thêm khách hàng mới thành công!");
       resetCustomerForm();
       fetchMetadata();
+    } else {
+      alert("Không thể lưu khách hàng: " + (data.error || "Vui lòng thử lại"));
     }
   } catch (err) {
     alert("Lỗi khi lưu khách hàng: " + err.message);
@@ -2805,31 +2871,59 @@ async function handleAddCustomer(e) {
 }
 
 async function handleAddPO(e) {
-  e.preventDefault();
+  if (e && e.preventDefault) e.preventDefault();
   const id = document.getElementById("editOrderId")?.value;
-  const customer_id = document.getElementById("poCustomerSelect")?.value;
-  const po_number = document.getElementById("poNumber")?.value.trim();
-  const style_code = document.getElementById("poStyleCode")?.value.trim();
-  const line_name = document.getElementById("poLineName")?.value.trim();
-  const po_plan = Number(document.getElementById("poPlanTotal")?.value) || 0;
+  const custSel = document.getElementById("poCustomerSelect");
+  const customer_id = custSel ? custSel.value : "";
+  const poNumEl = document.getElementById("poNumber");
+  const po_number = poNumEl ? poNumEl.value.trim() : "";
+  let styleEl = document.getElementById("poStyleCode");
+  let style_code = styleEl ? styleEl.value.trim() : "";
+  let lineEl = document.getElementById("poLineName");
+  let line_name = lineEl ? lineEl.value.trim() : "";
+  const poPlanEl = document.getElementById("poPlanTotal");
+  let po_plan = Number(poPlanEl ? poPlanEl.value : 0) || 0;
 
+  // 1. Validate Customer
   if (!customer_id) {
-    alert("Vui lòng chọn khách hàng!");
-    return;
-  }
-  if (!po_number) {
-    alert("Vui lòng nhập số PO!");
+    showToast("⚠️ Vui lòng chọn khách hàng!");
+    if (custSel) {
+      highlightField(custSel);
+      safeScrollIntoView(custSel);
+    }
     return;
   }
 
-  // Collect batches from dynamic grid
+  // 2. Validate PO Number
+  if (!po_number) {
+    showToast("⚠️ Vui lòng nhập Số Đơn Hàng / Số PO (ví dụ: PO-050)!");
+    if (poNumEl) {
+      highlightField(poNumEl);
+      safeScrollIntoView(poNumEl);
+    }
+    return;
+  }
+
+  // 3. Fallback for Style Code & Line Name if empty
+  if (!style_code) {
+    style_code = "Style " + po_number;
+    if (styleEl) styleEl.value = style_code;
+  }
+  if (!line_name) {
+    line_name = "Chuyền 1";
+    if (lineEl) lineEl.value = line_name;
+  }
+
+  // 4. Collect batches from dynamic grid
   const container = document.getElementById("dynamicBatchInputsContainer") || document.getElementById("batchInputGrid");
   const batchCards = container ? container.querySelectorAll(".batch-card-item") : [];
   const batches = [];
+  let sumBatches = 0;
   batchCards.forEach((card, i) => {
     const bName = card.dataset.batchName;
     const input = card.querySelector(".batch-card-input");
     const qty = Number(input ? input.value : 0) || 0;
+    sumBatches += qty;
     if (qty > 0 || !card.classList.contains("is-tail") || batches.length === 0) {
       batches.push({
         id: "b-" + (i + 1),
@@ -2840,11 +2934,51 @@ async function handleAddPO(e) {
     }
   });
 
+  // 5. Validate / Auto-sync PO Plan
+  if (po_plan <= 0 && sumBatches > 0) {
+    po_plan = sumBatches;
+    if (poPlanEl) poPlanEl.value = po_plan;
+    showToast(`💡 Đã tự động cập nhật Tổng Kế Hoạch PO = ${po_plan.toLocaleString('vi-VN')} đôi từ các lô`);
+  } else if (po_plan <= 0 && sumBatches <= 0) {
+    showToast("⚠️ Vui lòng nhập Tổng Kế Hoạch PO hoặc định mức sản lượng các Lô!");
+    if (poPlanEl) {
+      highlightField(poPlanEl);
+      safeScrollIntoView(poPlanEl);
+    }
+    return;
+  }
+
+  // If no batches were collected but plan exists, create default Batch 1
+  if (batches.length === 0) {
+    batches.push({
+      id: "b-1",
+      batch_name: "Lô 1",
+      batch_plan: po_plan,
+      into_sewing: 0
+    });
+  }
+
+  // 6. Submit to API
+  const btnSubmit = document.getElementById("btnSubmitPO");
+  const origBtnText = btnSubmit ? btnSubmit.innerText : "💾 Lưu đơn hàng & cấu hình lô";
+  if (btnSubmit) {
+    btnSubmit.disabled = true;
+    btnSubmit.innerText = "⏳ Đang lưu...";
+  }
+
   try {
     const res = await fetch("/api/orders", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: id || undefined, customer_id, po_number, style_code, line_name, po_plan, default_batches: batches })
+      body: JSON.stringify({
+        id: id || undefined,
+        customer_id,
+        po_number,
+        style_code,
+        line_name,
+        po_plan,
+        default_batches: batches
+      })
     });
     const data = await res.json();
     if (data.success) {
@@ -2853,7 +2987,9 @@ async function handleAddPO(e) {
       await fetchMetadata();
 
       // Ensure the saved or updated PO is active and reload report
-      const savedPO = id ? appState.orders.find(o => o.id === id) : appState.orders.find(o => o.po_number === po_number);
+      const savedPO = id 
+        ? appState.orders.find(o => o.id === id) 
+        : appState.orders.find(o => o.po_number.toLowerCase() === po_number.toLowerCase() && o.customer_id === customer_id);
       if (savedPO) {
         appState.currentPO = savedPO;
         const selPO = document.getElementById("selectPO");
@@ -2861,9 +2997,17 @@ async function handleAddPO(e) {
         loadReport();
         loadDeptLogs();
       }
+      renderOrdersTable(customer_id);
+    } else {
+      alert("Không thể lưu PO: " + (data.error || "Vui lòng thử lại"));
     }
   } catch (err) {
     alert("Lỗi khi lưu PO: " + err.message);
+  } finally {
+    if (btnSubmit) {
+      btnSubmit.disabled = false;
+      btnSubmit.innerText = origBtnText;
+    }
   }
 }
 

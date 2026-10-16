@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@500;600;700;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="styles.css?v=20261016_1000">
+  <link rel="stylesheet" href="styles.css?v=20261016_1630">
   
   <!-- cdn for sheetjs (xlsx) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -496,15 +496,15 @@
             <span class="manage-header-hint">Chọn dòng để lọc PO</span>
           </div>
           <div class="manage-card-body">
-            <form id="formAddCustomer" class="form-grid">
+            <form id="formAddCustomer" class="form-grid" novalidate>
               <input type="hidden" id="editCustId" value="">
               <div class="form-group">
-                <label for="custName">Tên khách hàng / công ty</label>
-                <input type="text" id="custName" class="form-control" placeholder="Ví dụ: Puma Global, Nike, D&amp;D Long An..." required>
+                <label for="custName">Tên khách hàng / công ty <span style="color:#ef4444; font-weight:bold;">*</span></label>
+                <input type="text" id="custName" class="form-control" placeholder="Ví dụ: Puma Global, Nike, D&amp;D Long An...">
               </div>
               <div class="form-group">
-                <label for="custCode">Mã viết tắt</label>
-                <input type="text" id="custCode" class="form-control" placeholder="Ví dụ: PUMA, NIKE, DD..." required>
+                <label for="custCode">Mã viết tắt <span style="color:#ef4444; font-weight:bold;">*</span></label>
+                <input type="text" id="custCode" class="form-control" placeholder="Ví dụ: PUMA, NIKE, DD...">
               </div>
               <div class="form-actions-row">
                 <button type="submit" class="btn btn-primary" id="btnSubmitCust">+ Thêm khách hàng</button>
@@ -537,42 +537,47 @@
             <span class="badge-checker-ok" id="badgeSelectedCustPoCount">0 PO</span>
           </div>
           <div class="manage-card-body">
-            <form id="formAddPO" class="form-grid">
+            <form id="formAddPO" class="form-grid" novalidate>
               <input type="hidden" id="editOrderId" value="">
 
               <div class="form-row-2col">
                 <div class="form-group">
-                  <label for="poCustomerSelect">Khách hàng</label>
-                  <select id="poCustomerSelect" class="form-control" required>
+                  <label for="poCustomerSelect">Khách hàng <span style="color:#ef4444; font-weight:bold;">*</span></label>
+                  <select id="poCustomerSelect" class="form-control font-bold">
                     <!-- Populated dynamically -->
                   </select>
                 </div>
                 <div class="form-group">
-                  <label for="poNumber">Số PO</label>
-                  <input type="text" id="poNumber" class="form-control" placeholder="Ví dụ: PO-050, PO-100..." required>
+                  <label for="poNumber">Số PO / Đơn Hàng <span style="color:#ef4444; font-weight:bold;">*</span></label>
+                  <input type="text" id="poNumber" class="form-control font-bold" placeholder="Ví dụ: PO-050, PO-100...">
                 </div>
               </div>
 
               <div class="form-row-2col">
                 <div class="form-group">
-                  <label for="poStyleCode">Mã hàng (Style)</label>
-                  <input type="text" id="poStyleCode" class="form-control" placeholder="Ví dụ: Style Alpha 050..." required>
+                  <label for="poStyleCode">Mã hàng (Style) <span style="font-weight:normal; color:#64748b; font-size:11px;">(Tùy chọn)</span></label>
+                  <input type="text" id="poStyleCode" class="form-control" placeholder="Tự động theo PO nếu để trống">
                 </div>
                 <div class="form-group">
-                  <label for="poLineName">Chuyền sản xuất</label>
-                  <input type="text" id="poLineName" class="form-control" placeholder="Ví dụ: Chuyền 1 - Xưởng 2..." required>
+                  <label for="poLineName">Chuyền sản xuất <span style="font-weight:normal; color:#64748b; font-size:11px;">(Tùy chọn)</span></label>
+                  <input type="text" id="poLineName" class="form-control" placeholder="Mặc định: Chuyền 1">
                 </div>
               </div>
 
               <div class="form-group">
-                <label for="poPlanTotal">Tổng kế hoạch PO (đôi)</label>
-                <input type="number" id="poPlanTotal" class="form-control font-bold" placeholder="Ví dụ: 1623" required>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                  <label for="poPlanTotal" style="margin:0;">Tổng kế hoạch PO (đôi) <span style="color:#ef4444; font-weight:bold;">*</span></label>
+                  <button type="button" class="btn btn-outline" id="btnAutoSumPlan" style="font-size:11.5px; padding:2px 8px; border-radius:4px; border:1px solid #94a3b8; background:#f8fafc; cursor:pointer;" title="Tính tổng từ các lô bên dưới">
+                    🔄 Lấy tổng các Lô
+                  </button>
+                </div>
+                <input type="number" id="poPlanTotal" class="form-control font-bold" placeholder="Ví dụ: 4582" style="font-size: 15px;">
               </div>
 
               <!-- PHẦN CHỌN SỐ LÔ VÀ NHẬP TỪNG LÔ + SỐ ĐUÔI -->
               <div class="batch-setup-box">
                 <div class="batch-setup-header">
-                  <label for="selectBatchCount" class="font-bold">Cấu hình chia lô sản xuất</label>
+                  <label for="selectBatchCount" class="font-bold">🏷️ Cấu hình chia lô sản xuất</label>
                   <select id="selectBatchCount" class="form-control select-batch-count">
                     <option value="1">1 lô + số đuôi</option>
                     <option value="2" selected>2 lô + số đuôi</option>
@@ -600,8 +605,8 @@
               </div>
 
               <div class="form-actions-row" style="margin-top: 12px;">
-                <button type="submit" class="btn btn-primary" id="btnSubmitPO">Lưu đơn hàng &amp; cấu hình lô</button>
-                <button type="button" class="btn btn-outline" id="btnCancelEditPO" style="display:none;">Hủy chỉnh sửa</button>
+                <button type="submit" class="btn btn-primary font-bold" id="btnSubmitPO" style="padding:10px 20px; font-size:14px;">💾 Lưu đơn hàng &amp; cấu hình lô</button>
+                <button type="button" class="btn btn-outline" id="btnCancelEditPO" style="display:none;">✕ Hủy chỉnh sửa</button>
               </div>
             </form>
 
@@ -956,6 +961,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261016_1000"></script>
+  <script src="app.js?v=20261016_1630"></script>
 </body>
 </html>
