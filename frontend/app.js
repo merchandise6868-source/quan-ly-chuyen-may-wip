@@ -788,6 +788,13 @@ function bindEvents() {
   const btnRefFb = document.getElementById("btnRefreshFactoryBalance");
   if (btnRefFb) btnRefFb.addEventListener("click", () => loadFactoryBalanceData());
 
+  const fbCustSelect = document.getElementById("fbCustomerSelect");
+  if (fbCustSelect) {
+    fbCustSelect.addEventListener("change", (e) => {
+      loadFactoryBalanceData(null, e.target.value);
+    });
+  }
+
   const fbDateInput = document.getElementById("fbReportDate");
   if (fbDateInput) {
     fbDateInput.addEventListener("change", (e) => {
@@ -4751,7 +4758,16 @@ function exportHistoryToExcel() {
 // Vế 1 = Tồn hôm qua (QC + Phối + ĐG + Kho) + TP hôm nay - Xuất hôm nay
 // Vế 2 = Tồn hôm nay (QC + Phối + ĐG + Kho)
 // ========================================================
+// ========================================================
+// CUSTOMER-SPECIFIC BALANCE MODAL (POPUP CÂN ĐỐI THEO KHÁCH HÀNG)
+// Quản lý và đối chiếu tách bạch cho từng khách hàng, không dồn chung
+// Công thức:
+// Vế 1 = Tồn hôm qua (KH này) + TP hôm nay (KH này) - Xuất hôm nay (KH này)
+// Vế 2 = Tồn hôm nay (QC + Phối + ĐG + Kho của KH này)
+// ========================================================
 let factoryBalanceState = {
+  customer_id: "",
+  customer_name: "",
   date: "",
   prev_date: "",
   ton_hom_qua: 0,
@@ -4778,14 +4794,26 @@ async function openFactoryBalanceModal() {
     }
   }
 
+  // Populate Customer Select dropdown with active customers
+  const custSelect = document.getElementById("fbCustomerSelect");
+  if (custSelect && appState.customers && appState.customers.length > 0) {
+    custSelect.innerHTML = appState.customers.map(c => `<option value="${c.id}">${c.name} (${c.code})</option>`).join("");
+    // Default to currently selected customer
+    if (appState.currentCustomer && appState.customers.some(c => c.id === appState.currentCustomer)) {
+      custSelect.value = appState.currentCustomer;
+    } else {
+      custSelect.value = appState.customers[0].id;
+    }
+  }
+
   const targetDate = appState.currentDate || getLocalDateString();
   const dateInput = document.getElementById("fbReportDate");
   if (dateInput) {
     dateInput.value = targetDate;
   }
 
-  // Luôn tính lại từ đầu theo số liệu thực tế mới nhất
-  await loadFactoryBalanceData(targetDate);
+  const targetCustId = (custSelect && custSelect.value) || appState.currentCustomer || "";
+  await loadFactoryBalanceData(targetDate, targetCustId);
 }
 
 function closeFactoryBalanceModal() {
@@ -4816,6 +4844,17 @@ function updateFactoryBalanceDOM() {
     tpInput.value = factoryBalanceState.thanh_pham_hom_nay ? factoryBalanceState.thanh_pham_hom_nay : "";
   }
 
+  // Update hints with Customer Name
+  const cName = factoryBalanceState.customer_name || "khách hàng";
+  const hTonQua = document.getElementById("fbHintTonQua");
+  if (hTonQua) hTonQua.innerText = `4 trạm ${cName} (hôm qua)`;
+  const hTP = document.getElementById("fbHintThanhPham");
+  if (hTP) hTP.innerText = `May xong ${cName} (hôm nay)`;
+  const hXuat = document.getElementById("fbHintXuat");
+  if (hXuat) hXuat.innerText = `Thực xuất ${cName} (hôm nay)`;
+  const hTonNay = document.getElementById("fbHintTonNay");
+  if (hTonNay) hTonNay.innerText = `QC + Phối + ĐG + Kho (${cName})`;
+
   // Display previous date tag (Saturday if Monday)
   const prevBadge = document.getElementById("fbPrevDateBadge");
   if (prevBadge) {
@@ -4835,18 +4874,25 @@ function updateFactoryBalanceDOM() {
   }
 }
 
-async function loadFactoryBalanceData(dateStr) {
+async function loadFactoryBalanceData(dateStr, customerIdStr) {
   const date = dateStr || (document.getElementById("fbReportDate") ? document.getElementById("fbReportDate").value : appState.currentDate);
+  const custSelect = document.getElementById("fbCustomerSelect");
+  const customerId = customerIdStr !== undefined ? customerIdStr : ((custSelect && custSelect.value) || appState.currentCustomer || "");
   if (!date) return;
 
+  const custObj = (appState.customers || []).find(c => c.id === customerId);
+  const custName = custObj ? custObj.name : "Khách hàng";
+
   const resMessage = document.getElementById("fbResMessage");
-  if (resMessage) resMessage.innerText = "⏳ Đang tổng hợp số liệu toàn nhà máy từ máy chủ...";
+  if (resMessage) resMessage.innerText = `⏳ Đang tổng hợp số liệu cho ${custName} từ máy chủ...`;
 
   try {
-    const res = await fetch(`/api/factory-balance?date=${date}`);
+    const res = await fetch(`/api/factory-balance?date=${date}&customer_id=${encodeURIComponent(customerId)}`);
     const data = await res.json();
     if (data.success) {
       factoryBalanceState = {
+        customer_id: customerId,
+        customer_name: custName,
         date: data.date,
         prev_date: data.prev_date,
         ton_hom_qua: Number(data.ton_hom_qua) || 0,
@@ -4865,14 +4911,20 @@ async function loadFactoryBalanceData(dateStr) {
   }
 }
 
-// Tự động làm mới cân đối toàn xưởng ngầm khi người dùng thay đổi dữ liệu báo cáo
+// Tự động làm mới cân đối khách hàng ngầm khi người dùng thay đổi dữ liệu báo cáo
 async function refreshFactoryBalanceInBackground() {
   const targetDate = (document.getElementById("fbReportDate") && document.getElementById("fbReportDate").value) || appState.currentDate || getLocalDateString();
+  const custSelect = document.getElementById("fbCustomerSelect");
+  const customerId = (custSelect && custSelect.value) || appState.currentCustomer || "";
   try {
-    const res = await fetch(`/api/factory-balance?date=${targetDate}`);
+    const res = await fetch(`/api/factory-balance?date=${targetDate}&customer_id=${encodeURIComponent(customerId)}`);
     const data = await res.json();
     if (data && data.success) {
+      const custObj = (appState.customers || []).find(c => c.id === customerId);
+      const custName = custObj ? custObj.name : "Khách hàng";
       factoryBalanceState = {
+        customer_id: customerId,
+        customer_name: custName,
         date: data.date,
         prev_date: data.prev_date,
         ton_hom_qua: Number(data.ton_hom_qua) || 0,
@@ -4899,12 +4951,13 @@ function recalculateFactoryBalanceModal() {
   const tonHomQua = factoryBalanceState.ton_hom_qua || 0;
   const xuatHomNay = factoryBalanceState.xuat_hom_nay || 0;
   const tonHomNay = factoryBalanceState.ton_hom_nay || 0;
+  const custName = factoryBalanceState.customer_name || "khách hàng";
 
   const ve1 = (tonHomQua + (tpVal !== null ? tpVal : 0)) - xuatHomNay;
   const ve2 = tonHomNay;
   const diff = ve1 - ve2;
 
-  // Cập nhật ô thứ 4: Tồn hôm nay (tổng 4 trạm: QC + Phối đôi + Đóng gói + Kho TP của tất cả PO)
+  // Cập nhật ô thứ 4: Tồn hôm nay (tổng 4 trạm: QC + Phối đôi + Đóng gói + Kho TP của khách hàng này)
   const elTonNay = document.getElementById("fbTonHomNay") || document.getElementById("fbVe2Result");
   if (elTonNay) elTonNay.innerText = tonHomNay.toLocaleString("vi-VN");
 
@@ -4917,8 +4970,8 @@ function recalculateFactoryBalanceModal() {
   if (tpVal === null) {
     if (singleBox) singleBox.className = "fb-single-result-card is-pending";
     if (resIcon) resIcon.innerText = "⏳";
-    if (resBadge) resBadge.innerText = "CHỜ NHẬP THÀNH PHẨM HÔM NAY";
-    if (resMessage) resMessage.innerHTML = `Vui lòng nhập <strong>Thành phẩm hôm nay</strong> vào ô màu vàng ở trên để đối chiếu với Tồn hôm nay (4 trạm: <strong>${tonHomNay.toLocaleString("vi-VN")} đôi</strong>).`;
+    if (resBadge) resBadge.innerText = `CHỜ NHẬP THÀNH PHẨM (${custName.toUpperCase()})`;
+    if (resMessage) resMessage.innerHTML = `Vui lòng nhập <strong>Thành phẩm hôm nay</strong> của <strong>${custName}</strong> vào ô màu vàng ở trên để đối chiếu với Tồn hôm nay (4 trạm: <strong>${tonHomNay.toLocaleString("vi-VN")} đôi</strong>).`;
     if (statusBadge) {
       statusBadge.className = "fb-status-badge badge-pending";
       statusBadge.innerText = "⏳ Chờ nhập TP";
@@ -4926,8 +4979,8 @@ function recalculateFactoryBalanceModal() {
   } else if (diff === 0) {
     if (singleBox) singleBox.className = "fb-single-result-card is-balanced";
     if (resIcon) resIcon.innerText = "✅";
-    if (resBadge) resBadge.innerText = "ĐỦ (CÂN ĐỐI 0 ĐÔI)";
-    if (resMessage) resMessage.innerHTML = `🎉 <strong>HỆ THỐNG CÂN ĐỐI TUYỆT ĐỐI (0 ĐÔI):</strong><br>Vế tính luân chuyển [Tồn qua (${tonHomQua.toLocaleString("vi-VN")}) + TP (${tpVal.toLocaleString("vi-VN")}) - Xuất (${xuatHomNay.toLocaleString("vi-VN")})] = <strong>${ve1.toLocaleString("vi-VN")} đôi</strong>, KHỚP HOÀN TOÀN với Tồn hôm nay (4 trạm: <strong>${ve2.toLocaleString("vi-VN")} đôi</strong>)!`;
+    if (resBadge) resBadge.innerText = `ĐỦ (CÂN ĐỐI 0 ĐÔI - ${custName.toUpperCase()})`;
+    if (resMessage) resMessage.innerHTML = `🎉 <strong>${custName.toUpperCase()} CÂN ĐỐI TUYỆT ĐỐI (0 ĐÔI):</strong><br>Vế luân chuyển [Tồn qua (${tonHomQua.toLocaleString("vi-VN")}) + TP (${tpVal.toLocaleString("vi-VN")}) − Xuất (${xuatHomNay.toLocaleString("vi-VN")})] = <strong>${ve1.toLocaleString("vi-VN")} đôi</strong>, KHỚP HOÀN TOÀN với Tồn hôm nay (4 trạm: <strong>${ve2.toLocaleString("vi-VN")} đôi</strong>)!`;
     if (statusBadge) {
       statusBadge.className = "fb-status-badge badge-balanced";
       statusBadge.innerText = "✅ Cân đối (0 đôi)";
@@ -4935,8 +4988,8 @@ function recalculateFactoryBalanceModal() {
   } else if (diff > 0) {
     if (singleBox) singleBox.className = "fb-single-result-card is-short";
     if (resIcon) resIcon.innerText = "⚠️";
-    if (resBadge) resBadge.innerText = `THIẾU ${diff.toLocaleString("vi-VN")} ĐÔI`;
-    if (resMessage) resMessage.innerHTML = `⚠️ <strong>THIẾU HỤT ${diff.toLocaleString("vi-VN")} ĐÔI:</strong><br>Vế tính luân chuyển [Tồn qua + TP - Xuất] là <strong>${ve1.toLocaleString("vi-VN")} đôi</strong>, nhưng Tồn hôm nay (4 trạm) chỉ có <strong>${ve2.toLocaleString("vi-VN")} đôi</strong> (Lệch thiếu ${diff.toLocaleString("vi-VN")} đôi).`;
+    if (resBadge) resBadge.innerText = `THIẾU ${diff.toLocaleString("vi-VN")} ĐÔI (${custName.toUpperCase()})`;
+    if (resMessage) resMessage.innerHTML = `⚠️ <strong>${custName.toUpperCase()} THIẾU HỤT ${diff.toLocaleString("vi-VN")} ĐÔI:</strong><br>Vế luân chuyển [Tồn qua + TP − Xuất] là <strong>${ve1.toLocaleString("vi-VN")} đôi</strong>, nhưng Tồn hôm nay (4 trạm) chỉ có <strong>${ve2.toLocaleString("vi-VN")} đôi</strong> (Lệch thiếu ${diff.toLocaleString("vi-VN")} đôi).`;
     if (statusBadge) {
       statusBadge.className = "fb-status-badge badge-unbalanced";
       statusBadge.innerText = `⚠️ Thiếu ${diff.toLocaleString("vi-VN")} đôi`;
@@ -4945,8 +4998,8 @@ function recalculateFactoryBalanceModal() {
     const absDiff = Math.abs(diff);
     if (singleBox) singleBox.className = "fb-single-result-card is-surplus";
     if (resIcon) resIcon.innerText = "ℹ️";
-    if (resBadge) resBadge.innerText = `DƯ ${absDiff.toLocaleString("vi-VN")} ĐÔI`;
-    if (resMessage) resMessage.innerHTML = `ℹ️ <strong>DƯ THỪA ${absDiff.toLocaleString("vi-VN")} ĐÔI:</strong><br>Vế tính luân chuyển [Tồn qua + TP - Xuất] là <strong>${ve1.toLocaleString("vi-VN")} đôi</strong>, nhưng Tồn hôm nay (4 trạm) ghi nhận <strong>${ve2.toLocaleString("vi-VN")} đôi</strong> (Lệch thừa ${absDiff.toLocaleString("vi-VN")} đôi).`;
+    if (resBadge) resBadge.innerText = `DƯ ${absDiff.toLocaleString("vi-VN")} ĐÔI (${custName.toUpperCase()})`;
+    if (resMessage) resMessage.innerHTML = `ℹ️ <strong>${custName.toUpperCase()} DƯ THỪA ${absDiff.toLocaleString("vi-VN")} ĐÔI:</strong><br>Vế luân chuyển [Tồn qua + TP − Xuất] là <strong>${ve1.toLocaleString("vi-VN")} đôi</strong>, nhưng Tồn hôm nay (4 trạm) ghi nhận <strong>${ve2.toLocaleString("vi-VN")} đôi</strong> (Lệch thừa ${absDiff.toLocaleString("vi-VN")} đôi).`;
     if (statusBadge) {
       statusBadge.className = "fb-status-badge badge-unbalanced";
       statusBadge.innerText = `ℹ️ Dư ${absDiff.toLocaleString("vi-VN")} đôi`;
@@ -4957,6 +5010,9 @@ function recalculateFactoryBalanceModal() {
 async function saveFactoryFinishedGoods() {
   const dateInput = document.getElementById("fbReportDate");
   const date = dateInput ? dateInput.value : appState.currentDate;
+  const custSelect = document.getElementById("fbCustomerSelect");
+  const customerId = factoryBalanceState.customer_id || (custSelect ? custSelect.value : appState.currentCustomer) || "";
+  const custName = factoryBalanceState.customer_name || "Khách hàng";
   const tpInput = document.getElementById("fbThanhPhamInput");
   const val = tpInput ? (Number(tpInput.value) || 0) : 0;
 
@@ -4964,16 +5020,16 @@ async function saveFactoryFinishedGoods() {
     const res = await fetch("/api/factory-balance", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ date, daily_finished: val })
+      body: JSON.stringify({ date, customer_id: customerId, daily_finished: val })
     });
     const data = await res.json();
     if (data.success) {
       factoryBalanceState.thanh_pham_hom_nay = val;
-      showToast(`💾 Đã lưu thành phẩm toàn xưởng ngày ${date}: ${val.toLocaleString("vi-VN")} đôi!`);
+      showToast(`💾 Đã lưu thành phẩm ${custName} ngày ${date}: ${val.toLocaleString("vi-VN")} đôi!`);
       recalculateFactoryBalanceModal();
     }
   } catch (err) {
-    console.error("Save Factory Finished Goods Error:", err);
+    console.error("Save Customer Finished Goods Error:", err);
     showToast("⚠️ Lỗi lưu thành phẩm: " + err.message, "error");
   }
 }

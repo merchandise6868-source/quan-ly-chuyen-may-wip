@@ -880,21 +880,33 @@
       <div class="modal-header modal-factory-balance-hdr">
         <div class="fb-hdr-left">
           <div>
-            <h3 class="fb-hdr-title">Kiểm tra cân đối toàn nhà máy</h3>
-            <div class="fb-hdr-sub">Tổng hợp tất cả đơn hàng PO phát sinh trong ngày</div>
+            <h3 class="fb-hdr-title">Kiểm tra cân đối theo khách hàng</h3>
+            <div class="fb-hdr-sub">Đối chiếu luân chuyển tách bạch từng khách hàng (Tồn qua + TP − Xuất = Tồn hôm nay)</div>
           </div>
         </div>
         <button type="button" class="btn-close-modal" id="btnCloseFactoryBalanceModal" title="Đóng">✕</button>
       </div>
 
       <div class="modal-body fb-modal-body">
-        <!-- Date Selector & Source Info Row -->
-        <div class="fb-date-row">
-          <div class="fb-date-picker-wrap">
-            <span class="fb-date-lbl">Ngày kiểm tra</span>
-            <input type="date" id="fbReportDate" class="fb-date-input">
-            <span class="fb-prev-date-badge" id="fbPrevDateBadge" title="Nguồn số liệu tồn trước đó">Tồn qua: --</span>
+        <!-- Date Selector & Customer Selector Row -->
+        <div class="fb-date-row" style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between;">
+          <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+            <!-- Customer Selector -->
+            <div class="fb-cust-picker-wrap" style="display: flex; align-items: center; gap: 6px;">
+              <span class="fb-date-lbl" style="font-weight: 700; color: #1e293b;">Khách hàng:</span>
+              <select id="fbCustomerSelect" class="form-control" style="font-weight: 700; border: 2px solid #2563eb; border-radius: 8px; padding: 6px 12px; background: #eff6ff; color: #1d4ed8; min-width: 170px;">
+                <!-- Populated dynamically with customers -->
+              </select>
+            </div>
+
+            <!-- Date Selector -->
+            <div class="fb-date-picker-wrap">
+              <span class="fb-date-lbl">Ngày kiểm tra:</span>
+              <input type="date" id="fbReportDate" class="fb-date-input">
+              <span class="fb-prev-date-badge" id="fbPrevDateBadge" title="Nguồn số liệu tồn trước đó">Tồn qua: --</span>
+            </div>
           </div>
+
           <div class="fb-status-badge-wrap">
             <span class="fb-status-badge badge-pending" id="fbStatusBadge">Chờ nhập TP</span>
           </div>
@@ -910,7 +922,7 @@
             <div class="fb-calc-item fb-item-calc">
               <span class="fb-ci-label">Tồn hôm qua</span>
               <span class="fb-ci-val text-blue font-black" id="fbTonHomQua">0</span>
-              <span class="fb-ci-hint">Hệ thống tự tính</span>
+              <span class="fb-ci-hint" id="fbHintTonQua">4 trạm KH này (hôm qua)</span>
             </div>
 
             <div class="fb-calc-op">+</div>
@@ -918,8 +930,8 @@
             <!-- 2. Thành phẩm hôm nay (1 ô cho nhập) -->
             <div class="fb-calc-item fb-item-input">
               <span class="fb-ci-label font-bold text-amber-900">Thành phẩm hôm nay</span>
-              <input type="number" id="fbThanhPhamInput" class="fb-minimal-input" placeholder="Nhập TP" title="Nhập thành phẩm hôm nay của tất cả PO">
-              <span class="fb-ci-hint text-amber-700">Nhập để đối chiếu</span>
+              <input type="number" id="fbThanhPhamInput" class="fb-minimal-input" placeholder="Nhập TP" title="Nhập thành phẩm may xong trong ngày của khách hàng này">
+              <span class="fb-ci-hint text-amber-700" id="fbHintThanhPham">May xong KH này (hôm nay)</span>
             </div>
 
             <div class="fb-calc-op">−</div>
@@ -928,16 +940,16 @@
             <div class="fb-calc-item fb-item-calc">
               <span class="fb-ci-label">Xuất hôm nay</span>
               <span class="fb-ci-val text-rose font-black" id="fbXuatHomNay">0</span>
-              <span class="fb-ci-hint">Hệ thống tự cộng</span>
+              <span class="fb-ci-hint" id="fbHintXuat">Thực xuất KH này (hôm nay)</span>
             </div>
 
             <div class="fb-calc-op">=</div>
 
-            <!-- 4. Tồn hôm nay (QC + Phối đôi + Đóng gói + Kho TP của tất cả PO) -->
+            <!-- 4. Tồn hôm nay (QC + Phối đôi + Đóng gói + Kho TP của khách hàng này) -->
             <div class="fb-calc-item fb-item-calc fb-item-total">
               <span class="fb-ci-label text-teal-900 font-bold">Tồn hôm nay</span>
               <span class="fb-ci-val text-teal-700 font-black" id="fbTonHomNay">0</span>
-              <span class="fb-ci-hint text-teal-800">QC + Phối + ĐG + Kho TP</span>
+              <span class="fb-ci-hint text-teal-800" id="fbHintTonNay">QC + Phối + ĐG + Kho (KH này)</span>
             </div>
 
           </div>
@@ -961,6 +973,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261016_1808"></script>
+  <script src="app.js?v=20261016_1836"></script>
 </body>
 </html>

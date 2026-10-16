@@ -2023,9 +2023,10 @@ export default {
         }
       }
 
-      // Factory-wide Balance API (Popup Cân Đối Toàn Nhà Máy)
+      // Customer-specific & Factory-wide Balance API (Popup Cân Đối Theo Khách Hàng)
       if (url.pathname === '/api/factory-balance' && request.method === 'GET') {
         const date = url.searchParams.get('date') || new Date().toISOString().split('T')[0];
+        const customerId = url.searchParams.get('customer_id') || '';
 
         try {
           let prevDate = null;
@@ -2034,91 +2035,145 @@ export default {
           let xuatHomNay = 0;
           let tonHomNay = 0;
           let thanhPhamHomNay = 0;
+          let sumQc = 0, sumPairing = 0, sumPacking = 0, sumWarehouse = 0;
 
           if (env && env.DB) {
-            // Find all prior report dates in DB
-            const { results: priorDatesRaw } = await env.DB.prepare(
-              "SELECT DISTINCT report_date FROM report_batches WHERE report_date < ? ORDER BY report_date DESC"
-            ).bind(date).all();
-            const availablePriorDates = (priorDatesRaw || []).map(r => r.report_date);
-            const dateInfo = getPreviousWorkingDateInfo(date, availablePriorDates);
-            prevDate = dateInfo.actualDate;
-            targetDate = dateInfo.targetDate;
-
-            // 1. Tồn hôm qua của tất cả PO phát sinh: QC + Phối đôi + Đóng gói + Kho TP
-            if (prevDate) {
-              const { results: prevSum } = await env.DB.prepare(`
-                SELECT SUM(COALESCE(wip_qc, 0) + COALESCE(wip_pairing, 0) + COALESCE(wip_packing, 0) + COALESCE(wip_warehouse, 0)) as total_prev_wip
-                FROM report_batches
-                WHERE report_date = ?
-              `).bind(prevDate).all();
-              tonHomQua = (prevSum && prevSum[0] && Number(prevSum[0].total_prev_wip)) || 0;
-            }
-
-            // 2. Xuất hôm nay của tất cả PO phát sinh
-            const { results: outSum } = await env.DB.prepare(`
-              SELECT SUM(COALESCE(daily_out, 0)) as total_today_out
-              FROM report_batches
-              WHERE report_date = ?
-            `).bind(date).all();
-            xuatHomNay = (outSum && outSum[0] && Number(outSum[0].total_today_out)) || 0;
-
-            // 3. Tồn hôm nay của tất cả PO phát sinh: QC + Phối đôi + Đóng gói + Kho TP
-            const { results: todayWipSum } = await env.DB.prepare(`
-              SELECT 
-                SUM(COALESCE(wip_qc, 0)) as sum_qc,
-                SUM(COALESCE(wip_pairing, 0)) as sum_pairing,
-                SUM(COALESCE(wip_packing, 0)) as sum_packing,
-                SUM(COALESCE(wip_warehouse, 0)) as sum_warehouse,
-                SUM(COALESCE(wip_qc, 0) + COALESCE(wip_pairing, 0) + COALESCE(wip_packing, 0) + COALESCE(wip_warehouse, 0)) as total_today_wip
-              FROM report_batches
-              WHERE report_date = ?
-            `).bind(date).all();
-            tonHomNay = (todayWipSum && todayWipSum[0] && Number(todayWipSum[0].total_today_wip)) || 0;
-
-            // 4. Thành phẩm hôm nay (nhập trong bảng daily_factory_summary)
-            const { results: finishedSum } = await env.DB.prepare(`
-              SELECT daily_finished FROM daily_factory_summary WHERE report_date = ?
-            `).bind(date).all();
-            if (finishedSum && finishedSum.length > 0) {
-              thanhPhamHomNay = Number(finishedSum[0].daily_finished) || 0;
-            } else {
-              // Fallback to sum of daily_finished in report_batches if any
-              const { results: rbFinished } = await env.DB.prepare(`
-                SELECT SUM(COALESCE(daily_finished, 0)) as sum_finished FROM report_batches WHERE report_date = ?
-              `).bind(date).all();
-              thanhPhamHomNay = (rbFinished && rbFinished[0] && Number(rbFinished[0].sum_finished)) || 0;
-            }
-
-            return Response.json({
-              success: true,
-              date,
-              prev_date: prevDate || targetDate,
-              ton_hom_qua: tonHomQua,
-              thanh_pham_hom_nay: thanhPhamHomNay,
-              xuat_hom_nay: xuatHomNay,
-              ton_hom_nay: tonHomNay,
-              details_today: {
-                qc: (todayWipSum && todayWipSum[0] && Number(todayWipSum[0].sum_qc)) || 0,
-                pairing: (todayWipSum && todayWipSum[0] && Number(todayWipSum[0].sum_pairing)) || 0,
-                packing: (todayWipSum && todayWipSum[0] && Number(todayWipSum[0].sum_packing)) || 0,
-                warehouse: (todayWipSum && todayWipSum[0] && Number(todayWipSum[0].sum_warehouse)) || 0
+            try {
+              let poIds = [];
+              if (customerId) {
+                const { results: custOrders } = await env.DB.prepare(
+                  "SELECT id, po_number FROM po_orders WHERE customer_id = ?"
+                ).bind(customerId).all();
+                poIds = [...new Set((custOrders || []).flatMap(o => [o.id, o.po_number]).filter(Boolean))];
               }
-            }, { headers });
+
+              if (customerId && poIds.length === 0) {
+                return Response.json({
+                  success: true,
+                  customer_id: customerId,
+                  date,
+                  prev_date: null,
+                  ton_hom_qua: 0,
+                  thanh_pham_hom_nay: 0,
+                  xuat_hom_nay: 0,
+                  ton_hom_nay: 0,
+                  details_today: { qc: 0, pairing: 0, packing: 0, warehouse: 0 }
+                }, { headers });
+              }
+
+              const hasPoFilter = poIds.length > 0;
+              const placeholders = hasPoFilter ? poIds.map(() => '?').join(',') : '';
+
+              // Find prior report dates
+              const priorSql = hasPoFilter
+                ? `SELECT DISTINCT report_date FROM report_batches WHERE po_id IN (${placeholders}) AND report_date < ? ORDER BY report_date DESC`
+                : "SELECT DISTINCT report_date FROM report_batches WHERE report_date < ? ORDER BY report_date DESC";
+              const priorBindings = hasPoFilter ? [...poIds, date] : [date];
+              const { results: priorDatesRaw } = await env.DB.prepare(priorSql).bind(...priorBindings).all();
+              const availablePriorDates = (priorDatesRaw || []).map(r => r.report_date);
+              const dateInfo = getPreviousWorkingDateInfo(date, availablePriorDates);
+              prevDate = dateInfo.actualDate;
+              targetDate = dateInfo.targetDate;
+
+              // 1. Tồn hôm qua (chỉ của khách hàng này): QC + Phối đôi + Đóng gói + Kho TP
+              if (prevDate) {
+                const prevSql = hasPoFilter
+                  ? `SELECT SUM(COALESCE(wip_qc, 0) + COALESCE(wip_pairing, 0) + COALESCE(wip_packing, 0) + COALESCE(wip_warehouse, 0)) as total_prev_wip FROM report_batches WHERE po_id IN (${placeholders}) AND report_date = ?`
+                  : `SELECT SUM(COALESCE(wip_qc, 0) + COALESCE(wip_pairing, 0) + COALESCE(wip_packing, 0) + COALESCE(wip_warehouse, 0)) as total_prev_wip FROM report_batches WHERE report_date = ?`;
+                const prevBindings = hasPoFilter ? [...poIds, prevDate] : [prevDate];
+                const { results: prevSum } = await env.DB.prepare(prevSql).bind(...prevBindings).all();
+                tonHomQua = (prevSum && prevSum[0] && Number(prevSum[0].total_prev_wip)) || 0;
+              }
+
+              // 2. Xuất hôm nay (chỉ của khách hàng này)
+              const outSql = hasPoFilter
+                ? `SELECT SUM(COALESCE(daily_out, 0)) as total_today_out FROM report_batches WHERE po_id IN (${placeholders}) AND report_date = ?`
+                : `SELECT SUM(COALESCE(daily_out, 0)) as total_today_out FROM report_batches WHERE report_date = ?`;
+              const outBindings = hasPoFilter ? [...poIds, date] : [date];
+              const { results: outSum } = await env.DB.prepare(outSql).bind(...outBindings).all();
+              xuatHomNay = (outSum && outSum[0] && Number(outSum[0].total_today_out)) || 0;
+
+              // 3. Tồn hôm nay (chỉ của khách hàng này): QC + Phối đôi + Đóng gói + Kho TP
+              const wipSql = hasPoFilter
+                ? `SELECT SUM(COALESCE(wip_qc, 0)) as sum_qc, SUM(COALESCE(wip_pairing, 0)) as sum_pairing, SUM(COALESCE(wip_packing, 0)) as sum_packing, SUM(COALESCE(wip_warehouse, 0)) as sum_warehouse, SUM(COALESCE(wip_qc, 0) + COALESCE(wip_pairing, 0) + COALESCE(wip_packing, 0) + COALESCE(wip_warehouse, 0)) as total_today_wip FROM report_batches WHERE po_id IN (${placeholders}) AND report_date = ?`
+                : `SELECT SUM(COALESCE(wip_qc, 0)) as sum_qc, SUM(COALESCE(wip_pairing, 0)) as sum_pairing, SUM(COALESCE(wip_packing, 0)) as sum_packing, SUM(COALESCE(wip_warehouse, 0)) as sum_warehouse, SUM(COALESCE(wip_qc, 0) + COALESCE(wip_pairing, 0) + COALESCE(wip_packing, 0) + COALESCE(wip_warehouse, 0)) as total_today_wip FROM report_batches WHERE report_date = ?`;
+              const wipBindings = hasPoFilter ? [...poIds, date] : [date];
+              const { results: todayWipSum } = await env.DB.prepare(wipSql).bind(...wipBindings).all();
+              tonHomNay = (todayWipSum && todayWipSum[0] && Number(todayWipSum[0].total_today_wip)) || 0;
+              sumQc = (todayWipSum && todayWipSum[0] && Number(todayWipSum[0].sum_qc)) || 0;
+              sumPairing = (todayWipSum && todayWipSum[0] && Number(todayWipSum[0].sum_pairing)) || 0;
+              sumPacking = (todayWipSum && todayWipSum[0] && Number(todayWipSum[0].sum_packing)) || 0;
+              sumWarehouse = (todayWipSum && todayWipSum[0] && Number(todayWipSum[0].sum_warehouse)) || 0;
+
+              // 4. Thành phẩm hôm nay (theo khách hàng)
+              const custKey = `${customerId || 'all'}_${date}`;
+              if (memoryDB.daily_customer_summary && memoryDB.daily_customer_summary[custKey] !== undefined) {
+                thanhPhamHomNay = Number(memoryDB.daily_customer_summary[custKey]) || 0;
+              } else {
+                try {
+                  if (customerId) {
+                    const { results: cSum } = await env.DB.prepare(
+                      "SELECT daily_finished FROM daily_customer_summary WHERE customer_id = ? AND report_date = ?"
+                    ).bind(customerId, date).all();
+                    if (cSum && cSum.length > 0) {
+                      thanhPhamHomNay = Number(cSum[0].daily_finished) || 0;
+                    }
+                  } else {
+                    const { results: finishedSum } = await env.DB.prepare(
+                      "SELECT daily_finished FROM daily_factory_summary WHERE report_date = ?"
+                    ).bind(date).all();
+                    if (finishedSum && finishedSum.length > 0) {
+                      thanhPhamHomNay = Number(finishedSum[0].daily_finished) || 0;
+                    }
+                  }
+                } catch (e) {}
+
+                if (!thanhPhamHomNay && hasPoFilter) {
+                  const { results: rbFinished } = await env.DB.prepare(
+                    `SELECT SUM(COALESCE(daily_finished, 0)) as sum_finished FROM report_batches WHERE po_id IN (${placeholders}) AND report_date = ?`
+                  ).bind(...poIds, date).all();
+                  thanhPhamHomNay = (rbFinished && rbFinished[0] && Number(rbFinished[0].sum_finished)) || 0;
+                }
+              }
+
+              return Response.json({
+                success: true,
+                customer_id: customerId,
+                date,
+                prev_date: prevDate || targetDate,
+                ton_hom_qua: tonHomQua,
+                thanh_pham_hom_nay: thanhPhamHomNay,
+                xuat_hom_nay: xuatHomNay,
+                ton_hom_nay: tonHomNay,
+                details_today: { qc: sumQc, pairing: sumPairing, packing: sumPacking, warehouse: sumWarehouse }
+              }, { headers });
+            } catch (d1Err) {
+              console.warn("D1 Factory-balance notice:", d1Err.message);
+            }
           }
 
           // In-memory fallback
-          if (!memoryDB.daily_factory_summary) memoryDB.daily_factory_summary = {};
-          thanhPhamHomNay = Number(memoryDB.daily_factory_summary[date]) || 0;
+          const custKey = `${customerId || 'all'}_${date}`;
+          if (memoryDB.daily_customer_summary && memoryDB.daily_customer_summary[custKey] !== undefined) {
+            thanhPhamHomNay = Number(memoryDB.daily_customer_summary[custKey]) || 0;
+          } else if (!customerId && memoryDB.daily_factory_summary && memoryDB.daily_factory_summary[date] !== undefined) {
+            thanhPhamHomNay = Number(memoryDB.daily_factory_summary[date]) || 0;
+          }
 
-          const allDates = [...new Set(Object.values(memoryDB.reports).map(r => r.report_date))].filter(d => d < date).sort();
+          const custOrders = (memoryDB.orders || []).filter(o => !customerId || o.customer_id === customerId);
+          const poIds = custOrders.flatMap(o => [o.id, o.po_number].filter(Boolean));
+
+          const allRepKeys = Object.keys(memoryDB.reports || {});
+          const custReports = allRepKeys
+            .map(k => memoryDB.reports[k])
+            .filter(r => r && (!customerId || poIds.includes(r.po_id)));
+
+          const allDates = [...new Set(custReports.map(r => r.report_date))].filter(d => d < date).sort();
           const dateInfo = getPreviousWorkingDateInfo(date, allDates);
           prevDate = dateInfo.actualDate;
           targetDate = dateInfo.targetDate;
 
-          let sumQc = 0, sumPairing = 0, sumPacking = 0, sumWarehouse = 0;
-
-          Object.values(memoryDB.reports).forEach(r => {
+          custReports.forEach(r => {
             if (r.report_date === prevDate) {
               (r.batches || []).forEach(b => {
                 tonHomQua += (Number(b.wip_qc) || 0) + (Number(b.wip_pairing) || 0) + (Number(b.wip_packing) || 0) + (Number(b.wip_warehouse) || 0);
@@ -2139,6 +2194,7 @@ export default {
 
           return Response.json({
             success: true,
+            customer_id: customerId,
             date,
             prev_date: prevDate || targetDate,
             ton_hom_qua: tonHomQua,
@@ -2152,28 +2208,60 @@ export default {
         }
       }
 
-      // Save Factory-wide Finished Goods API (Lưu Thành Phẩm Hôm Nay)
+      // Save Customer-specific Finished Goods API (Lưu Thành Phẩm Hôm Nay Theo Khách Hàng)
       if (url.pathname === '/api/factory-balance' && request.method === 'POST') {
         try {
           const body = await request.json();
-          const { date, daily_finished } = body;
+          const { date, customer_id, daily_finished } = body;
           if (!date) {
             return Response.json({ success: false, error: "Thiếu thông tin ngày báo cáo" }, { status: 400, headers });
           }
           const finishedVal = Number(daily_finished) || 0;
+          const custKey = `${customer_id || 'all'}_${date}`;
 
-          if (env && env.DB) {
-            await env.DB.prepare(`
-              INSERT INTO daily_factory_summary (report_date, daily_finished, updated_at)
-              VALUES (?, ?, CURRENT_TIMESTAMP)
-              ON CONFLICT(report_date) DO UPDATE SET daily_finished = excluded.daily_finished, updated_at = CURRENT_TIMESTAMP
-            `).bind(date, finishedVal).run();
-            return Response.json({ success: true, message: "Đã lưu thành phẩm toàn nhà máy vào CSDL D1", date, daily_finished: finishedVal }, { headers });
+          if (!memoryDB.daily_customer_summary) memoryDB.daily_customer_summary = {};
+          memoryDB.daily_customer_summary[custKey] = finishedVal;
+          if (!customer_id) {
+            if (!memoryDB.daily_factory_summary) memoryDB.daily_factory_summary = {};
+            memoryDB.daily_factory_summary[date] = finishedVal;
           }
 
-          if (!memoryDB.daily_factory_summary) memoryDB.daily_factory_summary = {};
-          memoryDB.daily_factory_summary[date] = finishedVal;
-          return Response.json({ success: true, message: "Đã lưu thành phẩm vào bộ nhớ", date, daily_finished: finishedVal }, { headers });
+          if (env && env.DB) {
+            try {
+              if (customer_id) {
+                await env.DB.prepare(`
+                  CREATE TABLE IF NOT EXISTS daily_customer_summary (
+                    id TEXT PRIMARY KEY,
+                    customer_id TEXT NOT NULL,
+                    report_date TEXT NOT NULL,
+                    daily_finished INTEGER DEFAULT 0,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                  )
+                `).run();
+                await env.DB.prepare(`
+                  INSERT INTO daily_customer_summary (id, customer_id, report_date, daily_finished, updated_at)
+                  VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+                  ON CONFLICT(id) DO UPDATE SET daily_finished = excluded.daily_finished, updated_at = CURRENT_TIMESTAMP
+                `).bind(custKey, customer_id, date, finishedVal).run();
+              } else {
+                await env.DB.prepare(`
+                  INSERT INTO daily_factory_summary (report_date, daily_finished, updated_at)
+                  VALUES (?, ?, CURRENT_TIMESTAMP)
+                  ON CONFLICT(report_date) DO UPDATE SET daily_finished = excluded.daily_finished, updated_at = CURRENT_TIMESTAMP
+                `).bind(date, finishedVal).run();
+              }
+            } catch (dbErr) {
+              console.warn("DB save finished notice:", dbErr.message);
+            }
+          }
+
+          return Response.json({
+            success: true,
+            message: "Đã lưu thành phẩm theo khách hàng thành công",
+            customer_id,
+            date,
+            daily_finished: finishedVal
+          }, { headers });
         } catch (err) {
           return Response.json({ success: false, error: err.message }, { status: 400, headers });
         }
