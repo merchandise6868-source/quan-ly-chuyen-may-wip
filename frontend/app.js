@@ -473,6 +473,13 @@ function bindEvents() {
         }
       }
       appState.currentDate = e.target.value;
+      const mobInput = document.getElementById("reportDateMobile");
+      if (mobInput) mobInput.value = e.target.value;
+      const mobDisp = document.getElementById("mobileDateDisplay");
+      if (mobDisp && e.target.value) {
+        const p = e.target.value.split("-");
+        if (p.length === 3) mobDisp.innerText = `${p[2]}/${p[1]}/${p[0]}`;
+      }
       await refreshAllTabsData();
     });
   }
@@ -824,6 +831,11 @@ function bindEvents() {
   const dateMob = document.getElementById("reportDateMobile");
   if (dateMob) {
     dateMob.addEventListener("change", (e) => {
+      const mobDisp = document.getElementById("mobileDateDisplay");
+      if (mobDisp && e.target.value) {
+        const p = e.target.value.split("-");
+        if (p.length === 3) mobDisp.innerText = `${p[2]}/${p[1]}/${p[0]}`;
+      }
       const repD = document.getElementById("reportDate");
       if (repD) {
         repD.value = e.target.value;
@@ -1039,6 +1051,37 @@ async function loadReport() {
       appState.prevDayWipByBatch = data.prevDayWipByBatch || {};
       appState.prevReportDate = data.prevReportDate || "";
 
+      // Kiểm tra thêm bộ nhớ cục bộ trên điện thoại (localStorage) để không bao giờ bị "duột" xuất/nhập tích luỹ từ ngày trước:
+      try {
+        const poKeyPrefix = `dd_report_${poId}_`;
+        const altPoKeyPrefix = appState.currentPO && appState.currentPO.po_number ? `dd_report_${appState.currentPO.po_number}_` : null;
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && (k.startsWith(poKeyPrefix) || (altPoKeyPrefix && k.startsWith(altPoKeyPrefix)))) {
+            const kDate = k.replace(poKeyPrefix, "").replace(altPoKeyPrefix || "___", "");
+            if (kDate && kDate < date) {
+              const prevCached = JSON.parse(localStorage.getItem(k) || "{}");
+              if (prevCached && prevCached.batches) {
+                prevCached.batches.forEach(b => {
+                  const bName = b.batch_name;
+                  const bTrim = bName ? bName.trim() : "";
+                  const bOut = Math.max(Number(b.daily_out) || 0, Number(b.delivered) || 0);
+                  const bIn = Number(b.into_sewing) || 0;
+                  if (bOut > 0 && (!appState.cumExportsByBatch[bName] || appState.cumExportsByBatch[bName] === 0)) {
+                    appState.cumExportsByBatch[bName] = bOut;
+                    if (bTrim) appState.cumExportsByBatch[bTrim] = bOut;
+                  }
+                  if (bIn > 0 && (!appState.cumImportsByBatch[bName] || appState.cumImportsByBatch[bName] === 0)) {
+                    appState.cumImportsByBatch[bName] = bIn;
+                    if (bTrim) appState.cumImportsByBatch[bTrim] = bIn;
+                  }
+                });
+              }
+            }
+          }
+        }
+      } catch (locErr) {}
+
       // Kiểm tra dữ liệu: Nếu server trả về danh sách lô rỗng hoặc các ô đều là 0,
       // trong khi bộ nhớ cache trên điện thoại đã có dữ liệu người dùng nhập:
       const checkHasData = (rep) => {
@@ -1162,6 +1205,38 @@ async function loadReport() {
     }
   } catch (err) {
     console.error("Lỗi tải báo cáo từ máy chủ, kiểm tra cache nội bộ:", err);
+    try {
+      const poKeyPrefix = `dd_report_${poId}_`;
+      const altPoKeyPrefix = appState.currentPO && appState.currentPO.po_number ? `dd_report_${appState.currentPO.po_number}_` : null;
+      appState.cumExportsByBatch = appState.cumExportsByBatch || {};
+      appState.cumImportsByBatch = appState.cumImportsByBatch || {};
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && (k.startsWith(poKeyPrefix) || (altPoKeyPrefix && k.startsWith(altPoKeyPrefix)))) {
+          const kDate = k.replace(poKeyPrefix, "").replace(altPoKeyPrefix || "___", "");
+          if (kDate && kDate < date) {
+            const prevCached = JSON.parse(localStorage.getItem(k) || "{}");
+            if (prevCached && prevCached.batches) {
+              prevCached.batches.forEach(b => {
+                const bName = b.batch_name;
+                const bTrim = bName ? bName.trim() : "";
+                const bOut = Math.max(Number(b.daily_out) || 0, Number(b.delivered) || 0);
+                const bIn = Number(b.into_sewing) || 0;
+                if (bOut > 0) {
+                  appState.cumExportsByBatch[bName] = (appState.cumExportsByBatch[bName] || 0) + bOut;
+                  if (bTrim) appState.cumExportsByBatch[bTrim] = (appState.cumExportsByBatch[bTrim] || 0) + bOut;
+                }
+                if (bIn > 0) {
+                  appState.cumImportsByBatch[bName] = (appState.cumImportsByBatch[bName] || 0) + bIn;
+                  if (bTrim) appState.cumImportsByBatch[bTrim] = (appState.cumImportsByBatch[bTrim] || 0) + bIn;
+                }
+              });
+            }
+          }
+        }
+      }
+    } catch (e) {}
+
     if (localCache && localCache.batches && localCache.batches.length > 0) {
       appState.report = localCache;
       appState.hasUnsavedChanges = false;
@@ -1182,6 +1257,20 @@ function renderReportUI() {
   document.getElementById("summaryDateVal").innerText = formatDateDisplay(appState.currentDate);
   document.getElementById("summaryPoNum").innerText = poNum;
   document.getElementById("summaryPoPlan").innerText = poPlan.toLocaleString("vi-VN");
+
+  const mobDisp = document.getElementById("mobileDateDisplay");
+  if (mobDisp && appState.currentDate) {
+    const p = appState.currentDate.split("-");
+    if (p.length === 3) mobDisp.innerText = `${p[2]}/${p[1]}/${p[0]}`;
+  }
+  const mobDateInput = document.getElementById("reportDateMobile");
+  if (mobDateInput && appState.currentDate) {
+    mobDateInput.value = appState.currentDate;
+  }
+  const topDateInput = document.getElementById("reportDate");
+  if (topDateInput && appState.currentDate) {
+    topDateInput.value = appState.currentDate;
+  }
 
   // Status Tag
   const statusTag = document.getElementById("reportStatusTag");

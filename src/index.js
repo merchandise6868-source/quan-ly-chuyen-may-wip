@@ -1,14 +1,14 @@
 // Memory database initial seed (fallback for local dev without D1)
 const INITIAL_DB = {
   customers: [
-    { id: "cust-1", code: "D&D", name: "D&D Long An" },
-    { id: "cust-2", code: "ADIDAS", name: "Adidas Global Procurement" },
-    { id: "cust-3", code: "NIKE", name: "Nike Apparel Vietnam" }
+    { id: "cust-1", code: "CASUM", name: "CAO SU MÀU" },
+    { id: "cust-2", code: "Lth", name: "Liên Thái" },
+    { id: "cust-3", code: "MP", name: "MẠNH PHÁT" }
   ],
   orders: [
     {
       id: "po-050",
-      customer_id: "cust-2", // Adidas
+      customer_id: "cust-2", // Liên Thái
       style_code: "Mã Style Alpha 050",
       po_number: "PO-050",
       line_name: "Chuyền 1 - Xưởng 2",
@@ -22,9 +22,56 @@ const INITIAL_DB = {
       ]
     },
     {
+      id: "po-casum-01",
+      customer_id: "cust-1", // CASUM
+      style_code: "Style CASUM Alpha",
+      po_number: "PO-CS01",
+      line_name: "Chuyền 1 - Xưởng 1",
+      po_plan: 2000,
+      tail_sweep_date: "2026-10-16",
+      tail_batch_name: "Lô Số Đuôi",
+      default_batches: [
+        { id: "b-cs1", batch_name: "Lô 1", batch_plan: 1000, into_sewing: 1000 },
+        { id: "b-cs2", batch_name: "Lô 2", batch_plan: 850, into_sewing: 850 },
+        { id: "b-cs3", batch_name: "Lô Số Đuôi", batch_plan: 150, into_sewing: 150, is_tail_batch: true }
+      ]
+    },
+    {
+      id: "po-mp-01",
+      customer_id: "cust-3", // MẠNH PHÁT
+      style_code: "MEXICO",
+      po_number: "296507-003",
+      line_name: "Chuyền 2 - Xưởng 2",
+      po_plan: 4582,
+      tail_sweep_date: "2026-10-16",
+      tail_batch_name: "Lô Số Đuôi",
+      default_batches: [
+        { id: "b-mp1", batch_name: "Lô 1", batch_plan: 1150, into_sewing: 1150 },
+        { id: "b-mp2", batch_name: "Lô 2", batch_plan: 1150, into_sewing: 1150 },
+        { id: "b-mp3", batch_name: "Lô 3", batch_plan: 1150, into_sewing: 1150 },
+        { id: "b-mp4", batch_name: "Lô Số Đuôi", batch_plan: 1132, into_sewing: 1132, is_tail_batch: true }
+      ]
+    },
+    {
+      id: "296507-003",
+      customer_id: "cust-3", // MẠNH PHÁT alias PO
+      style_code: "MEXICO",
+      po_number: "296507-003",
+      line_name: "Chuyền 2 - Xưởng 2",
+      po_plan: 4582,
+      tail_sweep_date: "2026-10-16",
+      tail_batch_name: "Lô Số Đuôi",
+      default_batches: [
+        { id: "b-mp1", batch_name: "Lô 1", batch_plan: 1150, into_sewing: 1150 },
+        { id: "b-mp2", batch_name: "Lô 2", batch_plan: 1150, into_sewing: 1150 },
+        { id: "b-mp3", batch_name: "Lô 3", batch_plan: 1150, into_sewing: 1150 },
+        { id: "b-mp4", batch_name: "Lô Số Đuôi", batch_plan: 1132, into_sewing: 1132, is_tail_batch: true }
+      ]
+    },
+    {
       id: "po-dd-01",
-      customer_id: "cust-1", // D&D
-      style_code: "Áo Polo DD-01",
+      customer_id: "cust-1", // CASUM
+      style_code: "Áo Polo CS-01",
       po_number: "PO-DD-01",
       line_name: "Chuyền 2",
       po_plan: 2000,
@@ -35,8 +82,8 @@ const INITIAL_DB = {
     },
     {
       id: "po-nk-01",
-      customer_id: "cust-3", // Nike
-      style_code: "Quần Short NK-99",
+      customer_id: "cust-3", // MẠNH PHÁT
+      style_code: "Quần Short MP-99",
       po_number: "PO-NK-01",
       line_name: "Chuyền 3",
       po_plan: 1500,
@@ -161,6 +208,126 @@ const INITIAL_DB = {
           is_tail_batch: true
         }
       ]
+    },
+    "po-casum-01_2026-10-15": {
+      po_id: "po-casum-01",
+      report_date: "2026-10-15",
+      status: "SUBMITTED",
+      batches: [
+        {
+          id: "b-cs1",
+          batch_name: "Lô 1",
+          batch_plan: 1000,
+          into_sewing: 1000,
+          wip_sewing: 200,
+          wip_qc: 100,
+          wip_pairing: 100,
+          wip_packing: 100,
+          wip_warehouse: 0,
+          daily_out: 500,
+          delivered: 500,
+          note_sewing: "Tổ may 1",
+          note_qc: "QC 1",
+          note_pairing: "",
+          note_packing: "",
+          note_warehouse: "",
+          shortage_reason_type: "",
+          shortage_note: ""
+        },
+        {
+          id: "b-cs2",
+          batch_name: "Lô 2",
+          batch_plan: 850,
+          into_sewing: 850,
+          wip_sewing: 850,
+          wip_qc: 0,
+          wip_pairing: 0,
+          wip_packing: 0,
+          wip_warehouse: 0,
+          daily_out: 0,
+          delivered: 0
+        }
+      ]
+    },
+    "po-mp-01_2026-10-15": {
+      po_id: "po-mp-01",
+      report_date: "2026-10-15",
+      status: "SUBMITTED",
+      batches: [
+        {
+          id: "b-mp1",
+          batch_name: "Lô 1",
+          batch_plan: 1150,
+          into_sewing: 950,
+          wip_sewing: 950,
+          wip_qc: 0,
+          wip_pairing: 0,
+          wip_packing: 0,
+          wip_warehouse: 0,
+          daily_out: 0,
+          delivered: 0,
+          note_sewing: "Line 2",
+          note_qc: "",
+          note_pairing: "",
+          note_packing: "",
+          note_warehouse: "",
+          shortage_reason_type: "",
+          shortage_note: ""
+        },
+        {
+          id: "b-mp2",
+          batch_name: "Lô 2",
+          batch_plan: 1150,
+          into_sewing: 0,
+          wip_sewing: 0,
+          wip_qc: 0,
+          wip_pairing: 0,
+          wip_packing: 0,
+          wip_warehouse: 0,
+          daily_out: 0,
+          delivered: 0
+        }
+      ]
+    },
+    "296507-003_2026-10-15": {
+      po_id: "296507-003",
+      report_date: "2026-10-15",
+      status: "SUBMITTED",
+      batches: [
+        {
+          id: "b-mp1",
+          batch_name: "Lô 1",
+          batch_plan: 1150,
+          into_sewing: 950,
+          wip_sewing: 950,
+          wip_qc: 0,
+          wip_pairing: 0,
+          wip_packing: 0,
+          wip_warehouse: 0,
+          daily_out: 0,
+          delivered: 0,
+          note_sewing: "Line 2",
+          note_qc: "",
+          note_pairing: "",
+          note_packing: "",
+          note_warehouse: "",
+          shortage_reason_type: "",
+          shortage_note: ""
+        },
+        {
+          id: "b-mp2",
+          batch_name: "Lô 2",
+          batch_plan: 1150,
+          into_sewing: 0,
+          wip_sewing: 0,
+          wip_qc: 0,
+          wip_pairing: 0,
+          wip_packing: 0,
+          wip_warehouse: 0,
+          daily_out: 0,
+          delivered: 0
+        }
+      ]
     }
   },
   dept_logs: {
@@ -180,6 +347,34 @@ const INITIAL_DB = {
       ],
       "Số đuôi": [
         { date: "23/9", nhap_phoi: 126, giao_dg: "", nhap_kho: "", xuat_kho: "" },
+        { date: "", nhap_phoi: "", giao_dg: "", nhap_kho: "", xuat_kho: "" }
+      ]
+    },
+    "po-casum-01": {
+      "Lô 1": [
+        { date: "15/10", nhap_phoi: 1000, giao_dg: 800, nhap_kho: 600, xuat_kho: 500 },
+        { date: "", nhap_phoi: "", giao_dg: "", nhap_kho: "", xuat_kho: "" }
+      ],
+      "Lô 2": [
+        { date: "15/10", nhap_phoi: 850, giao_dg: 0, nhap_kho: 0, xuat_kho: 0 },
+        { date: "", nhap_phoi: "", giao_dg: "", nhap_kho: "", xuat_kho: "" }
+      ]
+    },
+    "po-mp-01": {
+      "Lô 1": [
+        { date: "15/10", nhap_phoi: 950, giao_dg: 0, nhap_kho: 0, xuat_kho: 0 },
+        { date: "", nhap_phoi: "", giao_dg: "", nhap_kho: "", xuat_kho: "" }
+      ],
+      "Lô 2": [
+        { date: "", nhap_phoi: "", giao_dg: "", nhap_kho: "", xuat_kho: "" }
+      ]
+    },
+    "296507-003": {
+      "Lô 1": [
+        { date: "15/10", nhap_phoi: 950, giao_dg: 0, nhap_kho: 0, xuat_kho: 0 },
+        { date: "", nhap_phoi: "", giao_dg: "", nhap_kho: "", xuat_kho: "" }
+      ],
+      "Lô 2": [
         { date: "", nhap_phoi: "", giao_dg: "", nhap_kho: "", xuat_kho: "" }
       ]
     }
@@ -369,21 +564,26 @@ async function initD1Tables(db) {
       await db.prepare("ALTER TABLE dept_logs ADD COLUMN ton_cuoi INTEGER DEFAULT 0").run();
     } catch (e) {}
 
-    // Check if customers empty, then seed
+    // Ensure customers CASUM, Liên Thái, MẠNH PHÁT exist and match exactly
     try {
-      const { results: existingCust } = await db.prepare("SELECT COUNT(*) as count FROM customers").all();
-      if (existingCust && existingCust[0] && existingCust[0].count === 0) {
-        for (const c of INITIAL_DB.customers) {
-          await db.prepare("INSERT INTO customers (id, name, code) VALUES (?, ?, ?)").bind(c.id, c.name, c.code).run();
-        }
-        for (const o of INITIAL_DB.orders) {
-          await db.prepare("INSERT INTO po_orders (id, customer_id, style_code, po_number, line_name, po_plan, default_batches) VALUES (?, ?, ?, ?, ?, ?, ?)")
-            .bind(o.id, o.customer_id, o.style_code, o.po_number, o.line_name, o.po_plan, JSON.stringify(o.default_batches))
-            .run();
-        }
+      for (const c of INITIAL_DB.customers) {
+        await db.prepare("INSERT INTO customers (id, name, code) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, code=excluded.code").bind(c.id, c.name, c.code).run();
+      }
+      for (const o of INITIAL_DB.orders) {
+        await db.prepare(`
+          INSERT INTO po_orders (id, customer_id, style_code, po_number, line_name, po_plan, tail_sweep_date, tail_batch_name, default_batches)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            customer_id=excluded.customer_id,
+            style_code=excluded.style_code,
+            po_number=excluded.po_number,
+            line_name=excluded.line_name,
+            po_plan=excluded.po_plan,
+            default_batches=excluded.default_batches
+        `).bind(o.id, o.customer_id, o.style_code, o.po_number, o.line_name, o.po_plan, o.tail_sweep_date || null, o.tail_batch_name || null, JSON.stringify(o.default_batches)).run();
       }
     } catch (seedErr) {
-      console.warn("Cust seed notice:", seedErr.message);
+      console.warn("Cust/Order sync notice:", seedErr.message);
     }
 
     // Ensure initial admin accounts exist in D1 SQLite
@@ -1226,30 +1426,61 @@ export default {
 
       // Get Report by PO & Date
       if (url.pathname === '/api/report' && request.method === 'GET') {
-        const poId = url.searchParams.get('po_id') || 'po-050';
+        const rawPoParam = url.searchParams.get('po_id');
+        let poId = rawPoParam;
+        if (!poId && memoryDB.orders && memoryDB.orders.length > 0) {
+          poId = memoryDB.orders[0].id;
+        }
+        if (!poId) poId = 'po-050';
+
         const date = url.searchParams.get('date') || new Date().toISOString().split('T')[0];
         const key = `${poId}_${date}`;
+
+        let resolvedPoId = poId;
+        let order = null;
+
+        if (env && env.DB) {
+          try {
+            const { results: ordRows } = await env.DB.prepare("SELECT * FROM po_orders WHERE id = ? OR po_number = ? LIMIT 1").bind(poId, poId).all();
+            if (ordRows && ordRows[0]) {
+              order = {
+                ...ordRows[0],
+                default_batches: typeof ordRows[0].default_batches === 'string' ? JSON.parse(ordRows[0].default_batches || '[]') : (ordRows[0].default_batches || [])
+              };
+              resolvedPoId = order.id;
+            }
+          } catch (e) {}
+        }
+        if (!order) {
+          order = memoryDB.orders.find(o => o.id === poId || o.po_number === poId) || null;
+          if (order) resolvedPoId = order.id;
+        }
+
+        const altKey = `${resolvedPoId}_${date}`;
 
         let cachedReport = null;
         try {
           const cache = caches.default;
-          const cacheUrl = new Request(`https://internal-cache.ddlongan.local/api/report/${key}`);
-          const match = await cache.match(cacheUrl);
+          let match = await cache.match(new Request(`https://internal-cache.ddlongan.local/api/report/${key}`));
+          if (!match && altKey !== key) {
+            match = await cache.match(new Request(`https://internal-cache.ddlongan.local/api/report/${altKey}`));
+          }
           if (match) {
             cachedReport = await match.json();
           }
         } catch (e) {}
 
-        if (!cachedReport && memoryDB.reports && memoryDB.reports[key]) {
-          cachedReport = memoryDB.reports[key];
+        if (!cachedReport && memoryDB.reports) {
+          cachedReport = memoryDB.reports[key] || memoryDB.reports[altKey] || null;
         }
 
         if (env && env.DB) {
           try {
-            const { results: repRows } = await env.DB.prepare("SELECT * FROM daily_reports WHERE id = ?").bind(key).all();
+            const { results: repRows } = await env.DB.prepare("SELECT * FROM daily_reports WHERE id = ? OR id = ?").bind(key, altKey).all();
             let report = null;
             if (repRows && repRows.length > 0) {
-              const { results: batchRows } = await env.DB.prepare("SELECT * FROM report_batches WHERE report_id = ? ORDER BY batch_name ASC").bind(key).all();
+              const matchedReportId = repRows[0].id;
+              const { results: batchRows } = await env.DB.prepare("SELECT * FROM report_batches WHERE report_id = ? OR report_id = ? ORDER BY batch_name ASC").bind(key, altKey).all();
               if (batchRows && batchRows.length > 0) {
                 report = {
                   po_id: poId,
@@ -1268,30 +1499,86 @@ export default {
             }
 
             // Cumulative export & import calculation from prior days strictly before current report date
-            const { results: allBatchExports } = await env.DB.prepare(
-              "SELECT batch_name, SUM(COALESCE(daily_out, 0)) as total_out, SUM(COALESCE(into_sewing, 0)) as total_in FROM report_batches WHERE po_id = ? AND report_date < ? GROUP BY batch_name"
-            ).bind(poId, date).all();
+            // Multi-level safety: Check SUM(daily_out), MAX(delivered) in case daily_out was 0, and SUM(into_sewing)
+            const { results: allBatchExports } = await env.DB.prepare(`
+              SELECT batch_name, 
+                     SUM(COALESCE(daily_out, 0)) as total_out, 
+                     MAX(COALESCE(delivered, 0)) as max_delivered,
+                     SUM(COALESCE(into_sewing, 0)) as total_in 
+              FROM report_batches 
+              WHERE (po_id = ? OR po_id = ?) AND report_date < ? 
+              GROUP BY batch_name
+            `).bind(resolvedPoId, poId, date).all();
 
             const cumExportsByBatch = {};
             const cumImportsByBatch = {};
             (allBatchExports || []).forEach(r => {
-              cumExportsByBatch[r.batch_name] = Number(r.total_out) || 0;
-              cumImportsByBatch[r.batch_name] = Number(r.total_in) || 0;
+              const bName = r.batch_name;
+              const bTrim = bName ? bName.trim() : "";
+              const effOut = Math.max(Number(r.total_out) || 0, Number(r.max_delivered) || 0);
+              cumExportsByBatch[bName] = effOut;
+              if (bTrim) cumExportsByBatch[bTrim] = effOut;
+              cumImportsByBatch[bName] = Number(r.total_in) || 0;
+              if (bTrim) cumImportsByBatch[bTrim] = Number(r.total_in) || 0;
+            });
+
+            // Also check dept_logs (Tab 2) for any xuat_kho entered on this PO
+            try {
+              const { results: deptExports } = await env.DB.prepare(`
+                SELECT batch_name, SUM(COALESCE(xuat_kho, xuat, 0)) as total_xuat 
+                FROM dept_logs 
+                WHERE po_id = ? OR po_id = ? 
+                GROUP BY batch_name
+              `).bind(resolvedPoId, poId).all();
+              (deptExports || []).forEach(dr => {
+                const bN = dr.batch_name;
+                const bT = bN ? bN.trim() : "";
+                const dOut = Number(dr.total_xuat) || 0;
+                if (dOut > 0 && (!cumExportsByBatch[bN] || cumExportsByBatch[bN] === 0)) {
+                  cumExportsByBatch[bN] = dOut;
+                  if (bT) cumExportsByBatch[bT] = dOut;
+                }
+              });
+            } catch (dlErr) {}
+
+            // Merge with any in-memory reports for prior days that might not have committed to D1 yet
+            Object.keys(memoryDB.reports || {}).forEach(k => {
+              if (k.startsWith(resolvedPoId + '_') || k.startsWith(poId + '_')) {
+                const repDate = k.split('_').slice(1).join('_');
+                if (repDate < date) {
+                  const rep = memoryDB.reports[k];
+                  if (rep && rep.batches) {
+                    rep.batches.forEach(b => {
+                      const bName = b.batch_name;
+                      const bTrim = bName ? bName.trim() : "";
+                      const dOut = Math.max(Number(b.daily_out) || 0, Number(b.delivered) || 0);
+                      const dIn = Number(b.into_sewing) || 0;
+                      if (dOut > (cumExportsByBatch[bName] || 0)) {
+                        cumExportsByBatch[bName] = dOut;
+                        if (bTrim) cumExportsByBatch[bTrim] = dOut;
+                      }
+                      if (dIn > (cumImportsByBatch[bName] || 0)) {
+                        cumImportsByBatch[bName] = dIn;
+                        if (bTrim) cumImportsByBatch[bTrim] = dIn;
+                      }
+                    });
+                  }
+                }
+              }
             });
 
             // Previous day's WIP for each batch (for QC & Pairing balance check)
-            // Business rule: Trừ TP nhập mới, số liệu tồn qua đọc từ ngày trước đó, nếu hôm trước là Chủ nhật thì đọc Thứ 7!
             const { results: prevDateRows } = await env.DB.prepare(
-              "SELECT DISTINCT report_date FROM report_batches WHERE po_id = ? AND report_date < ? ORDER BY report_date DESC"
-            ).bind(poId, date).all();
+              "SELECT DISTINCT report_date FROM report_batches WHERE (po_id = ? OR po_id = ?) AND report_date < ? ORDER BY report_date DESC"
+            ).bind(resolvedPoId, poId, date).all();
             const availablePriorDates = (prevDateRows || []).map(r => r.report_date);
             const { targetDate, actualDate: prevDate } = getPreviousWorkingDateInfo(date, availablePriorDates);
 
             const prevDayWipByBatch = {};
             if (prevDate) {
               const { results: prevBatches } = await env.DB.prepare(
-                "SELECT batch_name, wip_qc, wip_pairing, wip_sewing, wip_packing, wip_warehouse, daily_out FROM report_batches WHERE po_id = ? AND report_date = ?"
-              ).bind(poId, prevDate).all();
+                "SELECT batch_name, wip_qc, wip_pairing, wip_sewing, wip_packing, wip_warehouse, daily_out FROM report_batches WHERE (po_id = ? OR po_id = ?) AND report_date = ?"
+              ).bind(resolvedPoId, poId, prevDate).all();
               (prevBatches || []).forEach(r => {
                 prevDayWipByBatch[r.batch_name] = {
                   wip_qc: Number(r.wip_qc) || 0,
@@ -1304,19 +1591,13 @@ export default {
               });
             }
 
-            const { results: ordRows } = await env.DB.prepare("SELECT * FROM po_orders WHERE id = ?").bind(poId).all();
-            const order = ordRows && ordRows[0] ? {
-              ...ordRows[0],
-              default_batches: typeof ordRows[0].default_batches === 'string' ? JSON.parse(ordRows[0].default_batches || '[]') : (ordRows[0].default_batches || [])
-            } : null;
-
             if (!report || !report.batches || report.batches.length === 0) {
               let defBatches = order && order.default_batches ? [...order.default_batches] : [];
               if (order && order.tail_sweep_date && date < order.tail_sweep_date) {
                 defBatches = defBatches.filter(b => !b.is_tail_batch && !(b.batch_name && b.batch_name.toLowerCase().includes('đuôi')));
               }
               const batches = defBatches.map((b, i) => {
-                const defaultTodayIn = 0; // New report dates must always start with 0 into_sewing (no fake auto-fill)
+                const defaultTodayIn = 0; // New report dates must always start with 0 into_sewing
                 return {
                   id: b.id || ('b-' + (i+1)),
                   batch_name: b.batch_name,
@@ -1355,6 +1636,7 @@ export default {
                   const tPlan = tailDef ? (Number(tailDef.batch_plan || tailDef.into_sewing) || 126) : 126;
                   const priorIn = cumImportsByBatch[tName] || 0;
                   const tTodayIn = (date === order.tail_sweep_date && priorIn === 0) ? tPlan : 0;
+                  const isSweepDay = (date === order.tail_sweep_date);
                   report.batches.push({
                     id: (tailDef && tailDef.id) || ('b-tail-' + Date.now()),
                     batch_name: tName,
@@ -1373,7 +1655,7 @@ export default {
                     note_packing: "",
                     note_warehouse: "",
                     shortage_reason_type: "",
-                    shortage_note: (poId === 'po-050' && date === '2026-09-23') ? "Nhận 126 nợ từ Chuẩn Bị bù nợ" : "Lô vét đuôi Chuẩn Bị",
+                    shortage_note: (poId === 'po-050' && date === '2026-09-23') ? "Nhận 126 nợ từ Chuẩn Bị bù nợ" : (isSweepDay ? "Lô vét đuôi Chuẩn Bị" : ""),
                     shortage_mat_xac: 0,
                     shortage_hang_phe: 0,
                     shortage_khac: 0,
@@ -1389,31 +1671,53 @@ export default {
           }
         }
 
-        const allKeys = Object.keys(memoryDB.reports).filter(k => k.startsWith(poId + '_')).sort();
+        const allKeys = Object.keys(memoryDB.reports).filter(k => k.startsWith(poId + '_') || k.startsWith(resolvedPoId + '_')).sort();
         const cumExportsByBatch = {};
         const cumImportsByBatch = {};
         allKeys.forEach(k => {
-          const repDate = k.replace(poId + '_', '');
+          const repDate = k.split('_').slice(1).join('_');
           if (repDate < date) {
             const rep = memoryDB.reports[k];
             if (rep && rep.batches) {
               rep.batches.forEach(b => {
-                cumExportsByBatch[b.batch_name] = (cumExportsByBatch[b.batch_name] || 0) + (Number(b.daily_out) || 0);
-                cumImportsByBatch[b.batch_name] = (cumImportsByBatch[b.batch_name] || 0) + (Number(b.into_sewing) || 0);
+                const bName = b.batch_name;
+                const bTrim = bName ? bName.trim() : "";
+                const dOut = Math.max(Number(b.daily_out) || 0, Number(b.delivered) || 0);
+                const dIn = Number(b.into_sewing) || 0;
+                cumExportsByBatch[bName] = (cumExportsByBatch[bName] || 0) + dOut;
+                if (bTrim) cumExportsByBatch[bTrim] = (cumExportsByBatch[bTrim] || 0) + dOut;
+                cumImportsByBatch[bName] = (cumImportsByBatch[bName] || 0) + dIn;
+                if (bTrim) cumImportsByBatch[bTrim] = (cumImportsByBatch[bTrim] || 0) + dIn;
               });
             }
           }
         });
 
-        const order = memoryDB.orders.find(o => o.id === poId);
-        let report = memoryDB.reports[key];
+        // Also check memory dept_logs
+        const deptLogObj = memoryDB.dept_logs ? (memoryDB.dept_logs[poId] || memoryDB.dept_logs[resolvedPoId]) : null;
+        if (deptLogObj) {
+          Object.keys(deptLogObj).forEach(bName => {
+            const bTrim = bName ? bName.trim() : "";
+            const rows = deptLogObj[bName] || [];
+            let sumOut = 0;
+            rows.forEach(r => {
+              sumOut += Number(r.xuat_kho || r.xuat) || 0;
+            });
+            if (sumOut > 0 && (!cumExportsByBatch[bName] || cumExportsByBatch[bName] === 0)) {
+              cumExportsByBatch[bName] = sumOut;
+              if (bTrim) cumExportsByBatch[bTrim] = sumOut;
+            }
+          });
+        }
+
+        let report = memoryDB.reports[key] || memoryDB.reports[altKey];
         if (!report) {
           let defBatches = order && order.default_batches ? [...order.default_batches] : [];
           if (order && order.tail_sweep_date && date < order.tail_sweep_date) {
             defBatches = defBatches.filter(b => !b.is_tail_batch && !(b.batch_name && b.batch_name.toLowerCase().includes('đuôi')));
           }
           const batches = defBatches.map((b, i) => {
-            const defaultTodayIn = 0; // New report dates must always start with 0 into_sewing (no fake auto-fill)
+            const defaultTodayIn = 0;
             return {
               id: b.id || ('b-' + (i+1)),
               batch_name: b.batch_name,
@@ -1451,6 +1755,7 @@ export default {
               const tPlan = tailDef ? (Number(tailDef.batch_plan || tailDef.into_sewing) || 126) : 126;
               const priorIn = cumImportsByBatch[tName] || 0;
               const tTodayIn = (date === order.tail_sweep_date && priorIn === 0) ? tPlan : 0;
+              const isSweepDay = (date === order.tail_sweep_date);
               if (!report.batches) report.batches = [];
               report.batches.push({
                 id: (tailDef && tailDef.id) || ('b-tail-' + Date.now()),
@@ -1470,7 +1775,7 @@ export default {
                 note_packing: "",
                 note_warehouse: "",
                 shortage_reason_type: "",
-                shortage_note: (poId === 'po-050' && date === '2026-09-23') ? "Nhận 126 nợ từ Chuẩn Bị bù nợ" : "Lô vét đuôi Chuẩn Bị",
+                shortage_note: (poId === 'po-050' && date === '2026-09-23') ? "Nhận 126 nợ từ Chuẩn Bị bù nợ" : (isSweepDay ? "Lô vét đuôi Chuẩn Bị" : ""),
                 shortage_mat_xac: 0,
                 shortage_hang_phe: 0,
                 shortage_khac: 0,
@@ -1480,11 +1785,11 @@ export default {
           }
         }
 
-        const prevDates = allKeys.map(k => k.replace(poId + '_', '')).filter(d => d < date).sort();
+        const prevDates = allKeys.map(k => k.split('_').slice(1).join('_')).filter(d => d < date).sort();
         const { targetDate: memTargetDate, actualDate: memPrevDate } = getPreviousWorkingDateInfo(date, prevDates);
         const prevDayWipByBatch = {};
         if (memPrevDate) {
-          const prevRep = memoryDB.reports[poId + '_' + memPrevDate];
+          const prevRep = memoryDB.reports[poId + '_' + memPrevDate] || memoryDB.reports[resolvedPoId + '_' + memPrevDate];
           if (prevRep && prevRep.batches) {
             prevRep.batches.forEach(b => {
               prevDayWipByBatch[b.batch_name] = {
@@ -1594,9 +1899,13 @@ export default {
 
         if (env && env.DB) {
           try {
-            const { results: history } = await env.DB.prepare(
-              "SELECT * FROM report_batches WHERE po_id = ? ORDER BY report_date ASC, batch_name ASC"
-            ).bind(poId).all();
+            const { results: history } = await env.DB.prepare(`
+              SELECT * FROM report_batches 
+              WHERE po_id = ? 
+                 OR po_id = (SELECT id FROM po_orders WHERE po_number = ? LIMIT 1)
+                 OR po_id = (SELECT po_number FROM po_orders WHERE id = ? LIMIT 1)
+              ORDER BY report_date ASC, batch_name ASC
+            `).bind(poId, poId, poId).all();
             return Response.json({ success: true, history: history || [] }, { headers });
           } catch (err) {
             console.error("D1 History Query Error:", err);
@@ -1629,9 +1938,13 @@ export default {
 
         if (env && env.DB) {
           try {
-            const { results: logsRows } = await env.DB.prepare(
-              "SELECT * FROM dept_logs WHERE po_id = ? ORDER BY batch_name ASC, row_order ASC"
-            ).bind(poId).all();
+            const { results: logsRows } = await env.DB.prepare(`
+              SELECT * FROM dept_logs 
+              WHERE po_id = ? 
+                 OR po_id = (SELECT id FROM po_orders WHERE po_number = ? LIMIT 1)
+                 OR po_id = (SELECT po_number FROM po_orders WHERE id = ? LIMIT 1)
+              ORDER BY batch_name ASC, row_order ASC
+            `).bind(poId, poId, poId).all();
 
             const logs = {};
             (logsRows || []).forEach(r => {
@@ -1655,7 +1968,8 @@ export default {
           }
         }
 
-        const logs = memoryDB.dept_logs ? (memoryDB.dept_logs[poId] || {}) : {};
+        const order = memoryDB.orders.find(o => o.id === poId || o.po_number === poId);
+        const logs = memoryDB.dept_logs ? (memoryDB.dept_logs[poId] || (order && (memoryDB.dept_logs[order.id] || memoryDB.dept_logs[order.po_number])) || {}) : {};
         return Response.json({ success: true, logs }, { headers });
       }
 
