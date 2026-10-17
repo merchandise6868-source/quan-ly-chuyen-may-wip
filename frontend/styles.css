@@ -4446,6 +4446,49 @@ input[type=number] {
   background: #e2e8f0;
 }
 
+/* Nút Tải Lại / Đồng Bộ Mới Nhất trên Mobile */
+.btn-mobile-sync-data {
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%) !important;
+  color: #ffffff !important;
+  border: 1px solid #0284c7 !important;
+  border-radius: 8px;
+  padding: 6px 11px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  box-shadow: 0 2px 5px rgba(2, 132, 199, 0.35);
+  flex-shrink: 0;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  transition: transform 0.1s ease, background 0.15s ease;
+}
+
+.btn-mobile-sync-data:active {
+  transform: scale(0.95);
+  background: #0284c7 !important;
+}
+
+.btn-mobile-sync-data .sync-icon {
+  font-size: 13px;
+  display: inline-block;
+  line-height: 1;
+}
+
+.btn-mobile-sync-data.is-syncing .sync-icon,
+.sync-icon.is-spin {
+  animation: spinSync 0.6s linear infinite;
+}
+
+@keyframes spinSync {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
 /* 3. Mobile KPI Card */
 .mobile-kpi-card {
   display: none;
@@ -4696,10 +4739,15 @@ input[type=number] {
   }
 
   .btn-mobile-vet-lo,
-  .btn-mobile-balance-fast {
+  .btn-mobile-balance-fast,
+  .btn-mobile-sync-data {
     padding: 3px 8px !important;
     font-size: 11px !important;
     border-radius: 6px !important;
+  }
+
+  .btn-mobile-sync-data .sync-icon {
+    font-size: 11px !important;
   }
 
   .btn-mobile-date-nav {

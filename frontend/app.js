@@ -91,7 +91,7 @@ function initPWA() {
     });
 
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js?v=20261013_1640', { scope: '/' })
+      navigator.serviceWorker.register('/sw.js?v=20261017_0808', { scope: '/' })
         .then(reg => {
           console.log('✅ Service Worker registered successfully:', reg.scope);
           // Explicit update check on every page load
@@ -529,7 +529,7 @@ function bindEvents() {
   if (btnConfirmSweep) btnConfirmSweep.addEventListener("click", handleConfirmSweepTailBatch);
 
   const btnRef = document.getElementById("btnRefresh");
-  if (btnRef) btnRef.addEventListener("click", loadReport);
+  if (btnRef) btnRef.addEventListener("click", handleGlobalSyncData);
 
   const btnSaveD = document.getElementById("btnSaveDraft");
   if (btnSaveD) btnSaveD.addEventListener("click", () => saveReport("DRAFT"));
@@ -732,6 +732,12 @@ function bindEvents() {
     btnMobVet.addEventListener("click", () => {
       openSweepTailModal();
     });
+  }
+
+  // Mobile Action Bar: Nút Tải Lại Dữ Liệu & Danh Sách KH, PO
+  const btnMobSync = document.getElementById("btnMobileSyncData");
+  if (btnMobSync) {
+    btnMobSync.addEventListener("click", handleGlobalSyncData);
   }
 
   // Toggle Mobile KPI Card (Báo Cáo Đối Chiếu Nhập Xuất Tồn thu gọn / mở rộng theo mũi tên)
@@ -970,7 +976,7 @@ async function changeDateByDays(days) {
 // FETCH METADATA
 async function fetchMetadata() {
   try {
-    const res = await fetch("/api/metadata");
+    const res = await fetch("/api/metadata?t=" + Date.now());
     const data = await res.json();
     if (data.success) {
       const validCustomers = (data.customers || []).filter(c => !['cust-1', 'cust-2', 'cust-3'].includes(c.id));
@@ -1001,6 +1007,48 @@ async function fetchMetadata() {
     }
   }
 }
+
+// ĐỒNG BỘ TOÀN DIỆN DỮ LIỆU: KHÁCH HÀNG, PO & SỐ LIỆU BÁO CÁO (ANDROID, IOS & DESKTOP)
+async function handleGlobalSyncData() {
+  const btnMob = document.getElementById("btnMobileSyncData");
+  const iconMob = document.getElementById("mobileSyncIcon");
+  const btnDesktop = document.getElementById("btnRefresh");
+
+  if (btnMob) btnMob.classList.add("is-syncing");
+  if (iconMob) iconMob.classList.add("is-spin");
+  if (btnDesktop) {
+    btnDesktop.disabled = true;
+    btnDesktop.innerText = "⏳ Đang tải...";
+  }
+
+  try {
+    // 1. Tải toàn bộ danh sách Khách hàng & PO mới nhất từ máy chủ
+    await fetchMetadata();
+
+    // 2. Nạp lại dữ liệu báo cáo và số liệu các bộ phận của PO hiện tại
+    if (appState.currentPO) {
+      await loadReport();
+      if (typeof loadDeptLogs === "function") {
+        await loadDeptLogs();
+      }
+    }
+
+    showToast("🔄 Đã tải lại danh sách KH, PO và số liệu mới nhất!");
+  } catch (err) {
+    console.warn("Lỗi khi tải lại dữ liệu:", err);
+    showToast("⚠️ Có lỗi khi tải lại: " + err.message);
+  } finally {
+    setTimeout(() => {
+      if (btnMob) btnMob.classList.remove("is-syncing");
+      if (iconMob) iconMob.classList.remove("is-spin");
+      if (btnDesktop) {
+        btnDesktop.disabled = false;
+        btnDesktop.innerText = "Tải lại dữ liệu";
+      }
+    }, 450);
+  }
+}
+window.handleGlobalSyncData = handleGlobalSyncData;
 
 function populateCustomerSelect() {
   const custSel = document.getElementById("selectCustomer");

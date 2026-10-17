@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@500;600;700;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="styles.css?v=20261016_1630">
+  <link rel="stylesheet" href="styles.css?v=20261017_0808">
   
   <!-- cdn for sheetjs (xlsx) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -263,24 +263,11 @@
           <button type="button" class="btn-mobile-date-nav" id="btnMobileNextDay" title="Hôm sau">▶</button>
         </div>
 
-        <!-- Nút ... với Popover Menu -->
-        <div class="mobile-more-cluster">
-          <button type="button" class="btn-mobile-more" id="btnMobileMore" title="Tùy chọn tác vụ">···</button>
-          <div class="more-popover-menu" id="morePopoverMenu" style="display: none;">
-            <button type="button" class="popover-item" id="btnMoreBalance" onclick="openFactoryBalanceModal()">
-              Kiểm tra cân đối
-            </button>
-            <button type="button" class="popover-item" id="btnMoreRefresh">
-              Tải lại dữ liệu
-            </button>
-            <button type="button" class="popover-item" id="btnMoreExport">
-              Xuất Excel
-            </button>
-            <button type="button" class="popover-item" id="btnMorePrint">
-              In báo cáo
-            </button>
-          </div>
-        </div>
+        <!-- Nút Tải Lại Dữ Liệu & Danh Sách KH, PO Trên Mobile (Thay thế nút ... cũ) -->
+        <button type="button" class="btn-mobile-sync-data" id="btnMobileSyncData" title="Tải lại danh sách Khách hàng, PO và số liệu mới nhất">
+          <span class="sync-icon" id="mobileSyncIcon">🔄</span>
+          <span class="sync-text">Tải lại</span>
+        </button>
       </div>
 
       <!-- MOBILE KPI CARD -->
@@ -973,6 +960,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261016_1836"></script>
+  <script src="app.js?v=20261017_0808"></script>
 </body>
 </html>
