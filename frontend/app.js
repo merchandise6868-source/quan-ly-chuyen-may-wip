@@ -831,6 +831,38 @@ function bindEvents() {
     });
   }
 
+  // Ô nhập thành phẩm trên điện thoại: chép số sang ô gốc rồi dùng chung logic tính & lưu
+  const fbmTpInput = document.getElementById("fbmThanhPhamInput");
+  if (fbmTpInput && fbTpInput) {
+    const mirrorMobileTp = () => { fbTpInput.value = fbmTpInput.value; };
+    fbmTpInput.addEventListener("input", () => {
+      mirrorMobileTp();
+      recalculateFactoryBalanceModal();
+    });
+    fbmTpInput.addEventListener("change", async () => {
+      mirrorMobileTp();
+      await saveFactoryFinishedGoods();
+    });
+    fbmTpInput.addEventListener("blur", async () => {
+      mirrorMobileTp();
+      await saveFactoryFinishedGoods();
+    });
+    fbmTpInput.addEventListener("keydown", async (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        mirrorMobileTp();
+        await saveFactoryFinishedGoods();
+        fbmTpInput.blur();
+      }
+    });
+  }
+
+  const btnFbPrevDay = document.getElementById("btnFbPrevDay");
+  if (btnFbPrevDay) btnFbPrevDay.addEventListener("click", () => shiftFactoryBalanceDate(-1));
+
+  const btnFbNextDay = document.getElementById("btnFbNextDay");
+  if (btnFbNextDay) btnFbNextDay.addEventListener("click", () => shiftFactoryBalanceDate(1));
+
   const btnMobPrev = document.getElementById("btnMobilePrevDay");
   if (btnMobPrev) {
     btnMobPrev.addEventListener("click", () => changeDateByDays(-1));
@@ -4888,9 +4920,20 @@ function updateFactoryBalanceDOM() {
   if (elTonNay) elTonNay.innerText = factoryBalanceState.ton_hom_nay.toLocaleString("vi-VN");
 
   const tpInput = document.getElementById("fbThanhPhamInput");
-  if (tpInput && document.activeElement !== tpInput) {
+  const mobTpInput = document.getElementById("fbmThanhPhamInput");
+  const isTypingTp = document.activeElement === tpInput || (mobTpInput && document.activeElement === mobTpInput);
+  if (tpInput && !isTypingTp) {
     tpInput.value = factoryBalanceState.thanh_pham_hom_nay ? factoryBalanceState.thanh_pham_hom_nay : "";
+    if (mobTpInput) mobTpInput.value = tpInput.value;
   }
+
+  // Giao diện điện thoại: số tồn qua, xuất, tồn thực tế
+  const elMobTonQua = document.getElementById("fbmTonQua");
+  if (elMobTonQua) elMobTonQua.innerText = factoryBalanceState.ton_hom_qua.toLocaleString("vi-VN");
+  const elMobXuat = document.getElementById("fbmXuat");
+  if (elMobXuat) elMobXuat.innerText = factoryBalanceState.xuat_hom_nay.toLocaleString("vi-VN");
+  const elMobTonTT = document.getElementById("fbmTonTT");
+  if (elMobTonTT) elMobTonTT.innerText = factoryBalanceState.ton_hom_nay.toLocaleString("vi-VN");
 
   // Update hints with Customer Name
   const cName = factoryBalanceState.customer_name || "khách hàng";
@@ -4902,6 +4945,19 @@ function updateFactoryBalanceDOM() {
   if (hXuat) hXuat.innerText = `Thực xuất ${cName} (hôm nay)`;
   const hTonNay = document.getElementById("fbHintTonNay");
   if (hTonNay) hTonNay.innerText = `QC + Phối + ĐG + Kho (${cName})`;
+
+  // Giao diện điện thoại: ghi ngày lấy tồn qua ngay cạnh dòng "Tồn hôm qua" (vd: T7 17/10)
+  const mobPrevDate = document.getElementById("fbmPrevDate");
+  if (mobPrevDate) {
+    const pd = (factoryBalanceState.prev_date || "").split("-");
+    if (pd.length === 3) {
+      const pdObj = new Date(parseInt(pd[0], 10), parseInt(pd[1], 10) - 1, parseInt(pd[2], 10));
+      const dowShort = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"][pdObj.getDay()];
+      mobPrevDate.innerText = `(${dowShort} ${pd[2]}/${pd[1]})`;
+    } else {
+      mobPrevDate.innerText = "";
+    }
+  }
 
   // Display previous date tag (Saturday if Monday)
   const prevBadge = document.getElementById("fbPrevDateBadge");
@@ -5053,6 +5109,58 @@ function recalculateFactoryBalanceModal() {
       statusBadge.innerText = `ℹ️ Dư ${absDiff.toLocaleString("vi-VN")} đôi`;
     }
   }
+
+  renderFactoryBalanceMobile(tpVal, ve1, ve2, diff);
+}
+
+// Giao diện điện thoại: chỉ trình bày lại kết quả đã tính ở trên (ve1 = tồn lý thuyết, ve2 = tồn thực tế)
+function renderFactoryBalanceMobile(tpVal, ve1, ve2, diff) {
+  const elLT = document.getElementById("fbmTonLT");
+  if (elLT) elLT.innerText = tpVal === null ? "—" : ve1.toLocaleString("vi-VN");
+
+  const box = document.getElementById("fbmResult");
+  const icon = document.getElementById("fbmResIcon");
+  const statement = document.getElementById("fbmStatement");
+  const detail = document.getElementById("fbmDetail");
+  if (!box || !statement) return;
+
+  const tt = ve2.toLocaleString("vi-VN");
+  const lt = ve1.toLocaleString("vi-VN");
+  const gap = Math.abs(diff).toLocaleString("vi-VN");
+
+  if (tpVal === null) {
+    box.className = "fbm-result is-pending";
+    if (icon) icon.innerText = "⏳";
+    statement.innerText = "Chờ nhập thành phẩm hôm nay";
+    if (detail) detail.innerText = "Nhập thành phẩm ở khối 1 để tính tồn lý thuyết.";
+  } else if (diff === 0) {
+    box.className = "fbm-result is-balanced";
+    if (icon) icon.innerText = "✓";
+    statement.innerText = "Tồn thực tế bằng tồn lý thuyết";
+    if (detail) detail.innerText = `Thực tế ${tt} = lý thuyết ${lt}. Cân đối.`;
+  } else if (diff < 0) {
+    box.className = "fbm-result is-off";
+    if (icon) icon.innerText = "↑";
+    statement.innerHTML = `Tồn thực tế cao hơn tồn lý thuyết <span class="fbm-gap">${gap} đôi</span>`;
+    if (detail) detail.innerText = `Thực tế ${tt} − lý thuyết ${lt} = +${gap}. Kiểm tra lại số đếm hoặc số thành phẩm.`;
+  } else {
+    box.className = "fbm-result is-off";
+    if (icon) icon.innerText = "↓";
+    statement.innerHTML = `Tồn thực tế thấp hơn tồn lý thuyết <span class="fbm-gap">${gap} đôi</span>`;
+    if (detail) detail.innerText = `Thực tế ${tt} − lý thuyết ${lt} = −${gap}. Kiểm tra mất xác, hàng phế.`;
+  }
+}
+
+// Nút ◀ ▶ đổi ngày trong cửa sổ kiểm tra cân đối (điện thoại)
+function shiftFactoryBalanceDate(days) {
+  const dateInput = document.getElementById("fbReportDate");
+  const cur = (dateInput && dateInput.value) || appState.currentDate || getLocalDateString();
+  const p = cur.split("-");
+  const d = new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10));
+  d.setDate(d.getDate() + days);
+  const next = getLocalDateString(d);
+  if (dateInput) dateInput.value = next;
+  loadFactoryBalanceData(next);
 }
 
 async function saveFactoryFinishedGoods() {

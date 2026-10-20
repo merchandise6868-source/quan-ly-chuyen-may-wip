@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@500;600;700;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="styles.css?v=20261017_0808">
+  <link rel="stylesheet" href="styles.css?v=20261020_1430">
   
   <!-- cdn for sheetjs (xlsx) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -889,7 +889,9 @@
             <!-- Date Selector -->
             <div class="fb-date-picker-wrap">
               <span class="fb-date-lbl">Ngày kiểm tra:</span>
+              <button type="button" class="fb-date-nav fb-mob-only" id="btnFbPrevDay" title="Hôm trước">◀</button>
               <input type="date" id="fbReportDate" class="fb-date-input">
+              <button type="button" class="fb-date-nav fb-mob-only" id="btnFbNextDay" title="Hôm sau">▶</button>
               <span class="fb-prev-date-badge" id="fbPrevDateBadge" title="Nguồn số liệu tồn trước đó">Tồn qua: --</span>
             </div>
           </div>
@@ -951,6 +953,45 @@
           </div>
 
         </div>
+
+        <!-- GIAO DIỆN ĐIỆN THOẠI: TÁCH TỒN LÝ THUYẾT / TỒN THỰC TẾ RỒI SO SÁNH (CHỈ HIỆN ≤ 768PX) -->
+        <div class="fb-mobile-view">
+          <div class="fbm-block">
+            <div class="fbm-block-hdr"><span class="fbm-num">1</span>Tồn lý thuyết<span class="fbm-hdr-note">theo sổ sách</span></div>
+            <div class="fbm-row">
+              <span><span class="fbm-op"></span>Tồn hôm qua <span class="fbm-sub" id="fbmPrevDate"></span></span>
+              <span class="fbm-val" id="fbmTonQua">0</span>
+            </div>
+            <div class="fbm-row">
+              <span><span class="fbm-op">+</span>Thành phẩm hôm nay</span>
+              <input type="number" id="fbmThanhPhamInput" class="fbm-input" inputmode="numeric" placeholder="0" title="Nhập thành phẩm may xong trong ngày của khách hàng này">
+            </div>
+            <div class="fbm-row">
+              <span><span class="fbm-op">−</span>Xuất hôm nay</span>
+              <span class="fbm-val" id="fbmXuat">0</span>
+            </div>
+            <div class="fbm-total fbm-total-lt">
+              <span><span class="fbm-op">=</span>Tồn lý thuyết</span>
+              <span class="fbm-big" id="fbmTonLT">—</span>
+            </div>
+          </div>
+
+          <div class="fbm-block">
+            <div class="fbm-block-hdr"><span class="fbm-num">2</span>Tồn thực tế<span class="fbm-hdr-note">tồn hôm nay</span></div>
+            <div class="fbm-total fbm-total-tt">
+              <span class="fbm-tt-note">QC + Phối + Đóng gói + Kho TP</span>
+              <span class="fbm-big" id="fbmTonTT">0</span>
+            </div>
+          </div>
+
+          <div class="fbm-result is-pending" id="fbmResult">
+            <div class="fbm-result-main">
+              <span class="fbm-result-icon" id="fbmResIcon">⏳</span>
+              <div class="fbm-statement" id="fbmStatement">Chờ nhập thành phẩm hôm nay</div>
+            </div>
+            <div class="fbm-result-detail" id="fbmDetail">Nhập thành phẩm ở khối 1 để tính tồn lý thuyết.</div>
+          </div>
+        </div>
       </div>
 
       <div class="modal-footer fb-modal-footer">
@@ -960,6 +1001,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261017_0808"></script>
+  <script src="app.js?v=20261020_1430"></script>
 </body>
 </html>
