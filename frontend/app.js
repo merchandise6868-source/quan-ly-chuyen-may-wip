@@ -91,7 +91,7 @@ function initPWA() {
     });
 
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js?v=20261023_1600', { scope: '/' })
+      navigator.serviceWorker.register('/sw.js?v=20261023_1800', { scope: '/' })
         .then(reg => {
           console.log('✅ Service Worker registered successfully:', reg.scope);
           // Explicit update check on every page load
@@ -202,6 +202,8 @@ document.addEventListener("DOMContentLoaded", () => {
   bindPortalEvents();
   bindSizeEditorEvents();
   bindReleaseEvents();
+  bindRoleSwitchEvents();
+  bindRolePasswordEvents();
   checkLoginPortalState();
   fetchMetadata();
 });
@@ -344,7 +346,7 @@ function bindEvents() {
 
   // Role & Auth Modal Events
   const btnSwitchRole = document.getElementById("btnSwitchRole");
-  if (btnSwitchRole) btnSwitchRole.addEventListener("click", openRoleModal);
+  if (btnSwitchRole) btnSwitchRole.addEventListener("click", openRoleSwitch);
 
   const btnCloseRoleModal = document.getElementById("btnCloseRoleModal");
   if (btnCloseRoleModal) btnCloseRoleModal.addEventListener("click", closeRoleModal);
@@ -504,6 +506,7 @@ function bindEvents() {
         renderManageTab();
       } else if (btn.dataset.tab === "tab-users") {
         fetchUsers();
+        loadRolePasswords();
       } else if (btn.dataset.tab === "tab-flow-log") {
         renderDeptLogsUI();
       } else if (btn.dataset.tab === "tab-wip") {
@@ -3998,7 +4001,7 @@ const ROLE_INFO = {
   leader:  { title: "Tổ trưởng", short: "Tổ trưởng", badge: "is-manager", tabs: ["tab-wip"] },
   feeder:  { title: "Người thả chuyền", short: "Thả chuyền", badge: "is-worker", tabs: ["tab-wip"] },
   packer:  { title: "Đóng gói", short: "Đóng gói", badge: "is-worker", tabs: ["tab-wip"] },
-  worker:  { title: "Nhân viên kiểm kê", short: "Kiểm kê", badge: "is-worker", tabs: ["tab-wip", "tab-flow-log"] }
+  worker:  { title: "Nhân viên kiểm kê", short: "Kiểm kê", badge: "is-worker", tabs: ["tab-wip"] }
 };
 
 function getRoleInfo(role) {
@@ -5359,7 +5362,7 @@ function bindSizeEditorEvents() {
 // Mỗi ngày 4 lần nhận theo size; tích lũy = cộng dồn cả PO tới ngày đang xem
 // ==========================================================
 const REL_PERM = {
-  tcEdit: ["admin", "manager", "leader", "feeder"],
+  tcEdit: ["admin", "manager", "feeder", "worker"],
   dgView: ["admin", "manager", "leader", "packer"],
   dgEdit: ["admin", "manager", "leader"],
   leaderConfirm: ["admin", "manager", "leader"],
@@ -5397,10 +5400,10 @@ const relNum = n => (Number(n) || 0).toLocaleString("vi-VN");
 const relDaySum = arr => (arr || []).reduce((a, b) => a + (Number(b) || 0), 0);
 const relSigned = x => (x > 0 ? "+" : "−") + relNum(Math.abs(x));
 
-// Người thả chuyền / Đóng gói không có ô chọn ngày -> luôn làm việc với hôm nay
+// Nhân viên kiểm kê / Người thả chuyền / Đóng gói không có ô chọn ngày -> luôn làm việc với hôm nay
 function relWorkDate() {
   const role = getRoleInfo(appState.currentUserRole).key;
-  if (role === "feeder" || role === "packer") return getLocalDateString();
+  if (role === "worker" || role === "feeder" || role === "packer") return getLocalDateString();
   return appState.currentDate || getLocalDateString();
 }
 
@@ -5831,7 +5834,7 @@ async function refreshReleaseBar() {
       if (a === b) ok++;
       else bad++;
     });
-    if (!data.sizes || !data.sizes.length) setState("is-empty", "Chưa có dãy size", "");
+    if (!data.sizes || !data.sizes.length) setState("is-empty", "Chưa có size", "");
     else if (bad) setState("", `${bad} size lệch`, `(${bad} lệch)`);
     else if (ok) setState("is-ok", "Đủ, tất cả OK", "(đủ)");
     else setState("is-empty", "Chưa có số", "");
@@ -5883,5 +5886,234 @@ function bindReleaseEvents() {
   });
   document.addEventListener("visibilitychange", () => {
     if (document.hidden && relState.dirty) saveRelease();
+  });
+}
+
+// ==========================================================
+// CHUYỂN QUYỀN (nút TK): chọn 1 trong 4 quyền, nhập đúng mật khẩu của quyền đó.
+// Máy nhớ quyền vừa chuyển nên lần sau mở app không phải chọn lại.
+// ==========================================================
+const SWITCH_ROLE_LIST = [
+  { role: "admin", ico: "AD", desc: "Toàn quyền: khách hàng, PO, tài khoản, mọi báo cáo" },
+  { role: "worker", ico: "KK", desc: "Chọn KH, PO và nhập thả chuyền" },
+  { role: "leader", ico: "TT", desc: "Đối chiếu NXT, chỉ lệnh đóng gói, tổng hợp" },
+  { role: "packer", ico: "ĐG", desc: "Xem chỉ lệnh đóng gói, xác nhận đã nhận đủ" }
+];
+let rsPickedRole = null;
+
+function rsRoleCard(item, isCurrent, tag) {
+  const info = getRoleInfo(item.role);
+  return `<span class="rs-role-ico rs-ico-${item.role}">${item.ico}</span>
+    <span class="rs-role-text"><span class="rs-role-name">${escHtml(info.title)}</span><span class="rs-role-desc">${escHtml(item.desc)}</span></span>
+    ${isCurrent ? `<span class="rs-role-tag">${tag}</span>` : ""}`;
+}
+
+function openRoleSwitch() {
+  const modal = document.getElementById("modalRoleSwitch");
+  if (!modal) return;
+  const popover = document.getElementById("userPopoverMenu");
+  if (popover) popover.style.display = "none";
+
+  const current = getRoleInfo(appState.currentUserRole).key;
+  const who = appState.currentUser ? (appState.currentUser.full_name || appState.currentUser.email || appState.currentUser.phone || "") : "";
+  document.getElementById("rsCurrent").innerHTML = `Đang dùng: <b>${escHtml(getRoleInfo(current).title)}</b>${who && who !== getRoleInfo(current).title ? ` · ${escHtml(who)}` : ""}`;
+  document.getElementById("rsRoles").innerHTML = SWITCH_ROLE_LIST.map(item => {
+    const isCurrent = item.role === current;
+    return `<button type="button" class="rs-role${isCurrent ? " is-current" : ""}" data-rs-role="${item.role}"${isCurrent ? " disabled" : ""}>${rsRoleCard(item, isCurrent, "Đang dùng")}</button>`;
+  }).join("");
+
+  rsShowPick();
+  modal.style.display = "flex";
+  modal.classList.add("show");
+  modal.setAttribute("aria-hidden", "false");
+}
+
+function closeRoleSwitch() {
+  const modal = document.getElementById("modalRoleSwitch");
+  if (!modal) return;
+  modal.classList.remove("show");
+  modal.style.display = "none";
+  modal.setAttribute("aria-hidden", "true");
+  const pw = document.getElementById("rsPassword");
+  if (pw) pw.value = "";
+}
+
+function rsShowPick() {
+  rsPickedRole = null;
+  document.getElementById("rsStepPick").hidden = false;
+  document.getElementById("rsStepPass").hidden = true;
+  document.getElementById("rsError").textContent = "";
+}
+
+function rsShowPassword(role) {
+  const item = SWITCH_ROLE_LIST.find(x => x.role === role);
+  if (!item) return;
+  rsPickedRole = role;
+  document.getElementById("rsPicked").innerHTML = rsRoleCard(item, false, "");
+  document.getElementById("rsStepPick").hidden = true;
+  document.getElementById("rsStepPass").hidden = false;
+  document.getElementById("rsError").textContent = "";
+  document.getElementById("btnRsSubmit").textContent = `Chuyển sang ${getRoleInfo(role).title}`;
+  const pw = document.getElementById("rsPassword");
+  pw.value = "";
+  pw.type = "password";
+  document.getElementById("btnRsEye").textContent = "Hiện";
+  setTimeout(() => pw.focus(), 50);
+}
+
+async function submitRoleSwitch(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  const pw = document.getElementById("rsPassword");
+  const err = document.getElementById("rsError");
+  const btn = document.getElementById("btnRsSubmit");
+  if (!rsPickedRole) return;
+  if (!pw.value) {
+    err.textContent = "Nhập mật khẩu của quyền này";
+    pw.focus();
+    return;
+  }
+
+  btn.disabled = true;
+  err.textContent = "";
+  try {
+    const res = await fetch("/api/auth/role-switch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role: rsPickedRole, password: pw.value })
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || "Không chuyển được quyền");
+
+    // Lưu lâu dài để lần sau mở app vào thẳng quyền này
+    const user = data.user;
+    appState.currentUser = user;
+    appState.currentUserRole = user.role;
+    try {
+      localStorage.setItem("dd_wip_role", user.role);
+      localStorage.setItem("dd_user_info", JSON.stringify(user));
+      sessionStorage.removeItem("dd_wip_role");
+      sessionStorage.removeItem("dd_user_info");
+    } catch (storageErr) {
+      console.warn("Storage save error:", storageErr);
+    }
+
+    // Đang mở popup thả chuyền / đóng gói thì lưu nốt rồi đóng
+    const relModal = document.getElementById("modalRelease");
+    if (relModal && relModal.classList.contains("show") && typeof closeReleaseModal === "function") {
+      await closeReleaseModal();
+    }
+
+    applyUserRole(user.role, user);
+    closeRoleSwitch();
+    showToast(`✅ Đã chuyển sang quyền ${getRoleInfo(user.role).title}`);
+    fetchMetadata();
+    if (user.role === "admin") fetchUsers();
+  } catch (ex) {
+    err.textContent = ex.message;
+    pw.select();
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function bindRoleSwitchEvents() {
+  const modal = document.getElementById("modalRoleSwitch");
+  if (!modal) return;
+
+  document.getElementById("btnRsClose").addEventListener("click", closeRoleSwitch);
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) {
+      closeRoleSwitch();
+      return;
+    }
+    const pick = e.target.closest("[data-rs-role]");
+    if (pick && !pick.disabled) rsShowPassword(pick.dataset.rsRole);
+  });
+  document.getElementById("rsStepPass").addEventListener("submit", submitRoleSwitch);
+  document.getElementById("btnRsBack").addEventListener("click", rsShowPick);
+  document.getElementById("rsPassword").addEventListener("input", () => {
+    document.getElementById("rsError").textContent = "";
+  });
+  document.getElementById("btnRsEye").addEventListener("click", () => {
+    const pw = document.getElementById("rsPassword");
+    const show = pw.type === "password";
+    pw.type = show ? "text" : "password";
+    document.getElementById("btnRsEye").textContent = show ? "Ẩn" : "Hiện";
+  });
+  document.getElementById("btnRsAccountLogin").addEventListener("click", () => {
+    closeRoleSwitch();
+    openRoleModal();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && modal.classList.contains("show")) closeRoleSwitch();
+  });
+}
+
+// Tab 04: đặt mật khẩu cho từng quyền
+async function loadRolePasswords() {
+  const list = document.getElementById("rolePwList");
+  if (!list) return;
+  try {
+    const res = await fetch("/api/role-passwords?t=" + Date.now());
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || "Không tải được");
+    const byRole = Object.fromEntries((data.roles || []).map(r => [r.role, r]));
+    list.innerHTML = SWITCH_ROLE_LIST.map(item => {
+      const st = byRole[item.role] || {};
+      const when = st.updated_at ? new Date(st.updated_at).toLocaleDateString("vi-VN") : "";
+      return `<div class="role-pw-row" data-role="${item.role}">
+        <div class="role-pw-name"><span class="rs-role-ico rs-ico-${item.role}">${item.ico}</span>${escHtml(getRoleInfo(item.role).title)}</div>
+        <span class="role-pw-status${st.is_set ? " is-set" : ""}">${st.is_set ? `Đã đặt${when ? " · " + when : ""}` : "Chưa đặt"}</span>
+        <input type="password" class="form-control role-pw-input" autocomplete="new-password" placeholder="${st.is_set ? "Gõ mật khẩu mới để đổi" : "Đặt mật khẩu (ít nhất 4 ký tự)"}">
+        <button type="button" class="btn btn-primary role-pw-save">Lưu</button>
+      </div>`;
+    }).join("");
+  } catch (err) {
+    list.innerHTML = `<div class="role-pw-loading">Không tải được trạng thái mật khẩu: ${escHtml(err.message)}</div>`;
+  }
+}
+
+async function saveRolePassword(row) {
+  const input = row.querySelector(".role-pw-input");
+  const role = row.dataset.role;
+  const password = input.value;
+  if (password.trim().length < 4) {
+    showToast("⚠️ Mật khẩu cần ít nhất 4 ký tự");
+    input.focus();
+    return;
+  }
+  try {
+    const res = await fetch("/api/role-passwords", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role, password })
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || "Không lưu được");
+    showToast(`🔐 Đã đặt mật khẩu cho quyền ${getRoleInfo(role).title}`);
+    // Chỉ cập nhật dòng vừa lưu, không vẽ lại cả danh sách (giữ mật khẩu đang gõ ở dòng khác)
+    const status = row.querySelector(".role-pw-status");
+    status.classList.add("is-set");
+    status.textContent = `Đã đặt · ${new Date(data.updated_at || Date.now()).toLocaleDateString("vi-VN")}`;
+    input.value = "";
+    input.placeholder = "Gõ mật khẩu mới để đổi";
+  } catch (err) {
+    showToast("⚠️ " + err.message);
+  }
+}
+
+function bindRolePasswordEvents() {
+  const list = document.getElementById("rolePwList");
+  if (!list) return;
+  list.addEventListener("click", (e) => {
+    const btn = e.target.closest(".role-pw-save");
+    if (btn) saveRolePassword(btn.closest(".role-pw-row"));
+  });
+  list.addEventListener("keydown", (e) => {
+    if (e.isComposing || e.keyCode === 229) return;
+    if (e.key === "Enter" && e.target.classList.contains("role-pw-input")) {
+      e.preventDefault();
+      saveRolePassword(e.target.closest(".role-pw-row"));
+    }
   });
 }

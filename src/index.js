@@ -339,6 +339,7 @@ const INITIAL_DB = {
   flow_logs: [],
   release_entries: [],
   release_confirms: [],
+  role_passwords: {},
   users: [
     { id: "usr-admin-1", email: "admin@ddlongan.com", phone: "0900000000", full_name: "Sếp Tổng Quản Trị (Admin)", role: "admin", password: "Admin@123456", pin_code: "1234", is_active: 1 },
     { id: "usr-admin-2", email: "merchandise6868@gmail.com", phone: "0988888888", full_name: "Sếp Merchandise", role: "admin", password: "Admin@123456", pin_code: "1234", is_active: 1 },
@@ -436,6 +437,34 @@ function buildReleasePayload({ po, cust, rows, allSizes, conf }, date) {
       packing_at: conf?.packing_at || null
     }
   };
+}
+
+// ==========================================
+// CHUYỂN QUYỀN BẰNG MẬT KHẨU CỦA QUYỀN (nút TK trên điện thoại)
+// ==========================================
+const SWITCH_ROLES = {
+  admin: 'Ban giám đốc (Admin)',
+  worker: 'Nhân viên kiểm kê',
+  leader: 'Tổ trưởng',
+  packer: 'Đóng gói'
+};
+
+async function hashRolePassword(password, salt) {
+  const data = new TextEncoder().encode(`${salt}:${password}`);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function newSalt() {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return [...bytes].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function getRolePasswordRecord(env, role) {
+  if (env && env.DB) {
+    return await env.DB.prepare("SELECT role, salt, hash, updated_at FROM role_passwords WHERE role = ?").bind(role).first();
+  }
+  return (memoryDB.role_passwords || {})[role] || null;
 }
 
 async function loadReleasePayload(env, poId, date) {
@@ -588,6 +617,13 @@ async function initD1Tables(db) {
         leader_at TEXT,
         packing_by TEXT,
         packing_at TEXT
+      )`,
+      // Mật khẩu chuyển quyền trên điện thoại: mỗi quyền 1 mật khẩu (lưu dạng băm SHA-256 + salt)
+      `CREATE TABLE IF NOT EXISTS role_passwords (
+        role TEXT PRIMARY KEY,
+        salt TEXT NOT NULL,
+        hash TEXT NOT NULL,
+        updated_at TEXT
       )`
     ];
 
@@ -2410,6 +2446,79 @@ export default {
           }, { headers });
         } catch (err) {
           return Response.json({ success: false, error: err.message }, { status: 400, headers });
+        }
+      }
+
+      // ==========================================
+      // CHUYỂN QUYỀN BẰNG MẬT KHẨU CỦA QUYỀN
+      // ==========================================
+
+      // Trạng thái mật khẩu từng quyền (không trả mật khẩu / mã băm về)
+      if (url.pathname === '/api/role-passwords' && request.method === 'GET') {
+        try {
+          const roles = [];
+          for (const role of Object.keys(SWITCH_ROLES)) {
+            const rec = await getRolePasswordRecord(env, role);
+            roles.push({ role, title: SWITCH_ROLES[role], is_set: !!rec, updated_at: rec ? rec.updated_at : null });
+          }
+          return Response.json({ success: true, roles }, { headers });
+        } catch (err) {
+          return Response.json({ success: false, error: err.message }, { status: 500, headers });
+        }
+      }
+
+      // Quản trị đặt / đổi mật khẩu cho 1 quyền
+      if (url.pathname === '/api/role-passwords' && request.method === 'POST') {
+        try {
+          const body = await request.json();
+          const role = String(body.role || '');
+          const password = String(body.password || '');
+          if (!SWITCH_ROLES[role]) {
+            return Response.json({ success: false, error: "Quyền không hợp lệ" }, { status: 400, headers });
+          }
+          if (password.trim().length < 4) {
+            return Response.json({ success: false, error: "Mật khẩu cần ít nhất 4 ký tự" }, { status: 400, headers });
+          }
+          const salt = newSalt();
+          const hash = await hashRolePassword(password, salt);
+          const updatedAt = new Date().toISOString();
+          if (env && env.DB) {
+            await env.DB.prepare(`
+              INSERT INTO role_passwords (role, salt, hash, updated_at) VALUES (?, ?, ?, ?)
+              ON CONFLICT(role) DO UPDATE SET salt = excluded.salt, hash = excluded.hash, updated_at = excluded.updated_at
+            `).bind(role, salt, hash, updatedAt).run();
+          } else {
+            if (!memoryDB.role_passwords) memoryDB.role_passwords = {};
+            memoryDB.role_passwords[role] = { role, salt, hash, updated_at: updatedAt };
+          }
+          return Response.json({ success: true, role, updated_at: updatedAt }, { headers });
+        } catch (err) {
+          return Response.json({ success: false, error: err.message }, { status: 500, headers });
+        }
+      }
+
+      // Chuyển quyền: đúng mật khẩu của quyền thì trả về "người dùng" của quyền đó
+      if (url.pathname === '/api/auth/role-switch' && request.method === 'POST') {
+        try {
+          const body = await request.json();
+          const role = String(body.role || '');
+          const password = String(body.password || '');
+          if (!SWITCH_ROLES[role]) {
+            return Response.json({ success: false, error: "Quyền không hợp lệ" }, { status: 400, headers });
+          }
+          const rec = await getRolePasswordRecord(env, role);
+          if (!rec) {
+            return Response.json({ success: false, error: "Quyền này chưa có mật khẩu. Nhờ quản trị đặt ở tab Phân quyền & tài khoản." }, { status: 400, headers });
+          }
+          if (!password || (await hashRolePassword(password, rec.salt)) !== rec.hash) {
+            return Response.json({ success: false, error: "Sai mật khẩu" }, { status: 401, headers });
+          }
+          return Response.json({
+            success: true,
+            user: { id: `role-${role}`, full_name: SWITCH_ROLES[role], role, via: 'role-switch', is_active: 1 }
+          }, { headers });
+        } catch (err) {
+          return Response.json({ success: false, error: err.message }, { status: 500, headers });
         }
       }
 

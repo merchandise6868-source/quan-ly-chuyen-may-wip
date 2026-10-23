@@ -4626,6 +4626,8 @@ input[type=number] {
     justify-content: flex-end !important;
     width: auto !important;
     position: relative !important;
+    /* overflow-x: auto ở khối trên làm menu TK (position: absolute) bị cắt mất trên điện thoại */
+    overflow: visible !important;
   }
 
   .btn-user-avatar {
@@ -7535,7 +7537,12 @@ input.h1-pink-note-input:focus {
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    white-space: nowrap;
   }
+  .rel-sumbar { gap: 8px; }
+  .rel-sumbar-lbl { min-width: 0; }
+  .rel-sumbar-txt { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .rel-sumbar-val { flex-shrink: 0; }
   .rel-sumbar-val { color: #e8191f; }
   .rel-sumbar.is-ok .rel-sumbar-val { color: #065f46; }
   .rel-sumbar.is-empty .rel-sumbar-val { color: #64748b; font-weight: 700; }
@@ -7546,8 +7553,12 @@ input.h1-pink-note-input:focus {
 }
 
 /* Phân quyền: ẩn/hiện theo vai trò (lớp role-* do applyUserRole gắn lên body) */
-body.role-worker .rel-btn,
-body.role-worker .rel-mobile,
+body.role-leader .rel-btn-tc,
+body.role-leader .rel-big-tc,
+body.role-worker .rel-btn-dg,
+body.role-worker .rel-big-dg,
+body.role-worker .rel-btn-sum,
+body.role-worker .rel-sumbar,
 body.role-feeder .rel-btn-dg,
 body.role-feeder .rel-big-dg,
 body.role-feeder .rel-btn-sum,
@@ -7559,7 +7570,13 @@ body.role-packer .rel-sumbar {
   display: none !important;
 }
 
-/* Người thả chuyền / Đóng gói: chỉ còn 2 bộ lọc KH, PO và 1 nút */
+/* Nhân viên kiểm kê (thả chuyền) / Đóng gói: chỉ còn 2 bộ lọc KH, PO và 1 nút */
+body.role-worker .mobile-action-bar,
+body.role-worker .mobile-kpi-card,
+body.role-worker .excel-sheet-wrapper,
+body.role-worker .action-toolbar .btn-group-right,
+body.role-worker .action-toolbar .btn-group-left > :not(.rel-btn),
+body.role-worker #reportStatusTag,
 body.role-feeder .mobile-action-bar,
 body.role-packer .mobile-action-bar,
 body.role-feeder .mobile-kpi-card,
@@ -7576,11 +7593,14 @@ body.role-packer #reportStatusTag {
 }
 
 @media (max-width: 768px) {
+  body.role-leader .rel-row { grid-template-columns: 1fr; }
+  body.role-worker .rel-row,
   body.role-feeder .rel-row,
   body.role-packer .rel-row {
     grid-template-columns: 1fr;
     margin-top: 8px;
   }
+  body.role-worker .rel-big,
   body.role-feeder .rel-big,
   body.role-packer .rel-big {
     padding: 16px 8px;
@@ -8077,6 +8097,244 @@ body.role-packer #reportStatusTag {
 
 @media (max-width: 1024px) {
   .cust-mgr-body { grid-template-columns: 1fr; }
+}
+
+/* ========================================================
+   CHUYỂN QUYỀN (nút TK): chọn quyền rồi nhập mật khẩu của quyền
+   ======================================================== */
+#modalRoleSwitch.modal-overlay { z-index: 100000 !important; }
+#modalRoleSwitch.show {
+  display: flex !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+#modalRoleAuth.modal-overlay { z-index: 100001 !important; }
+.rs-card {
+  width: 95%;
+  max-width: 420px;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.25), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
+  color: #0f172a;
+  font-family: 'Be Vietnam Pro', sans-serif;
+}
+.rs-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid #e2e8f0;
+}
+.rs-title { font-size: 17px; font-weight: 800; }
+.rs-current { font-size: 12.5px; color: #64748b; margin-top: 2px; }
+.rs-current b { color: #0f172a; }
+.rs-close {
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: #334155;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.rs-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 14px 14px;
+}
+.rs-body [hidden] { display: none !important; }
+.rs-roles { display: grid; gap: 8px; }
+.rs-role {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1.5px solid #e2e8f0;
+  background: #ffffff;
+  cursor: pointer;
+  font-family: inherit;
+  color: #0f172a;
+}
+.rs-role:active { transform: scale(0.99); }
+.rs-role.is-current {
+  border-color: #0f766e;
+  background: #f0fdfa;
+  cursor: default;
+}
+.rs-role-ico {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 800;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+.rs-ico-admin { background: #7c2d12; }
+.rs-ico-worker { background: #0f766e; }
+.rs-ico-leader { background: #1e3a5f; }
+.rs-ico-packer { background: #7c3aed; }
+.rs-role-text { flex: 1; min-width: 0; }
+.rs-role-name { display: block; font-size: 15px; font-weight: 800; }
+.rs-role-desc { display: block; font-size: 12px; color: #64748b; margin-top: 2px; line-height: 1.35; }
+.rs-role-tag {
+  font-size: 11px;
+  font-weight: 800;
+  color: #0f766e;
+  background: #ccfbf1;
+  border-radius: 6px;
+  padding: 2px 7px;
+  white-space: nowrap;
+}
+.rs-picked {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 12px;
+}
+.rs-label { display: block; font-size: 12.5px; font-weight: 700; color: #334155; margin-bottom: 6px; }
+.rs-pass-row { display: flex; gap: 6px; }
+.rs-input {
+  flex: 1;
+  min-width: 0;
+  height: 46px;
+  box-sizing: border-box;
+  border: 1.5px solid #ec4899;
+  background: #fdf2f8;
+  border-radius: 10px;
+  padding: 0 12px;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+  outline: none;
+}
+.rs-input:focus { border-color: #db2777; box-shadow: 0 0 0 2px #fbcfe8; }
+.rs-eye {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 0 12px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: #334155;
+  cursor: pointer;
+}
+.rs-error { min-height: 18px; margin: 6px 0 4px; font-size: 13px; font-weight: 600; color: #dc2626; }
+.rs-submit {
+  width: 100%;
+  border: none;
+  border-radius: 10px;
+  padding: 13px;
+  background: #0f766e;
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.rs-submit:disabled { opacity: 0.55; cursor: progress; }
+.rs-back {
+  width: 100%;
+  margin-top: 8px;
+  border: none;
+  background: transparent;
+  padding: 8px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: #475569;
+  cursor: pointer;
+}
+.rs-foot {
+  padding: 10px 14px 12px;
+  border-top: 1px solid #e2e8f0;
+  text-align: center;
+}
+.rs-link {
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #0369a1;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+@media (max-width: 768px) {
+  #modalRoleSwitch.modal-overlay {
+    align-items: flex-end !important;
+  }
+  .rs-card {
+    width: 100%;
+    max-width: none;
+    border-radius: 18px 18px 0 0;
+    border: none;
+  }
+  .rs-foot { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+}
+
+/* Tab 04: mật khẩu từng quyền */
+.role-pw-card { margin-top: 16px; }
+.role-pw-card .manage-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.role-pw-list { display: grid; gap: 8px; }
+.role-pw-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #ffffff;
+}
+.role-pw-name { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 14px; }
+.role-pw-name .rs-role-ico { width: 32px; height: 32px; font-size: 12px; border-radius: 8px; }
+.role-pw-status {
+  font-size: 11.5px;
+  font-weight: 700;
+  border-radius: 6px;
+  padding: 2px 8px;
+  white-space: nowrap;
+  background: #fff7ed;
+  color: #c2410c;
+}
+.role-pw-status.is-set { background: #ecfdf5; color: #065f46; }
+.role-pw-row .form-control { min-width: 0 !important; width: 100%; }
+.role-pw-loading,
+.role-pw-note { font-size: 12px; color: #64748b; }
+.role-pw-note { margin: 10px 0 0; }
+
+@media (max-width: 768px) {
+  .role-pw-row { grid-template-columns: 1fr auto; }
 }
 
 

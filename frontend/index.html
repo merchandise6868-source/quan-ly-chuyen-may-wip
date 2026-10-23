@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@500;600;700;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="styles.css?v=20261023_1600">
+  <link rel="stylesheet" href="styles.css?v=20261023_1800">
   
   <!-- cdn for sheetjs (xlsx) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -165,7 +165,7 @@
                 Làm mới phiên bản
               </button>
               <button type="button" class="popover-item" id="btnPopoverSwitchRole">
-                Đổi tài khoản
+                Chuyển quyền
               </button>
               <button type="button" class="popover-item text-danger" id="btnPopoverLogout">
                 Đăng xuất
@@ -297,7 +297,7 @@
         <button type="button" class="rel-sumbar is-empty" data-rel-open="sum" id="relSumBar">
           <span class="rel-sumbar-lbl">
             <svg class="rel-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 5.5L5 7l2.5-2.5M3.5 11.5L5 13l2.5-2.5M3.5 17.5L5 19l2.5-2.5M11 6h9M11 12h9M11 18h9"/></svg>
-            Tổng hợp thả chuyền – đóng gói
+            <span class="rel-sumbar-txt">Tổng hợp thả chuyền – đóng gói</span>
           </span>
           <span class="rel-sumbar-val"><span data-rel-count>Chưa có số</span><svg class="rel-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
         </button>
@@ -761,10 +761,10 @@
                   <select id="userRoleSelect" class="form-control font-bold">
                     <option value="admin">Ban giám đốc (Toàn quyền hệ thống &amp; phân quyền)</option>
                     <option value="manager">Quản lý điều hành (Xem 2 tab báo cáo, thả chuyền &amp; đóng gói)</option>
-                    <option value="leader">Tổ trưởng (Tab đối chiếu NXT, thả chuyền, chỉ lệnh đóng gói, tổng hợp)</option>
-                    <option value="feeder">Người thả chuyền (Chỉ chọn KH, PO và nhập thả chuyền)</option>
+                    <option value="leader">Tổ trưởng (Đối chiếu NXT, chỉ lệnh đóng gói, tổng hợp)</option>
                     <option value="packer">Đóng gói (Xem chỉ lệnh đóng gói và xác nhận đã nhận đủ)</option>
-                    <option value="worker" selected>Nhân viên kiểm kê (Chỉ xem &amp; nhập 2 tab kiểm kê)</option>
+                    <option value="worker" selected>Nhân viên kiểm kê (Chỉ chọn KH, PO và nhập thả chuyền)</option>
+                    <option value="feeder">Người thả chuyền (giống Nhân viên kiểm kê)</option>
                   </select>
                 </div>
               </div>
@@ -811,6 +811,20 @@
                 </tbody>
               </table>
             </div>
+          </div>
+        </div>
+
+        <!-- MẬT KHẨU CHUYỂN QUYỀN TRÊN ĐIỆN THOẠI (nút TK) -->
+        <div class="manage-card role-pw-card">
+          <div class="manage-card-header">
+            <h3>Mật khẩu chuyển quyền trên điện thoại</h3>
+            <span class="manage-header-hint">Bấm nút TK → Chuyển quyền → chọn quyền → nhập mật khẩu của quyền đó</span>
+          </div>
+          <div class="manage-card-body">
+            <div class="role-pw-list" id="rolePwList">
+              <div class="role-pw-loading">Đang tải…</div>
+            </div>
+            <p class="role-pw-note">Mỗi quyền dùng chung 1 mật khẩu. Mật khẩu được mã hóa khi lưu nên không xem lại được; quên thì đặt mật khẩu mới.</p>
           </div>
         </div>
 
@@ -880,6 +894,43 @@
   </div>
 
   <!-- AUTH & ROLE MODAL -->
+  <!-- ========================================================
+       MODAL: CHUYỂN QUYỀN (nút TK) - chọn quyền rồi nhập mật khẩu của quyền đó
+       ======================================================== -->
+  <div id="modalRoleSwitch" class="modal-overlay rs-overlay" style="display: none;" aria-hidden="true">
+    <div class="rs-card" role="dialog" aria-modal="true" aria-labelledby="rsTitle">
+      <div class="rs-head">
+        <div>
+          <div class="rs-title" id="rsTitle">Chuyển quyền</div>
+          <div class="rs-current" id="rsCurrent"></div>
+        </div>
+        <button type="button" class="rs-close" id="btnRsClose" aria-label="Đóng">×</button>
+      </div>
+
+      <div class="rs-body">
+        <div id="rsStepPick">
+          <div class="rs-roles" id="rsRoles"></div>
+        </div>
+
+        <form id="rsStepPass" hidden novalidate>
+          <div class="rs-picked" id="rsPicked"></div>
+          <label class="rs-label" for="rsPassword">Mật khẩu của quyền này</label>
+          <div class="rs-pass-row">
+            <input type="password" id="rsPassword" class="rs-input" autocomplete="off" placeholder="Nhập mật khẩu">
+            <button type="button" class="rs-eye" id="btnRsEye" aria-label="Hiện mật khẩu">Hiện</button>
+          </div>
+          <div class="rs-error" id="rsError"></div>
+          <button type="submit" class="rs-submit" id="btnRsSubmit">Chuyển quyền</button>
+          <button type="button" class="rs-back" id="btnRsBack">← Chọn quyền khác</button>
+        </form>
+      </div>
+
+      <div class="rs-foot">
+        <button type="button" class="rs-link" id="btnRsAccountLogin">Đăng nhập bằng tài khoản riêng (email / SĐT)</button>
+      </div>
+    </div>
+  </div>
+
   <div id="modalRoleAuth" class="modal-overlay">
     <div class="modal-card modal-auth-card">
       <div class="modal-header">
@@ -1151,6 +1202,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261023_1600"></script>
+  <script src="app.js?v=20261023_1800"></script>
 </body>
 </html>
