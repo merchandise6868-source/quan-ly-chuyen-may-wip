@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@500;600;700;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="styles.css?v=20261020_1430">
+  <link rel="stylesheet" href="styles.css?v=20261023_1600">
   
   <!-- cdn for sheetjs (xlsx) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -219,6 +219,18 @@
           <button type="button" class="btn btn-danger btn-kiem-tra-pulse" id="btnOpenGlobalBalanceDesktop" onclick="openFactoryBalanceModal()" title="Mở bảng kiểm tra cân đối toàn bộ nhà máy">
             Kiểm tra cân đối
           </button>
+          <button type="button" class="btn rel-btn rel-btn-tc" data-rel-open="tha_chuyen" title="Ghi số thả chuyền theo size">
+            <svg class="rel-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 12h3.586a1 1 0 0 1 .707 1.707l-6.586 6.586a1 1 0 0 1-1.414 0l-6.586-6.586A1 1 0 0 1 5.414 12H9V9h6v3z"/><path d="M15 3H9M15 6H9"/></svg>
+            Thả chuyền
+          </button>
+          <button type="button" class="btn rel-btn rel-btn-dg" data-rel-open="dong_goi" title="Chỉ lệnh đóng gói theo size">
+            <svg class="rel-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5M16 5.25l-8 4.5"/></svg>
+            Chỉ lệnh đóng gói
+          </button>
+          <button type="button" class="btn rel-btn rel-btn-sum" data-rel-open="sum" title="So thả chuyền với đóng gói theo từng size">
+            <svg class="rel-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 5.5L5 7l2.5-2.5M3.5 11.5L5 13l2.5-2.5M3.5 17.5L5 19l2.5-2.5M11 6h9M11 12h9M11 18h9"/></svg>
+            Tổng hợp <span class="rel-btn-count" data-rel-count></span>
+          </button>
           <button class="btn btn-outline" id="btnRefresh">
             Tải lại dữ liệu
           </button>
@@ -267,6 +279,27 @@
         <button type="button" class="btn-mobile-sync-data" id="btnMobileSyncData" title="Tải lại danh sách Khách hàng, PO và số liệu mới nhất">
           <span class="sync-icon" id="mobileSyncIcon">🔄</span>
           <span class="sync-text">Tải lại</span>
+        </button>
+      </div>
+
+      <!-- MOBILE: THẢ CHUYỀN / CHỈ LỆNH ĐÓNG GÓI / TỔNG HỢP -->
+      <div class="rel-mobile">
+        <div class="rel-row">
+          <button type="button" class="rel-big rel-big-tc" data-rel-open="tha_chuyen">
+            <svg class="rel-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 12h3.586a1 1 0 0 1 .707 1.707l-6.586 6.586a1 1 0 0 1-1.414 0l-6.586-6.586A1 1 0 0 1 5.414 12H9V9h6v3z"/><path d="M15 3H9M15 6H9"/></svg>
+            Thả chuyền
+          </button>
+          <button type="button" class="rel-big rel-big-dg" data-rel-open="dong_goi">
+            <svg class="rel-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5M16 5.25l-8 4.5"/></svg>
+            Chỉ lệnh đóng gói
+          </button>
+        </div>
+        <button type="button" class="rel-sumbar is-empty" data-rel-open="sum" id="relSumBar">
+          <span class="rel-sumbar-lbl">
+            <svg class="rel-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 5.5L5 7l2.5-2.5M3.5 11.5L5 13l2.5-2.5M3.5 17.5L5 19l2.5-2.5M11 6h9M11 12h9M11 18h9"/></svg>
+            Tổng hợp thả chuyền – đóng gói
+          </span>
+          <span class="rel-sumbar-val"><span data-rel-count>Chưa có số</span><svg class="rel-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
         </button>
       </div>
 
@@ -474,15 +507,14 @@
         </div>
       </div>
       
-      <div class="manage-grid">
-        
-        <!-- CARD 1: QUẢN LÝ KHÁCH HÀNG -->
-        <div class="manage-card">
-          <div class="manage-card-header">
-            <h3>Danh sách khách hàng (<span id="statCustHeaderCount">0 công ty</span>)</h3>
-            <span class="manage-header-hint">Chọn dòng để lọc PO</span>
-          </div>
-          <div class="manage-card-body">
+      <!-- CARD 1: QUẢN LÝ KHÁCH HÀNG + DÃY SIZE CỦA KHÁCH -->
+      <div class="manage-card cust-mgr-card">
+        <div class="manage-card-header">
+          <h3>Danh sách khách hàng (<span id="statCustHeaderCount">0 công ty</span>)</h3>
+          <span class="manage-header-hint">Bấm một dòng để sửa khách và xem PO</span>
+        </div>
+        <div class="manage-card-body cust-mgr-body">
+          <div class="cust-mgr-left">
             <form id="formAddCustomer" class="form-grid" novalidate>
               <input type="hidden" id="editCustId" value="">
               <div class="form-group">
@@ -493,20 +525,17 @@
                 <label for="custCode">Mã viết tắt <span style="color:#ef4444; font-weight:bold;">*</span></label>
                 <input type="text" id="custCode" class="form-control" placeholder="Ví dụ: PUMA, NIKE, DD...">
               </div>
-              <div class="form-actions-row">
-                <button type="submit" class="btn btn-primary" id="btnSubmitCust">+ Thêm khách hàng</button>
-                <button type="button" class="btn btn-outline" id="btnCancelEditCust" style="display:none;">Hủy chỉnh sửa</button>
-              </div>
             </form>
 
-            <div class="table-responsive" style="margin-top: 16px;">
+            <div class="table-responsive" style="margin-top: 12px;">
               <table class="flow-log-table table-clickable-customers" id="tableCustomers">
                 <thead>
                   <tr>
                     <th>Mã KH</th>
                     <th>Tên khách hàng</th>
-                    <th>Số đơn PO</th>
-                    <th style="width: 140px; text-align:center;">Thao tác</th>
+                    <th>Dãy size</th>
+                    <th>Số PO</th>
+                    <th style="width: 120px; text-align:center;">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody id="tbodyCustomers">
@@ -515,7 +544,37 @@
               </table>
             </div>
           </div>
+
+          <!-- DÃY SIZE CỦA KHÁCH: nhập tự do (size số, size chữ hoặc lẫn cả hai), kéo thả để sắp thứ tự -->
+          <div class="size-editor">
+            <div class="size-editor-head">
+              <span class="size-editor-title">Dãy size của khách <span class="size-new-tag">Mới</span></span>
+              <span class="size-count" id="sizeCount">0 size</span>
+            </div>
+            <div class="size-editor-help">Size số, size chữ, hay lẫn cả hai đều được. Thứ tự ở đây là thứ tự các dòng trên điện thoại.</div>
+            <div class="size-chips" id="sizeChips"></div>
+            <div class="size-add-row">
+              <input type="text" id="sizeAddInput" class="form-control" placeholder="Gõ size rồi Enter, ví dụ 38 hoặc XL hoặc 4T-5T" autocomplete="off">
+              <button type="button" class="btn size-add-btn" id="btnSizeAdd">+ Thêm</button>
+            </div>
+            <div class="size-err" id="sizeErr"></div>
+            <div class="size-hint">Gõ nhiều size một lần, cách nhau bằng dấu phẩy, hoặc dán nguyên dòng tiêu đề size từ Excel. Kéo thả ô size để đổi thứ tự.</div>
+            <div class="size-quick">
+              <span class="size-quick-lbl">Mẫu nhanh:</span>
+              <button type="button" class="size-quick-btn" data-size-quick="num">35 → 49</button>
+              <button type="button" class="size-quick-btn" data-size-quick="let">S M L XL XXL</button>
+              <button type="button" class="size-quick-btn" data-size-quick="kid">3-4 … 10T-11T</button>
+              <button type="button" class="size-quick-btn is-clear" data-size-quick="clr">Xóa hết</button>
+            </div>
+            <div class="size-editor-actions">
+              <button type="button" class="btn btn-outline" id="btnCancelEditCust" style="display:none;">Hủy chỉnh sửa</button>
+              <button type="submit" form="formAddCustomer" class="btn btn-primary" id="btnSubmitCust">+ Thêm khách hàng</button>
+            </div>
+          </div>
         </div>
+      </div>
+
+      <div class="manage-grid">
 
         <!-- CARD 2: QUẢN LÝ ĐƠN HÀNG / PO & CHI TIẾT LÔ HÀNG -->
         <div class="manage-card">
@@ -596,8 +655,36 @@
                 <button type="button" class="btn btn-outline" id="btnCancelEditPO" style="display:none;">✕ Hủy chỉnh sửa</button>
               </div>
             </form>
+          </div>
+        </div>
 
-            <div class="table-responsive" style="margin-top: 16px;">
+        <!-- CARD 3: XEM TRƯỚC BẢNG THẢ CHUYỀN / ĐÓNG GÓI TRÊN ĐIỆN THOẠI -->
+        <div class="manage-card size-preview-card">
+          <div class="manage-card-header">
+            <h3>Trên điện thoại sẽ hiện</h3>
+            <span class="manage-header-hint">Thả chuyền / Chỉ lệnh đóng gói</span>
+          </div>
+          <div class="manage-card-body">
+            <div class="size-preview-note">Mỗi PO của <b id="sizePreviewCust">khách hàng</b> dùng chung dãy size này, mỗi size một dòng:</div>
+            <div class="size-preview-wrap">
+              <table class="size-preview-table">
+                <colgroup><col style="width:22%"><col><col><col><col><col style="width:20%"></colgroup>
+                <thead><tr><th>Size</th><th>Nhận 1</th><th>Nhận 2</th><th>Nhận 3</th><th>Nhận 4</th><th class="rel-th-tc">Tích lũy</th></tr></thead>
+                <tbody id="sizePreviewBody"></tbody>
+              </table>
+            </div>
+            <div class="size-pv-more" id="sizePreviewMore"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DANH SÁCH PO CỦA KHÁCH ĐANG CHỌN -->
+      <div class="manage-card po-list-card">
+        <div class="manage-card-header">
+          <h3>Danh sách PO — <span id="lblPoListCustTitle" class="cust-accent-name">Tất cả</span></h3>
+        </div>
+        <div class="manage-card-body">
+            <div class="table-responsive">
               <table class="flow-log-table" id="tableOrders">
                 <thead>
                   <tr>
@@ -614,9 +701,7 @@
                 </tbody>
               </table>
             </div>
-          </div>
         </div>
-
       </div>
 
     </section>
@@ -675,7 +760,10 @@
                   <label for="userRoleSelect">Vai trò truy cập</label>
                   <select id="userRoleSelect" class="form-control font-bold">
                     <option value="admin">Ban giám đốc (Toàn quyền hệ thống &amp; phân quyền)</option>
-                    <option value="manager">Quản lý điều hành (Xem toàn bộ báo cáo &amp; quản lý PO)</option>
+                    <option value="manager">Quản lý điều hành (Xem 2 tab báo cáo, thả chuyền &amp; đóng gói)</option>
+                    <option value="leader">Tổ trưởng (Tab đối chiếu NXT, thả chuyền, chỉ lệnh đóng gói, tổng hợp)</option>
+                    <option value="feeder">Người thả chuyền (Chỉ chọn KH, PO và nhập thả chuyền)</option>
+                    <option value="packer">Đóng gói (Xem chỉ lệnh đóng gói và xác nhận đã nhận đủ)</option>
                     <option value="worker" selected>Nhân viên kiểm kê (Chỉ xem &amp; nhập 2 tab kiểm kê)</option>
                   </select>
                 </div>
@@ -1001,6 +1089,68 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261020_1430"></script>
+  <!-- ========================================================
+       MODAL: THẢ CHUYỀN / CHỈ LỆNH ĐÓNG GÓI / TỔNG HỢP
+       Mỗi ngày 4 lần nhận theo size, tích lũy cộng dồn cả PO
+       ======================================================== -->
+  <div id="modalRelease" class="modal-overlay rel-overlay" style="display: none;" aria-hidden="true">
+    <div class="rel-card" role="dialog" aria-modal="true" aria-labelledby="relTitle">
+      <div class="rel-head">
+        <div class="rel-head-row">
+          <button type="button" class="rel-back" id="btnRelBack" aria-label="Quay lại">
+            <svg class="rel-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M5 12l6 6M5 12l6-6"/></svg>
+          </button>
+          <div class="rel-title" id="relTitle">Thả chuyền</div>
+          <span class="rel-date" id="relDate"></span>
+        </div>
+        <div class="rel-info" id="relInfo"></div>
+        <div class="rel-seg" id="relSeg">
+          <button type="button" class="rel-seg-btn on" data-rel-seg="in">Nhập đóng gói</button>
+          <button type="button" class="rel-seg-btn" data-rel-seg="sum">Tổng hợp</button>
+        </div>
+      </div>
+
+      <div class="rel-body">
+        <div class="rel-loading" id="relLoading">Đang tải số liệu…</div>
+        <div class="rel-empty" id="relEmpty" hidden></div>
+
+        <div id="relPaneIn">
+          <div class="rel-chips" id="relChips">
+            <div class="rel-chip" id="relChipLeader">Tổ trưởng: chưa xác nhận</div>
+            <div class="rel-chip" id="relChipPack">Đóng gói: chưa xác nhận</div>
+          </div>
+          <div class="rel-table-card">
+            <table class="rel-table">
+              <colgroup><col class="rel-col-size"><col><col><col><col><col class="rel-col-cum"></colgroup>
+              <thead>
+                <tr><th>Size</th><th>Nhận 1</th><th>Nhận 2</th><th>Nhận 3</th><th>Nhận 4</th><th class="rel-th-cum" id="relThCum">Tích lũy</th></tr>
+              </thead>
+              <tbody id="relTbody"></tbody>
+              <tfoot><tr id="relTfoot"></tr></tfoot>
+            </table>
+          </div>
+        </div>
+
+        <div id="relPaneSum" hidden>
+          <div class="rel-banner" id="relBanner"></div>
+          <div class="rel-table-card">
+            <table class="rel-table rel-sum-table">
+              <colgroup><col class="rel-col-size2"><col><col><col></colgroup>
+              <thead>
+                <tr><th>Size</th><th class="rel-th-tc">Thả chuyền<br>tích lũy</th><th class="rel-th-dg">Đóng gói<br>tích lũy</th><th>Kết quả</th></tr>
+              </thead>
+              <tbody id="relSumBody"></tbody>
+              <tfoot><tr id="relSumFoot"></tr></tfoot>
+            </table>
+          </div>
+          <div class="rel-note">Số lệch = đóng gói − thả chuyền. Âm là đóng gói nhận thiếu.</div>
+        </div>
+      </div>
+
+      <div class="rel-foot" id="relFoot"></div>
+    </div>
+  </div>
+
+  <script src="app.js?v=20261023_1600"></script>
 </body>
 </html>

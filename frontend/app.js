@@ -91,7 +91,7 @@ function initPWA() {
     });
 
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js?v=20261017_0808', { scope: '/' })
+      navigator.serviceWorker.register('/sw.js?v=20261023_1600', { scope: '/' })
         .then(reg => {
           console.log('✅ Service Worker registered successfully:', reg.scope);
           // Explicit update check on every page load
@@ -200,6 +200,8 @@ document.addEventListener("DOMContentLoaded", () => {
   initPWA();
   bindEvents();
   bindPortalEvents();
+  bindSizeEditorEvents();
+  bindReleaseEvents();
   checkLoginPortalState();
   fetchMetadata();
 });
@@ -965,6 +967,7 @@ async function refreshAllTabsData() {
     renderReportUI();
     appState.deptLogs = {};
     renderDeptLogsUI();
+    refreshReleaseBar();
     return;
   }
 
@@ -975,6 +978,7 @@ async function refreshAllTabsData() {
     loadReport(),
     loadDeptLogs()
   ]);
+  refreshReleaseBar();
 }
 
 async function changeDateByDays(days) {
@@ -2048,6 +2052,7 @@ function bindCardInputs() {
         const mobDate = document.getElementById("reportDateMobile");
         if (mobDate) mobDate.value = e.target.value;
         await loadReport();
+        refreshReleaseBar();
       }
     });
   });
@@ -2614,6 +2619,9 @@ function renderManageTab() {
 
   // 5. Ensure batch configuration boxes are initialized in PO form
   initPOBatchInputs();
+
+  // 6. Khung dãy size + xem trước bảng trên điện thoại
+  renderSizeEditor();
 }
 
 // 1. RENDER MASTER CUSTOMER TABLE
@@ -2625,7 +2633,7 @@ function renderCustomerTable() {
   if (!tbodyCust) return;
 
   if (appState.customers.length === 0) {
-    tbodyCust.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:20px; color:#64748b;">Chưa có khách hàng nào. Nhập tên và mã khách hàng ở biểu mẫu trên để bắt đầu.</td></tr>`;
+    tbodyCust.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:20px; color:#64748b;">Chưa có khách hàng nào. Nhập tên và mã khách hàng ở biểu mẫu trên để bắt đầu.</td></tr>`;
     return;
   }
 
@@ -2637,6 +2645,7 @@ function renderCustomerTable() {
       <tr class="customer-row-item ${isSelected ? 'selected-cust-row' : ''}" data-id="${c.id}" title="Chọn để xem danh sách PO của ${c.name}">
         <td><strong class="mono-code">${c.code}</strong></td>
         <td><strong>${c.name}</strong></td>
+        <td>${sizeBriefHtml(getCustomerSizes(c))}</td>
         <td><span class="badge-po-count">${custPOCount} PO</span></td>
         <td style="text-align:center; white-space: nowrap;">
           <button type="button" class="btn-action-icon btn-action-edit btn-edit-cust" data-id="${c.id}" data-name="${c.name}" data-code="${c.code}" title="Sửa thông tin khách hàng">Sửa</button>
@@ -2652,6 +2661,7 @@ function renderCustomerTable() {
       if (e.target.closest(".btn-action-icon")) return;
       const custId = row.dataset.id;
       selectCustomerInManageTab(custId);
+      fillCustomerForm(custId);
     });
   });
 
@@ -2659,23 +2669,9 @@ function renderCustomerTable() {
   tbodyCust.querySelectorAll(".btn-edit-cust").forEach(btn => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
-      const id = btn.dataset.id;
-      const name = btn.dataset.name;
-      const code = btn.dataset.code;
+      fillCustomerForm(btn.dataset.id);
 
-      const elId = document.getElementById("editCustId");
-      if (elId) elId.value = id;
       const elName = document.getElementById("custName");
-      if (elName) elName.value = name;
-      const elCode = document.getElementById("custCode");
-      if (elCode) elCode.value = code;
-
-      const btnSubmit = document.getElementById("btnSubmitCust");
-      if (btnSubmit) btnSubmit.innerText = "Cập nhật khách hàng";
-
-      const btnCancel = document.getElementById("btnCancelEditCust");
-      if (btnCancel) btnCancel.style.display = "inline-flex";
-
       if (elName) {
         elName.focus();
         elName.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -2731,6 +2727,7 @@ function selectCustomerInManageTab(custId) {
   }
 
   renderOrdersTable(custId);
+  renderSizePreview();
 }
 
 // 3. RENDER DETAIL ORDERS TABLE FOR SELECTED CUSTOMER
@@ -2743,6 +2740,8 @@ function renderOrdersTable(customerId) {
   const custNameDisplay = cust ? `${cust.name} (${cust.code})` : "Tất cả";
   
   if (lblCustTitle) lblCustTitle.innerText = custNameDisplay;
+  const lblPoListCust = document.getElementById("lblPoListCustTitle");
+  if (lblPoListCust) lblPoListCust.innerText = custNameDisplay;
 
   const filteredOrders = customerId 
     ? appState.orders.filter(o => o.customer_id === customerId)
@@ -2995,6 +2994,9 @@ function resetCustomerForm() {
   if (btnSub) btnSub.innerText = "+ Thêm khách hàng";
   const btnCan = document.getElementById("btnCancelEditCust");
   if (btnCan) btnCan.style.display = "none";
+  sizeEditor.list = [];
+  setSizeError("");
+  renderSizeEditor();
 }
 
 function resetPOForm() {
@@ -3049,13 +3051,14 @@ async function handleAddCustomer(e) {
     const res = await fetch("/api/customers", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: id || undefined, name, code })
+      body: JSON.stringify({ id: id || undefined, name, code, size_list: sizeEditor.list })
     });
     const data = await res.json();
     if (data.success) {
       showToast(id ? "✅ Đã cập nhật khách hàng thành công!" : "✅ Đã thêm khách hàng mới thành công!");
       resetCustomerForm();
-      fetchMetadata();
+      await fetchMetadata();
+      if (id) fillCustomerForm(id);
     } else {
       alert("Không thể lưu khách hàng: " + (data.error || "Vui lòng thử lại"));
     }
@@ -3855,7 +3858,7 @@ function onLoginSuccess(user, role) {
   applyUserRole(appState.currentUserRole, appState.currentUser);
   closeRoleModal();
 
-  const roleLabel = role === 'admin' ? 'Ban giám đốc (Toàn quyền 4 Tab)' : (role === 'manager' ? 'Quản lý điều hành (Xem toàn bộ tiến độ)' : 'Nhân viên kiểm kê (2 Tab kiểm kê)');
+  const roleLabel = getRoleInfo(role).title;
   showToast(`Đăng nhập thành công: ${user.full_name || user.email || user.phone} — Quyền: ${roleLabel}`);
 
   fetchMetadata();
@@ -3988,6 +3991,21 @@ function bindPortalEvents() {
   }
 }
 
+// Bảng quyền: tên hiển thị và các tab được xem
+const ROLE_INFO = {
+  admin:   { title: "Ban giám đốc (Admin)", short: "Admin", badge: "is-admin", tabs: ["tab-wip", "tab-flow-log", "tab-manage", "tab-users"] },
+  manager: { title: "Quản lý điều hành", short: "Quản lý", badge: "is-manager", tabs: ["tab-wip", "tab-flow-log"] },
+  leader:  { title: "Tổ trưởng", short: "Tổ trưởng", badge: "is-manager", tabs: ["tab-wip"] },
+  feeder:  { title: "Người thả chuyền", short: "Thả chuyền", badge: "is-worker", tabs: ["tab-wip"] },
+  packer:  { title: "Đóng gói", short: "Đóng gói", badge: "is-worker", tabs: ["tab-wip"] },
+  worker:  { title: "Nhân viên kiểm kê", short: "Kiểm kê", badge: "is-worker", tabs: ["tab-wip", "tab-flow-log"] }
+};
+
+function getRoleInfo(role) {
+  const key = ROLE_INFO[role] ? role : "worker";
+  return { key, ...ROLE_INFO[key] };
+}
+
 function applyUserRole(role, user = null) {
   appState.currentUserRole = role || "worker";
   try {
@@ -4012,91 +4030,45 @@ function applyUserRole(role, user = null) {
     if (mainApp) mainApp.style.setProperty("display", "block", "important");
   }
 
+  const info = getRoleInfo(role);
   const badge = document.getElementById("currentRoleBadge");
-  const tabManageBtn = document.getElementById("tabBtnManage");
-  const tabHistoryBtn = document.getElementById("tabBtnHistory");
-  const tabUsersBtn = document.getElementById("tabBtnUsers");
 
-  let rawName = user ? (user.full_name || user.email || user.phone) : (role === "admin" ? "Ban giám đốc" : (role === "manager" ? "Quản lý" : "Nhân viên"));
+  let rawName = user ? (user.full_name || user.email || user.phone) : info.title;
   const cleanName = String(rawName).replace(/\s*\(Admin\)/gi, '').replace(/\s*\(Quản lý\)/gi, '').replace(/\s*\(Công nhân\)/gi, '').trim();
 
   // Update Avatar Popover Menu (Mockup Màn 2)
   const popName = document.getElementById("popoverUserName");
   const popRole = document.getElementById("popoverUserRole");
   if (popName) {
-    popName.innerText = cleanName || (role === "admin" ? "Ban giám đốc" : (role === "manager" ? "Quản lý" : "Nhân viên kiểm kê"));
+    popName.innerText = cleanName || info.title;
   }
   if (popRole) {
-    popRole.innerText = role === "admin" ? "Vai trò: Ban giám đốc (Admin)" : (role === "manager" ? "Vai trò: Quản lý điều hành" : "Vai trò: Nhân viên kiểm kê");
+    popRole.innerText = `Vai trò: ${info.title}`;
+  }
+  if (badge) {
+    badge.className = `role-badge ${info.badge}`;
+    badge.innerHTML = `${cleanName} · ${info.short}`;
   }
 
-  if (role === "admin") {
-    if (badge) {
-      badge.className = "role-badge is-admin";
-      badge.innerHTML = `${cleanName} · Admin`;
-    }
-    // Sếp Admin có quyền xem HẾT các tab (Tab 1, Tab 2, Tab 3, Tab 4)
-    if (tabManageBtn) {
-      tabManageBtn.classList.remove("hidden");
-      tabManageBtn.style.setProperty("display", "inline-flex", "important");
-    }
-    if (tabHistoryBtn) {
-      tabHistoryBtn.classList.remove("hidden");
-      tabHistoryBtn.style.setProperty("display", "inline-flex", "important");
-    }
-    if (tabUsersBtn) {
-      tabUsersBtn.classList.remove("hidden");
-      tabUsersBtn.style.setProperty("display", "inline-flex", "important");
-    }
-  } else if (role === "manager") {
-    if (badge) {
-      badge.className = "role-badge is-manager";
-      badge.innerHTML = `${cleanName} · Quản lý`;
-    }
-    if (tabManageBtn) {
-      tabManageBtn.classList.remove("hidden");
-      tabManageBtn.style.setProperty("display", "inline-flex", "important");
-    }
-    if (tabHistoryBtn) {
-      tabHistoryBtn.classList.remove("hidden");
-      tabHistoryBtn.style.setProperty("display", "inline-flex", "important");
-    }
-    if (tabUsersBtn) {
-      tabUsersBtn.classList.add("hidden");
-      tabUsersBtn.style.setProperty("display", "none", "important");
-    }
-    
-    // If manager is on tab-users, switch to tab-manage
-    const activeTab = document.querySelector(".tab-btn.active");
-    if (activeTab && activeTab.dataset.tab === "tab-users") {
-      if (tabManageBtn) tabManageBtn.click();
-    }
-  } else {
-    // Công nhân CHỈ XEM Tab 1 và Tab 2
-    if (badge) {
-      badge.className = "role-badge is-worker";
-      badge.innerHTML = `${cleanName} · Kiểm kê`;
-    }
-    if (tabManageBtn) {
-      tabManageBtn.classList.add("hidden");
-      tabManageBtn.style.setProperty("display", "none", "important");
-    }
-    if (tabHistoryBtn) {
-      tabHistoryBtn.classList.add("hidden");
-      tabHistoryBtn.style.setProperty("display", "none", "important");
-    }
-    if (tabUsersBtn) {
-      tabUsersBtn.classList.add("hidden");
-      tabUsersBtn.style.setProperty("display", "none", "important");
-    }
+  // Lớp role-* trên <body>: CSS dựa vào đây để ẩn/hiện nút Thả chuyền, Đóng gói, Tổng hợp
+  Object.keys(ROLE_INFO).forEach(r => document.body.classList.remove(`role-${r}`));
+  document.body.classList.add(`role-${info.key}`);
 
-    // Nếu công nhân đang đứng ở Tab 3, 4 hoặc Lịch sử thì tự động chuyển về Tab 1
-    const activeTab = document.querySelector(".tab-btn.active");
-    if (activeTab && (activeTab.dataset.tab === "tab-manage" || activeTab.dataset.tab === "tab-history" || activeTab.dataset.tab === "tab-users")) {
-      const wipTab = document.querySelector('.tab-btn[data-tab="tab-wip"]');
-      if (wipTab) wipTab.click();
-    }
+  // Chỉ hiện các tab mà quyền này được xem (Tab 3 Khách hàng & PO chỉ dành cho admin)
+  document.querySelectorAll(".nav-tabs .tab-btn").forEach(btn => {
+    const allowed = info.tabs.includes(btn.dataset.tab);
+    btn.classList.toggle("hidden", !allowed);
+    btn.style.setProperty("display", allowed ? "inline-flex" : "none", "important");
+  });
+
+  // Đang đứng ở tab không được xem thì tự chuyển về Tab 1
+  const activeTab = document.querySelector(".tab-btn.active");
+  if (activeTab && !info.tabs.includes(activeTab.dataset.tab)) {
+    const wipTab = document.querySelector('.tab-btn[data-tab="tab-wip"]');
+    if (wipTab) wipTab.click();
   }
+
+  if (typeof refreshReleaseBar === "function") refreshReleaseBar();
 }
 
 function openRoleModal() {
@@ -4301,12 +4273,8 @@ function renderUsersTable() {
   }
 
   tbody.innerHTML = appState.usersList.map(u => {
-    let roleBadge = `<span class="user-role-badge is-worker">Nhân viên kiểm kê</span>`;
-    if (u.role === "admin") {
-      roleBadge = `<span class="user-role-badge is-admin">Ban giám đốc (Admin)</span>`;
-    } else if (u.role === "manager") {
-      roleBadge = `<span class="user-role-badge is-manager">Quản lý điều hành</span>`;
-    }
+    const uRole = getRoleInfo(u.role);
+    const roleBadge = `<span class="user-role-badge ${uRole.badge}">${uRole.title}</span>`;
 
     return `
       <tr>
@@ -4423,7 +4391,7 @@ function handleUserFormPhoneInput() {
   ) : null;
 
   if (existing) {
-    const roleText = existing.role === 'admin' ? 'Ban giám đốc (Admin)' : existing.role === 'manager' ? 'Quản lý điều hành' : 'Nhân viên kiểm kê';
+    const roleText = getRoleInfo(existing.role).title;
     if (hintEl) {
       hintEl.style.display = "block";
       hintEl.innerHTML = `Số điện thoại/Email này đã thuộc tài khoản <strong>${existing.full_name}</strong> (Vai trò: <em>${roleText}</em>). Khi bấm Lưu, hệ thống sẽ cập nhật thông tin cho tài khoản này.`;
@@ -4553,7 +4521,7 @@ async function handleAddUser(e) {
     const data = await res.json();
     if (data.success) {
       const actionText = id ? "cập nhật phân quyền" : "thêm người dùng mới";
-      const roleText = role === 'admin' ? '👑 Sếp Tổng (Admin)' : role === 'manager' ? '⭐ Quản Lý' : '👤 Công Nhân';
+      const roleText = getRoleInfo(role).title;
       if (data.users && Array.isArray(data.users)) {
         appState.usersList = data.users;
         try { localStorage.setItem("dd_cached_users", JSON.stringify(appState.usersList)); } catch (e) {}
@@ -5190,3 +5158,730 @@ async function saveFactoryFinishedGoods() {
   }
 }
 
+
+// ==========================================================
+// TAB 03: DÃY SIZE CỦA KHÁCH HÀNG
+// Nhập tự do (size số, size chữ hoặc lẫn cả hai), giữ đúng thứ tự
+// ==========================================================
+const SIZE_QUICK = {
+  num: Array.from({ length: 15 }, (_, i) => String(35 + i)),
+  let: ["S", "M", "L", "XL", "XXL"],
+  kid: ["3-4", "4T-5T", "6-7", "7T-8T", "9-10", "10T-11T"],
+  clr: []
+};
+const sizeEditor = { list: [], dragFrom: null };
+
+function escHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+}
+
+function getCustomerSizes(cust) {
+  if (!cust) return [];
+  if (Array.isArray(cust.size_list)) return cust.size_list.map(String);
+  try {
+    const v = JSON.parse(cust.size_list || "[]");
+    return Array.isArray(v) ? v.map(String) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+// "35–49" nếu là size số liên tục, ngược lại "S, M, L, …"
+function sizeBriefText(list) {
+  const nums = list.map(Number);
+  const consecutive = list.length > 1 && nums.every((v, i) => Number.isInteger(v) && String(v) === list[i] && (i === 0 || v === nums[i - 1] + 1));
+  if (consecutive) return `${list[0]}–${list[list.length - 1]}`;
+  return list.length > 4 ? `${list.slice(0, 3).join(", ")}, …` : list.join(", ");
+}
+
+function sizeBriefHtml(list) {
+  if (!list.length) return `<span class="size-brief is-empty">Chưa có</span>`;
+  return `<span class="size-brief">${escHtml(sizeBriefText(list))}</span><span class="size-brief-n">${list.length}</span>`;
+}
+
+function setSizeError(msg) {
+  const el = document.getElementById("sizeErr");
+  if (el) el.textContent = msg || "";
+}
+
+// Nạp 1 khách hàng vào biểu mẫu để sửa (tên, mã, dãy size)
+function fillCustomerForm(custId) {
+  const cust = appState.customers.find(c => c.id === custId);
+  if (!cust) return;
+  const elId = document.getElementById("editCustId");
+  if (elId) elId.value = cust.id;
+  const elName = document.getElementById("custName");
+  if (elName) elName.value = cust.name || "";
+  const elCode = document.getElementById("custCode");
+  if (elCode) elCode.value = cust.code || "";
+  const btnSubmit = document.getElementById("btnSubmitCust");
+  if (btnSubmit) btnSubmit.innerText = "Cập nhật khách hàng";
+  const btnCancel = document.getElementById("btnCancelEditCust");
+  if (btnCancel) btnCancel.style.display = "inline-flex";
+  sizeEditor.list = getCustomerSizes(cust);
+  setSizeError("");
+  renderSizeEditor();
+}
+
+function renderSizeEditor() {
+  const box = document.getElementById("sizeChips");
+  if (!box) return;
+  const list = sizeEditor.list;
+  box.innerHTML = list.length
+    ? list.map((s, i) => `<span class="size-chip" draggable="true" data-size-idx="${i}"><svg class="rel-ico" viewBox="0 0 24 24" style="stroke-width:3" aria-hidden="true"><path d="M9 5h.01M9 12h.01M9 19h.01M15 5h.01M15 12h.01M15 19h.01"/></svg>${escHtml(s)}<button type="button" class="size-chip-x" data-size-del="${i}" aria-label="Xóa size ${escHtml(s)}">×</button></span>`).join("")
+    : `<span class="size-chips-empty">Chưa có size nào</span>`;
+  const cnt = document.getElementById("sizeCount");
+  if (cnt) cnt.textContent = `${list.length} size`;
+  renderSizePreview();
+}
+
+// Xem trước bảng Thả chuyền / Chỉ lệnh đóng gói với dãy size đang chọn
+function renderSizePreview() {
+  const body = document.getElementById("sizePreviewBody");
+  if (!body) return;
+  const editingId = document.getElementById("editCustId")?.value || "";
+  let list;
+  let name;
+  if (editingId || sizeEditor.list.length) {
+    const cust = appState.customers.find(c => c.id === editingId);
+    list = sizeEditor.list;
+    name = cust ? cust.name : (document.getElementById("custName")?.value.trim() || "khách hàng mới");
+  } else {
+    const cust = appState.customers.find(c => c.id === appState.currentCustomer);
+    list = getCustomerSizes(cust);
+    name = cust ? cust.name : "khách hàng";
+  }
+  const nameEl = document.getElementById("sizePreviewCust");
+  if (nameEl) nameEl.textContent = name;
+
+  const shown = list.slice(0, 6);
+  body.innerHTML = shown.length
+    ? shown.map(s => `<tr><td class="rel-size">${escHtml(s)}</td>${'<td><div class="size-pv-box"></div></td>'.repeat(4)}<td><div class="size-pv-cum"></div></td></tr>`).join("")
+    : `<tr><td colspan="6" style="padding:14px; color:#94a3b8;">Chưa có size</td></tr>`;
+  const more = document.getElementById("sizePreviewMore");
+  if (more) {
+    more.textContent = list.length > 6
+      ? `… và ${list.length - 6} size nữa (tổng ${list.length} dòng)`
+      : (list.length ? `Tổng ${list.length} dòng` : "Nhập dãy size ở khung bên trên");
+  }
+}
+
+// Thêm 1 hoặc nhiều size (cách nhau bằng dấu phẩy, chấm phẩy, Tab hoặc xuống dòng)
+function addSizesFromText(text) {
+  const tokens = String(text || "").split(/[\t,;\n\r]+/).map(t => t.trim().slice(0, 20)).filter(Boolean);
+  if (!tokens.length) {
+    setSizeError("Gõ ít nhất một size");
+    return false;
+  }
+  const dup = [];
+  tokens.forEach(t => {
+    if (sizeEditor.list.some(s => s.toLowerCase() === t.toLowerCase())) dup.push(t);
+    else sizeEditor.list.push(t);
+  });
+  setSizeError(dup.length ? `Đã có trong dãy, bỏ qua: ${dup.join(", ")}` : "");
+  renderSizeEditor();
+  return true;
+}
+
+function bindSizeEditorEvents() {
+  const input = document.getElementById("sizeAddInput");
+  const chips = document.getElementById("sizeChips");
+  if (!input || !chips) return;
+
+  input.addEventListener("keydown", (e) => {
+    if (e.isComposing || e.keyCode === 229) return;
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (addSizesFromText(input.value)) input.value = "";
+    }
+  });
+  input.addEventListener("input", () => setSizeError(""));
+  input.addEventListener("paste", (e) => {
+    const text = (e.clipboardData || window.clipboardData).getData("text");
+    if (/[\t\n,;]/.test(text)) {
+      e.preventDefault();
+      addSizesFromText(text);
+    }
+  });
+  document.getElementById("btnSizeAdd")?.addEventListener("click", () => {
+    if (addSizesFromText(input.value)) input.value = "";
+  });
+  document.querySelectorAll("[data-size-quick]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      sizeEditor.list = [...SIZE_QUICK[btn.dataset.sizeQuick]];
+      setSizeError("");
+      renderSizeEditor();
+    });
+  });
+  document.getElementById("custName")?.addEventListener("input", renderSizePreview);
+
+  chips.addEventListener("click", (e) => {
+    const del = e.target.closest("[data-size-del]");
+    if (!del) return;
+    sizeEditor.list.splice(Number(del.dataset.sizeDel), 1);
+    renderSizeEditor();
+  });
+  // Kéo thả để đổi thứ tự size
+  chips.addEventListener("dragstart", (e) => {
+    const chip = e.target.closest(".size-chip");
+    if (!chip) return;
+    sizeEditor.dragFrom = Number(chip.dataset.sizeIdx);
+    chip.classList.add("is-drag");
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", "");
+  });
+  chips.addEventListener("dragover", (e) => {
+    const chip = e.target.closest(".size-chip");
+    if (!chip || sizeEditor.dragFrom === null) return;
+    e.preventDefault();
+    chips.querySelectorAll(".is-over").forEach(c => c.classList.remove("is-over"));
+    chip.classList.add("is-over");
+  });
+  chips.addEventListener("drop", (e) => {
+    const chip = e.target.closest(".size-chip");
+    if (!chip || sizeEditor.dragFrom === null) return;
+    e.preventDefault();
+    const [moved] = sizeEditor.list.splice(sizeEditor.dragFrom, 1);
+    sizeEditor.list.splice(Number(chip.dataset.sizeIdx), 0, moved);
+    sizeEditor.dragFrom = null;
+    renderSizeEditor();
+  });
+  chips.addEventListener("dragend", () => {
+    sizeEditor.dragFrom = null;
+    chips.querySelectorAll(".is-drag, .is-over").forEach(c => c.classList.remove("is-drag", "is-over"));
+  });
+
+  renderSizeEditor();
+}
+
+// ==========================================================
+// THẢ CHUYỀN / CHỈ LỆNH ĐÓNG GÓI / TỔNG HỢP
+// Mỗi ngày 4 lần nhận theo size; tích lũy = cộng dồn cả PO tới ngày đang xem
+// ==========================================================
+const REL_PERM = {
+  tcEdit: ["admin", "manager", "leader", "feeder"],
+  dgView: ["admin", "manager", "leader", "packer"],
+  dgEdit: ["admin", "manager", "leader"],
+  leaderConfirm: ["admin", "manager", "leader"],
+  packConfirm: ["admin", "packer"],
+  summary: ["admin", "manager", "leader"]
+};
+
+const REL_ICON = {
+  save: '<svg class="rel-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h10l4 4v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2"/><path d="M10 14a2 2 0 1 0 4 0a2 2 0 1 0-4 0"/><path d="M14 4v4H8V4"/></svg>',
+  user: '<svg class="rel-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0-8 0"/><path d="M6 21v-2a4 4 0 0 1 4-4h4"/><path d="M15 19l2 2l4-4"/></svg>',
+  pack: '<svg class="rel-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5M16 5.25l-8 4.5"/></svg>'
+};
+
+const relState = {
+  kind: "tha_chuyen",   // 'tha_chuyen' | 'dong_goi'
+  seg: "in",            // 'in' (nhập) | 'sum' (tổng hợp)
+  poId: null,
+  date: null,
+  data: null,           // payload từ /api/release
+  day: { tc: {}, dg: {} },   // 4 ô nhận của ngày đang xem (đang gõ)
+  base: { tc: {}, dg: {} },  // tích lũy các ngày trước
+  dirty: false,
+  timer: null,
+  saving: Promise.resolve(true),
+  seq: 0
+};
+let relBarSeq = 0;
+
+function relCan(perm) {
+  return REL_PERM[perm].includes(getRoleInfo(appState.currentUserRole).key);
+}
+
+const relKey = kind => (kind === "tha_chuyen" ? "tc" : "dg");
+const relNum = n => (Number(n) || 0).toLocaleString("vi-VN");
+const relDaySum = arr => (arr || []).reduce((a, b) => a + (Number(b) || 0), 0);
+const relSigned = x => (x > 0 ? "+" : "−") + relNum(Math.abs(x));
+
+// Người thả chuyền / Đóng gói không có ô chọn ngày -> luôn làm việc với hôm nay
+function relWorkDate() {
+  const role = getRoleInfo(appState.currentUserRole).key;
+  if (role === "feeder" || role === "packer") return getLocalDateString();
+  return appState.currentDate || getLocalDateString();
+}
+
+function relUserName() {
+  const u = appState.currentUser || {};
+  return u.full_name || u.email || u.phone || getRoleInfo(appState.currentUserRole).title;
+}
+
+function relFmtDate(iso) {
+  const p = String(iso || "").split("-");
+  return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : iso;
+}
+
+function relFmtTime(iso) {
+  const d = new Date(iso);
+  if (isNaN(d)) return "";
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+// Tích lũy 1 size = các ngày trước (server) + 4 ô của ngày đang xem
+function relCum(k, size) {
+  return (relState.base[k][size] || 0) + relDaySum(relState.day[k][size]);
+}
+
+function relApplyPayload(data, keepLocalDay) {
+  relState.data = data;
+  const base = { tc: {}, dg: {} };
+  [["tc", "tc", "tcCum"], ["dg", "dg", "dgCum"]].forEach(([k, dayKey, cumKey]) => {
+    const cum = data[cumKey] || {};
+    const day = data[dayKey] || {};
+    new Set([...Object.keys(cum), ...Object.keys(day)]).forEach(s => {
+      base[k][s] = (Number(cum[s]) || 0) - relDaySum(day[s]);
+    });
+    if (!keepLocalDay) {
+      relState.day[k] = {};
+      Object.keys(day).forEach(s => {
+        relState.day[k][s] = [0, 1, 2, 3].map(i => Number(day[s][i]) || 0);
+      });
+    }
+  });
+  relState.base = base;
+}
+
+async function openReleaseModal(target) {
+  const kind = target === "sum" ? "dong_goi" : target;
+  const seg = target === "sum" ? "sum" : "in";
+  if (kind === "tha_chuyen" && !relCan("tcEdit")) return;
+  if (kind === "dong_goi" && !relCan(seg === "sum" ? "summary" : "dgView")) return;
+  if (!appState.currentPO || !appState.currentPO.id) {
+    showToast("⚠️ Chưa chọn PO. Chọn khách hàng và PO ở phía trên trước.");
+    return;
+  }
+  const modal = document.getElementById("modalRelease");
+  if (!modal) return;
+
+  clearTimeout(relState.timer);
+  Object.assign(relState, {
+    kind,
+    seg,
+    poId: appState.currentPO.id,
+    date: relWorkDate(),
+    data: null,
+    day: { tc: {}, dg: {} },
+    base: { tc: {}, dg: {} },
+    dirty: false
+  });
+
+  modal.dataset.kind = kind;
+  modal.style.display = "flex";
+  modal.classList.add("show");
+  modal.setAttribute("aria-hidden", "false");
+  document.getElementById("relTitle").textContent = kind === "tha_chuyen" ? "Thả chuyền" : "Chỉ lệnh đóng gói";
+  document.getElementById("relDate").textContent = relFmtDate(relState.date);
+  renderReleaseInfo();
+  relShowLoading();
+  await loadRelease();
+}
+
+function renderReleaseInfo() {
+  const d = relState.data;
+  const po = d && d.po ? d.po : (appState.currentPO || {});
+  const cust = appState.customers.find(c => c.id === appState.currentCustomer) || {};
+  const custName = d && d.customer ? d.customer.name : (cust.name || "");
+  document.getElementById("relInfo").innerHTML =
+    `${escHtml(custName)} · ART <b class="rel-art">${escHtml(po.style_code || "—")}</b> · PO <b>${escHtml(po.po_number || "—")}</b> · ĐH <b class="rel-num">${relNum(po.po_plan)}</b> đôi`;
+}
+
+function relShowLoading() {
+  document.getElementById("relLoading").hidden = false;
+  ["relEmpty", "relPaneIn", "relPaneSum", "relSeg"].forEach(id => { document.getElementById(id).hidden = true; });
+  document.getElementById("relFoot").innerHTML = "";
+}
+
+async function loadRelease() {
+  const seq = ++relState.seq;
+  try {
+    const res = await fetch(`/api/release?po_id=${encodeURIComponent(relState.poId)}&date=${relState.date}&t=${Date.now()}`);
+    const data = await res.json();
+    if (seq !== relState.seq) return;
+    if (!data.success) throw new Error(data.error || "Không tải được số liệu");
+    relApplyPayload(data, false);
+    renderRelease();
+  } catch (err) {
+    if (seq !== relState.seq) return;
+    document.getElementById("relLoading").hidden = true;
+    const empty = document.getElementById("relEmpty");
+    empty.hidden = false;
+    empty.textContent = `Không tải được số liệu: ${err.message}. Kiểm tra mạng rồi mở lại.`;
+    relRenderFoot();
+  }
+}
+
+function renderRelease() {
+  const d = relState.data;
+  if (!d) return;
+  document.getElementById("relLoading").hidden = true;
+  renderReleaseInfo();
+
+  const segBox = document.getElementById("relSeg");
+  segBox.hidden = !(relState.kind === "dong_goi" && relCan("summary"));
+  if (relState.seg === "sum" && !relCan("summary")) relState.seg = "in";
+  segBox.querySelectorAll(".rel-seg-btn").forEach(b => b.classList.toggle("on", b.dataset.relSeg === relState.seg));
+
+  const noSizes = !d.sizes || d.sizes.length === 0;
+  const empty = document.getElementById("relEmpty");
+  empty.hidden = !noSizes;
+  if (noSizes) {
+    empty.textContent = "Khách hàng này chưa có dãy size. Quản trị khai báo ở tab Khách hàng & PO.";
+    document.getElementById("relPaneIn").hidden = true;
+    document.getElementById("relPaneSum").hidden = true;
+    segBox.hidden = true;
+    relRenderFoot();
+    return;
+  }
+
+  const showSum = relState.kind === "dong_goi" && relState.seg === "sum";
+  document.getElementById("relPaneIn").hidden = showSum;
+  document.getElementById("relPaneSum").hidden = !showSum;
+  document.getElementById("relChips").hidden = relState.kind !== "dong_goi";
+  renderReleaseGrid();
+  renderReleaseChips();
+  renderReleaseSummary();
+  relRenderFoot();
+}
+
+function relCanEditCurrent() {
+  return relState.kind === "tha_chuyen" ? relCan("tcEdit") : relCan("dgEdit");
+}
+
+function renderReleaseGrid() {
+  const k = relKey(relState.kind);
+  const editable = relCanEditCurrent();
+  document.getElementById("relTbody").innerHTML = relState.data.sizes.map(size => {
+    const day = relState.day[k][size] || [];
+    const cells = [0, 1, 2, 3].map(i => {
+      const v = Number(day[i]) || 0;
+      return `<td><input type="text" class="rel-input" inputmode="numeric" autocomplete="off" data-size="${escHtml(size)}" data-i="${i}" value="${v || ""}" placeholder="${editable ? "0" : ""}"${editable ? "" : ' readonly tabindex="-1"'} aria-label="Size ${escHtml(size)}, lần nhận ${i + 1}"></td>`;
+    }).join("");
+    return `<tr><td class="rel-size">${escHtml(size)}</td>${cells}<td><span class="rel-cum" data-cum-size="${escHtml(size)}">${relNum(relCum(k, size))}</span></td></tr>`;
+  }).join("");
+  renderReleaseTotals();
+}
+
+function renderReleaseTotals() {
+  const k = relKey(relState.kind);
+  const cols = [0, 0, 0, 0];
+  let total = 0;
+  relState.data.sizes.forEach(size => {
+    const day = relState.day[k][size] || [];
+    [0, 1, 2, 3].forEach(i => { cols[i] += Number(day[i]) || 0; });
+    total += relCum(k, size);
+  });
+  document.getElementById("relTfoot").innerHTML =
+    `<td class="rel-foot-lbl">Tổng</td>${cols.map(v => `<td>${relNum(v)}</td>`).join("")}<td><span class="rel-cum">${relNum(total)}</span></td>`;
+}
+
+function relUpdateCums() {
+  const k = relKey(relState.kind);
+  document.querySelectorAll("#relTbody [data-cum-size]").forEach(el => {
+    el.textContent = relNum(relCum(k, el.dataset.cumSize));
+  });
+  renderReleaseTotals();
+}
+
+function renderReleaseChips() {
+  if (relState.kind !== "dong_goi") return;
+  const c = relState.data.confirm || {};
+  const leader = document.getElementById("relChipLeader");
+  const pack = document.getElementById("relChipPack");
+  leader.classList.toggle("ok", !!c.leader_at);
+  leader.textContent = c.leader_at ? `Tổ trưởng: đã xác nhận ${relFmtTime(c.leader_at)}` : "Tổ trưởng: chưa xác nhận";
+  leader.title = c.leader_by ? `Người xác nhận: ${c.leader_by}` : "";
+  pack.classList.toggle("ok", !!c.packing_at);
+  pack.textContent = c.packing_at ? `Đóng gói: đã xác nhận ${relFmtTime(c.packing_at)}` : "Đóng gói: chưa xác nhận";
+  pack.title = c.packing_by ? `Người xác nhận: ${c.packing_by}` : "";
+}
+
+// So tích lũy thả chuyền với tích lũy đóng gói theo từng size
+function relStats() {
+  let ok = 0, bad = 0, none = 0, ta = 0, tb = 0;
+  const rows = relState.data.sizes.map(size => {
+    const a = relCum("tc", size);
+    const b = relCum("dg", size);
+    ta += a;
+    tb += b;
+    let state = "bad";
+    if (!a && !b) { none++; state = "none"; }
+    else if (a === b) { ok++; state = "ok"; }
+    else bad++;
+    return { size, a, b, diff: b - a, state };
+  });
+  return { rows, ok, bad, none, ta, tb };
+}
+
+function renderReleaseSummary() {
+  if (relState.kind !== "dong_goi" || !relState.data) return;
+  const st = relStats();
+  document.getElementById("relSumBody").innerHTML = st.rows.map(r => {
+    const res = r.state === "none"
+      ? '<span class="rel-none">—</span>'
+      : (r.state === "ok" ? '<span class="rel-ok">OK</span>' : `<span class="rel-diff">${relSigned(r.diff)}</span>`);
+    return `<tr><td class="rel-size">${escHtml(r.size)}</td><td class="rel-v-tc">${relNum(r.a)}</td><td class="rel-v-dg">${relNum(r.b)}</td><td>${res}</td></tr>`;
+  }).join("");
+
+  const x = st.tb - st.ta;
+  let totalRes = '<span class="rel-none">—</span>';
+  if (x) totalRes = `<span class="rel-diff">${relSigned(x)}</span>`;
+  else if (st.bad) totalRes = '<span class="rel-diff">0</span>';
+  else if (st.ta) totalRes = '<span class="rel-ok">OK</span>';
+  document.getElementById("relSumFoot").innerHTML =
+    `<td class="rel-foot-lbl">Tổng</td><td class="rel-v-tc">${relNum(st.ta)}</td><td class="rel-v-dg">${relNum(st.tb)}</td><td>${totalRes}</td>`;
+
+  const banner = document.getElementById("relBanner");
+  banner.className = "rel-banner" + (st.bad ? "" : (st.ok ? " is-ok" : " is-empty"));
+  const sub = [`${st.ok} size OK`, st.none ? `${st.none} size chưa có số` : ""].filter(Boolean).join(" · ");
+  if (st.bad) {
+    banner.innerHTML = `Giao nhận chưa đủ: <span class="rel-diff-txt">${st.bad} size lệch</span><small>${sub}</small>`;
+  } else if (st.ok) {
+    banner.innerHTML = `Giao nhận đủ, tất cả size đều OK${st.none ? `<small>${st.none} size chưa có số</small>` : ""}`;
+  } else {
+    banner.textContent = "Chưa có số thả chuyền và đóng gói";
+  }
+}
+
+function relRenderFoot() {
+  const foot = document.getElementById("relFoot");
+  const d = relState.data;
+  const closeBtn = '<button type="button" class="rel-fbtn rel-fbtn-gray" data-rel-act="close">Đóng</button>';
+  if (!d || !d.sizes || !d.sizes.length) {
+    foot.style.gridTemplateColumns = "1fr";
+    foot.innerHTML = closeBtn;
+    return;
+  }
+  if (relState.kind === "tha_chuyen") {
+    foot.style.gridTemplateColumns = "1fr 2fr";
+    foot.innerHTML = closeBtn + `<button type="button" class="rel-fbtn rel-fbtn-tc" data-rel-act="save">${REL_ICON.save}Lưu thả chuyền</button>`;
+    return;
+  }
+  if (relState.seg === "sum") {
+    foot.style.gridTemplateColumns = "1fr";
+    foot.innerHTML = closeBtn;
+    return;
+  }
+  const c = d.confirm || {};
+  const btns = [];
+  if (relCan("leaderConfirm")) {
+    btns.push(`<button type="button" class="rel-fbtn rel-fbtn-leader" data-rel-act="leader"${c.leader_at ? " disabled" : ""}>${REL_ICON.user}${c.leader_at ? "Tổ trưởng đã xác nhận" : "Tổ trưởng xác nhận"}</button>`);
+  }
+  if (relCan("packConfirm")) {
+    btns.push(`<button type="button" class="rel-fbtn rel-fbtn-dg" data-rel-act="packing"${(!c.leader_at || c.packing_at) ? " disabled" : ""}>${REL_ICON.pack}${c.packing_at ? "Đóng gói đã xác nhận" : "Đóng gói xác nhận"}</button>`);
+  }
+  if (!btns.length) btns.push(closeBtn);
+  foot.style.gridTemplateColumns = btns.length > 1 ? "1fr 1fr" : "1fr";
+  const hint = relCan("packConfirm") && !c.leader_at
+    ? '<div class="rel-hint">Chờ tổ trưởng xác nhận rồi mới bấm Đóng gói xác nhận.</div>'
+    : "";
+  foot.innerHTML = btns.join("") + hint;
+}
+
+function onReleaseInput(e) {
+  const el = e.target;
+  if (!el.classList.contains("rel-input") || el.readOnly || !relState.data) return;
+  const clean = el.value.replace(/\D/g, "").slice(0, 6);
+  if (clean !== el.value) el.value = clean;
+  const k = relKey(relState.kind);
+  const size = el.dataset.size;
+  const arr = relState.day[k][size] || [0, 0, 0, 0];
+  arr[Number(el.dataset.i)] = parseInt(clean, 10) || 0;
+  relState.day[k][size] = arr;
+  relUpdateCums();
+  renderReleaseSummary();
+  relState.dirty = true;
+  clearTimeout(relState.timer);
+  relState.timer = setTimeout(saveRelease, 800);
+}
+
+// Enter = sang ô kế tiếp (giống Excel); ô cuối thì lưu luôn
+function onReleaseKeydown(e) {
+  if (e.isComposing || e.keyCode === 229) return;
+  if (e.key !== "Enter") return;
+  const inputs = Array.from(document.querySelectorAll("#relTbody .rel-input:not([readonly])"));
+  const idx = inputs.indexOf(e.target);
+  if (idx < 0) return;
+  e.preventDefault();
+  const next = inputs[idx + 1];
+  if (next) {
+    next.focus();
+  } else {
+    e.target.blur();
+    saveRelease();
+  }
+}
+
+// Lưu nối tiếp nhau (không gửi chồng); trả về true nếu đã lưu được hoặc không có gì để lưu
+function saveRelease() {
+  clearTimeout(relState.timer);
+  relState.saving = relState.saving.then(async () => {
+    if (!relState.dirty || !relState.data) return true;
+    const kind = relState.kind;
+    const poId = relState.poId;
+    const date = relState.date;
+    const k = relKey(kind);
+    relState.dirty = false;
+    const rows = relState.data.sizes.map(size => ({
+      size,
+      n: [0, 1, 2, 3].map(i => Number((relState.day[k][size] || [])[i]) || 0)
+    }));
+    try {
+      const res = await fetch("/api/release", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ po_id: poId, date, kind, rows, user: relUserName() })
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || "Lưu không thành công");
+      if (relState.poId === poId && relState.date === date && relState.kind === kind) {
+        relApplyPayload(data, true);
+        relUpdateCums();
+        renderReleaseChips();
+        renderReleaseSummary();
+        relRenderFoot();
+      }
+      if (data.confirmReset) showToast("⚠️ Đã sửa số đóng gói: tổ trưởng và đóng gói cần xác nhận lại");
+      refreshReleaseBar();
+      return true;
+    } catch (err) {
+      relState.dirty = true;
+      showToast("⚠️ Chưa lưu được số vừa nhập: " + err.message);
+      return false;
+    }
+  });
+  return relState.saving;
+}
+
+async function saveAndCloseRelease() {
+  const ok = await saveRelease();
+  if (ok === false) return;
+  showToast(`💾 Đã lưu thả chuyền ngày ${relFmtDate(relState.date)}`);
+  closeReleaseModal();
+}
+
+async function confirmRelease(step) {
+  const ok = await saveRelease();
+  if (ok === false) return;
+  try {
+    const res = await fetch("/api/release/confirm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ po_id: relState.poId, date: relState.date, step, user: relUserName() })
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || "Không xác nhận được");
+    relApplyPayload(data, true);
+    showToast(step === "leader" ? "✅ Tổ trưởng đã xác nhận chỉ lệnh đóng gói" : "✅ Đóng gói đã xác nhận nhận đủ");
+    if (step === "packing" && relCan("summary")) relState.seg = "sum";
+    renderRelease();
+    refreshReleaseBar();
+  } catch (err) {
+    showToast("⚠️ " + err.message);
+  }
+}
+
+async function closeReleaseModal() {
+  const modal = document.getElementById("modalRelease");
+  if (!modal) return;
+  const ok = await saveRelease();
+  if (ok === false && !confirm("Chưa lưu được số vừa nhập. Vẫn đóng?")) return;
+  relState.seq++;
+  modal.classList.remove("show");
+  modal.style.display = "none";
+  modal.setAttribute("aria-hidden", "true");
+  refreshReleaseBar();
+}
+
+// Thanh "Tổng hợp thả chuyền – đóng gói" trên trang chủ + nút Tổng hợp trên laptop
+async function refreshReleaseBar() {
+  if (!appState.currentUser || !relCan("summary")) return;
+  const bar = document.getElementById("relSumBar");
+  const btn = document.querySelector(".rel-btn-sum");
+  const setState = (cls, barText, btnText) => {
+    [bar, btn].forEach(el => {
+      if (!el) return;
+      el.classList.remove("is-ok", "is-empty");
+      if (cls) el.classList.add(cls);
+    });
+    const barCount = bar && bar.querySelector("[data-rel-count]");
+    if (barCount) barCount.textContent = barText;
+    const btnCount = btn && btn.querySelector("[data-rel-count]");
+    if (btnCount) btnCount.textContent = btnText;
+  };
+
+  const po = appState.currentPO;
+  if (!po || !po.id) {
+    setState("is-empty", "Chưa có PO", "");
+    return;
+  }
+  const seq = ++relBarSeq;
+  try {
+    const res = await fetch(`/api/release?po_id=${encodeURIComponent(po.id)}&date=${appState.currentDate || getLocalDateString()}&t=${Date.now()}`);
+    const data = await res.json();
+    if (seq !== relBarSeq || !data.success) return;
+    let ok = 0;
+    let bad = 0;
+    (data.sizes || []).forEach(s => {
+      const a = Number((data.tcCum || {})[s]) || 0;
+      const b = Number((data.dgCum || {})[s]) || 0;
+      if (!a && !b) return;
+      if (a === b) ok++;
+      else bad++;
+    });
+    if (!data.sizes || !data.sizes.length) setState("is-empty", "Chưa có dãy size", "");
+    else if (bad) setState("", `${bad} size lệch`, `(${bad} lệch)`);
+    else if (ok) setState("is-ok", "Đủ, tất cả OK", "(đủ)");
+    else setState("is-empty", "Chưa có số", "");
+  } catch (err) {
+    // Mất mạng: giữ nguyên trạng thái cũ
+  }
+}
+
+function bindReleaseEvents() {
+  const modal = document.getElementById("modalRelease");
+  if (!modal) return;
+
+  document.addEventListener("click", (e) => {
+    const opener = e.target.closest("[data-rel-open]");
+    if (!opener) return;
+    e.preventDefault();
+    openReleaseModal(opener.dataset.relOpen);
+  });
+
+  document.getElementById("btnRelBack").addEventListener("click", closeReleaseModal);
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) {
+      closeReleaseModal();
+      return;
+    }
+    const seg = e.target.closest("[data-rel-seg]");
+    if (seg) {
+      relState.seg = seg.dataset.relSeg;
+      renderRelease();
+      return;
+    }
+    const act = e.target.closest("[data-rel-act]");
+    if (!act || act.disabled) return;
+    const a = act.dataset.relAct;
+    if (a === "close") closeReleaseModal();
+    else if (a === "save") saveAndCloseRelease();
+    else if (a === "leader" || a === "packing") confirmRelease(a);
+  });
+
+  const tbody = document.getElementById("relTbody");
+  tbody.addEventListener("input", onReleaseInput);
+  tbody.addEventListener("keydown", onReleaseKeydown);
+  tbody.addEventListener("focusin", (e) => {
+    if (e.target.classList.contains("rel-input") && !e.target.readOnly) e.target.select();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && modal.classList.contains("show")) closeReleaseModal();
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden && relState.dirty) saveRelease();
+  });
+}

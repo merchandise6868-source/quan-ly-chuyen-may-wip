@@ -337,6 +337,8 @@ const INITIAL_DB = {
     }
   },
   flow_logs: [],
+  release_entries: [],
+  release_confirms: [],
   users: [
     { id: "usr-admin-1", email: "admin@ddlongan.com", phone: "0900000000", full_name: "Sếp Tổng Quản Trị (Admin)", role: "admin", password: "Admin@123456", pin_code: "1234", is_active: 1 },
     { id: "usr-admin-2", email: "merchandise6868@gmail.com", phone: "0988888888", full_name: "Sếp Merchandise", role: "admin", password: "Admin@123456", pin_code: "1234", is_active: 1 },
@@ -357,6 +359,112 @@ function normalizePhone(p) {
     clean = "0" + clean.substring(2);
   }
   return clean;
+}
+
+// ==========================================
+// THẢ CHUYỀN / CHỈ LỆNH ĐÓNG GÓI - HELPERS
+// ==========================================
+const RELEASE_KINDS = ['tha_chuyen', 'dong_goi'];
+
+// Đọc dãy size của khách (chuỗi JSON hoặc mảng) -> mảng
+function parseSizeList(raw) {
+  if (Array.isArray(raw)) return raw;
+  try {
+    const v = JSON.parse(raw || '[]');
+    return Array.isArray(v) ? v : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+// Làm sạch dãy size: bỏ trống, bỏ trùng (không phân biệt hoa thường), giữ thứ tự
+function cleanSizeList(list) {
+  const seen = new Set();
+  const out = [];
+  for (const s of (Array.isArray(list) ? list : [])) {
+    const v = String(s ?? '').trim().slice(0, 20);
+    const key = v.toLowerCase();
+    if (v && !seen.has(key)) {
+      seen.add(key);
+      out.push(v);
+    }
+  }
+  return out.slice(0, 60);
+}
+
+const toReleaseQty = (v) => {
+  const n = parseInt(v, 10);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+};
+
+// Gom dữ liệu thả chuyền / đóng gói của 1 PO tới ngày `date`
+// rows: mọi dòng của PO có entry_date <= date; allSizes: mọi size đã từng có số của PO
+function buildReleasePayload({ po, cust, rows, allSizes, conf }, date) {
+  const day = { tha_chuyen: {}, dong_goi: {} };
+  const cum = { tha_chuyen: {}, dong_goi: {} };
+  for (const r of (rows || [])) {
+    if (!RELEASE_KINDS.includes(r.kind)) continue;
+    const n = [r.n1, r.n2, r.n3, r.n4].map(x => Number(x) || 0);
+    cum[r.kind][r.size] = (cum[r.kind][r.size] || 0) + n[0] + n[1] + n[2] + n[3];
+    if (r.entry_date === date) day[r.kind][r.size] = n;
+  }
+
+  const sizes = cleanSizeList(parseSizeList(cust ? cust.size_list : []));
+  const known = new Set(sizes.map(s => s.toLowerCase()));
+  for (const s of (allSizes || [])) {
+    if (s && !known.has(String(s).toLowerCase())) {
+      known.add(String(s).toLowerCase());
+      sizes.push(String(s));
+    }
+  }
+
+  return {
+    success: true,
+    po_id: po ? po.id : null,
+    date,
+    po: po ? { po_number: po.po_number, style_code: po.style_code, po_plan: Number(po.po_plan) || 0 } : null,
+    customer: cust ? { id: cust.id, name: cust.name } : null,
+    sizes,
+    tc: day.tha_chuyen,
+    dg: day.dong_goi,
+    tcCum: cum.tha_chuyen,
+    dgCum: cum.dong_goi,
+    confirm: {
+      leader_by: conf?.leader_by || null,
+      leader_at: conf?.leader_at || null,
+      packing_by: conf?.packing_by || null,
+      packing_at: conf?.packing_at || null
+    }
+  };
+}
+
+async function loadReleasePayload(env, poId, date) {
+  if (env && env.DB) {
+    const po = await env.DB.prepare("SELECT id, customer_id, po_number, style_code, po_plan FROM po_orders WHERE id = ?").bind(poId).first();
+    const cust = po ? await env.DB.prepare("SELECT id, name, size_list FROM customers WHERE id = ?").bind(po.customer_id).first() : null;
+    const { results: rows } = await env.DB.prepare(
+      "SELECT kind, entry_date, size, n1, n2, n3, n4 FROM release_entries WHERE po_id = ? AND entry_date <= ?"
+    ).bind(poId, date).all();
+    const { results: sizeRows } = await env.DB.prepare(
+      "SELECT DISTINCT size FROM release_entries WHERE po_id = ?"
+    ).bind(poId).all();
+    const conf = await env.DB.prepare(
+      "SELECT leader_by, leader_at, packing_by, packing_at FROM release_confirms WHERE id = ?"
+    ).bind(`${poId}|${date}`).first();
+    return buildReleasePayload({ po, cust, rows, allSizes: (sizeRows || []).map(r => r.size), conf }, date);
+  }
+
+  const po = (memoryDB.orders || []).find(o => o.id === poId) || null;
+  const cust = po ? (memoryDB.customers || []).find(c => c.id === po.customer_id) || null : null;
+  const all = (memoryDB.release_entries || []).filter(r => r.po_id === poId);
+  const conf = (memoryDB.release_confirms || []).find(c => c.id === `${poId}|${date}`) || null;
+  return buildReleasePayload({
+    po,
+    cust,
+    rows: all.filter(r => r.entry_date <= date),
+    allSizes: [...new Set(all.map(r => r.size))],
+    conf
+  }, date);
 }
 
 // Helper: Auto-initialize D1 Database tables and seed initial data
@@ -455,6 +563,31 @@ async function initD1Tables(db) {
         report_date TEXT PRIMARY KEY,
         daily_finished INTEGER DEFAULT 0,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`,
+      // Thả chuyền / Chỉ lệnh đóng gói: 4 lần nhận mỗi size mỗi ngày (id = po_id|kind|date|size)
+      `CREATE TABLE IF NOT EXISTS release_entries (
+        id TEXT PRIMARY KEY,
+        po_id TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        entry_date TEXT NOT NULL,
+        size TEXT NOT NULL,
+        n1 INTEGER DEFAULT 0,
+        n2 INTEGER DEFAULT 0,
+        n3 INTEGER DEFAULT 0,
+        n4 INTEGER DEFAULT 0,
+        updated_by TEXT,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_release_po_kind_date ON release_entries (po_id, kind, entry_date)`,
+      // Xác nhận Chỉ lệnh đóng gói theo PO và ngày (id = po_id|date)
+      `CREATE TABLE IF NOT EXISTS release_confirms (
+        id TEXT PRIMARY KEY,
+        po_id TEXT NOT NULL,
+        confirm_date TEXT NOT NULL,
+        leader_by TEXT,
+        leader_at TEXT,
+        packing_by TEXT,
+        packing_at TEXT
       )`
     ];
 
@@ -519,6 +652,10 @@ async function initD1Tables(db) {
     } catch (e) {}
     try {
       await db.prepare("ALTER TABLE dept_logs ADD COLUMN ton_cuoi INTEGER DEFAULT 0").run();
+    } catch (e) {}
+    // Dãy size theo khách hàng (mảng JSON, giữ đúng thứ tự)
+    try {
+      await db.prepare("ALTER TABLE customers ADD COLUMN size_list TEXT DEFAULT '[]'").run();
     } catch (e) {}
 
     // Ensure customers CASUM, Liên Thái, MẠNH PHÁT exist and match exactly
@@ -1273,21 +1410,30 @@ export default {
         try {
           const body = await request.json();
           const { id, name, code } = body;
+          // size_list không gửi lên (client cũ) thì giữ nguyên dãy size đang có
+          const sizeJson = Array.isArray(body.size_list) ? JSON.stringify(cleanSizeList(body.size_list)) : null;
 
           if (env && env.DB) {
             const custId = id || ('cust-' + Date.now());
-            await env.DB.prepare("INSERT OR REPLACE INTO customers (id, name, code) VALUES (?, ?, ?)")
-              .bind(custId, name, code)
-              .run();
+            await env.DB.prepare(`
+              INSERT INTO customers (id, name, code, size_list) VALUES (?, ?, ?, ?)
+              ON CONFLICT(id) DO UPDATE SET
+                name = excluded.name,
+                code = excluded.code,
+                size_list = COALESCE(excluded.size_list, customers.size_list)
+            `).bind(custId, name, code, sizeJson).run();
             const { results: customers } = await env.DB.prepare("SELECT * FROM customers ORDER BY name ASC").all();
             return Response.json({ success: true, customers }, { headers });
           }
 
           if (id) {
             const idx = memoryDB.customers.findIndex(c => c.id === id);
-            if (idx >= 0) memoryDB.customers[idx] = { id, name, code };
+            if (idx >= 0) {
+              const prevSizes = memoryDB.customers[idx].size_list;
+              memoryDB.customers[idx] = { id, name, code, size_list: sizeJson ?? prevSizes ?? '[]' };
+            }
           } else {
-            memoryDB.customers.push({ id: 'cust-' + Date.now(), name, code });
+            memoryDB.customers.push({ id: 'cust-' + Date.now(), name, code, size_list: sizeJson ?? '[]' });
           }
           return Response.json({ success: true, customers: memoryDB.customers }, { headers });
         } catch (err) {
@@ -2264,6 +2410,149 @@ export default {
           }, { headers });
         } catch (err) {
           return Response.json({ success: false, error: err.message }, { status: 400, headers });
+        }
+      }
+
+      // ==========================================
+      // THẢ CHUYỀN / CHỈ LỆNH ĐÓNG GÓI / TỔNG HỢP
+      // ==========================================
+      const isIsoDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(String(s || ''));
+
+      // Lấy số nhận trong ngày + tích lũy tới ngày đó cho 1 PO
+      if (url.pathname === '/api/release' && request.method === 'GET') {
+        try {
+          const poId = url.searchParams.get('po_id');
+          const date = url.searchParams.get('date');
+          if (!poId || !isIsoDate(date)) {
+            return Response.json({ success: false, error: "Thiếu PO hoặc ngày" }, { status: 400, headers });
+          }
+          return Response.json(await loadReleasePayload(env, poId, date), { headers });
+        } catch (err) {
+          return Response.json({ success: false, error: err.message }, { status: 500, headers });
+        }
+      }
+
+      // Lưu 4 lần nhận theo size của 1 ngày (thả chuyền hoặc đóng gói)
+      if (url.pathname === '/api/release' && request.method === 'POST') {
+        try {
+          const body = await request.json();
+          const { po_id: poId, date, kind } = body;
+          const user = String(body.user || '').slice(0, 80);
+          if (!poId || !isIsoDate(date) || !RELEASE_KINDS.includes(kind)) {
+            return Response.json({ success: false, error: "Thiếu PO, ngày hoặc loại phiếu" }, { status: 400, headers });
+          }
+          const rows = (Array.isArray(body.rows) ? body.rows : [])
+            .map(r => ({
+              size: String(r.size ?? '').trim().slice(0, 20),
+              n: [0, 1, 2, 3].map(i => toReleaseQty(Array.isArray(r.n) ? r.n[i] : 0))
+            }))
+            .filter(r => r.size);
+          const confirmId = `${poId}|${date}`;
+          const sameNums = (a, b) => [0, 1, 2, 3].every(i => (a?.[i] || 0) === (b?.[i] || 0));
+          let changed = false;
+
+          if (env && env.DB) {
+            const { results: existing } = await env.DB.prepare(
+              "SELECT size, n1, n2, n3, n4 FROM release_entries WHERE po_id = ? AND kind = ? AND entry_date = ?"
+            ).bind(poId, kind, date).all();
+            const prev = new Map((existing || []).map(e => [e.size, [e.n1, e.n2, e.n3, e.n4].map(x => Number(x) || 0)]));
+            const stmts = [];
+            for (const r of rows) {
+              const id = `${poId}|${kind}|${date}|${r.size}`;
+              const empty = r.n.every(x => x === 0);
+              if (!sameNums(prev.get(r.size), r.n)) changed = true;
+              if (empty) {
+                if (prev.has(r.size)) stmts.push(env.DB.prepare("DELETE FROM release_entries WHERE id = ?").bind(id));
+              } else {
+                stmts.push(env.DB.prepare(`
+                  INSERT INTO release_entries (id, po_id, kind, entry_date, size, n1, n2, n3, n4, updated_by, updated_at)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                  ON CONFLICT(id) DO UPDATE SET n1 = excluded.n1, n2 = excluded.n2, n3 = excluded.n3, n4 = excluded.n4,
+                    updated_by = excluded.updated_by, updated_at = CURRENT_TIMESTAMP
+                `).bind(id, poId, kind, date, r.size, r.n[0], r.n[1], r.n[2], r.n[3], user));
+              }
+            }
+            // Tổ trưởng sửa số đóng gói sau khi đã xác nhận -> phải xác nhận lại
+            if (kind === 'dong_goi' && changed) {
+              stmts.push(env.DB.prepare("DELETE FROM release_confirms WHERE id = ?").bind(confirmId));
+            }
+            if (stmts.length) await env.DB.batch(stmts);
+          } else {
+            if (!memoryDB.release_entries) memoryDB.release_entries = [];
+            for (const r of rows) {
+              const id = `${poId}|${kind}|${date}|${r.size}`;
+              const idx = memoryDB.release_entries.findIndex(e => e.id === id);
+              const before = idx >= 0 ? [0, 1, 2, 3].map(i => memoryDB.release_entries[idx]['n' + (i + 1)]) : null;
+              if (!sameNums(before, r.n)) changed = true;
+              if (r.n.every(x => x === 0)) {
+                if (idx >= 0) memoryDB.release_entries.splice(idx, 1);
+              } else {
+                const rec = { id, po_id: poId, kind, entry_date: date, size: r.size, n1: r.n[0], n2: r.n[1], n3: r.n[2], n4: r.n[3], updated_by: user };
+                if (idx >= 0) memoryDB.release_entries[idx] = rec;
+                else memoryDB.release_entries.push(rec);
+              }
+            }
+            if (kind === 'dong_goi' && changed) {
+              memoryDB.release_confirms = (memoryDB.release_confirms || []).filter(c => c.id !== confirmId);
+            }
+          }
+
+          const payload = await loadReleasePayload(env, poId, date);
+          payload.confirmReset = kind === 'dong_goi' && changed;
+          return Response.json(payload, { headers });
+        } catch (err) {
+          return Response.json({ success: false, error: err.message }, { status: 500, headers });
+        }
+      }
+
+      // Xác nhận chỉ lệnh đóng gói: tổ trưởng trước, đóng gói sau
+      if (url.pathname === '/api/release/confirm' && request.method === 'POST') {
+        try {
+          const body = await request.json();
+          const { po_id: poId, date, step } = body;
+          const user = String(body.user || '').slice(0, 80);
+          if (!poId || !isIsoDate(date) || !['leader', 'packing'].includes(step)) {
+            return Response.json({ success: false, error: "Thiếu PO, ngày hoặc bước xác nhận" }, { status: 400, headers });
+          }
+          const confirmId = `${poId}|${date}`;
+          const nowIso = new Date().toISOString();
+
+          if (env && env.DB) {
+            const cur = await env.DB.prepare("SELECT leader_at FROM release_confirms WHERE id = ?").bind(confirmId).first();
+            if (step === 'packing' && !cur?.leader_at) {
+              return Response.json({ success: false, error: "Tổ trưởng chưa xác nhận chỉ lệnh đóng gói ngày này" }, { status: 400, headers });
+            }
+            if (step === 'leader') {
+              await env.DB.prepare(`
+                INSERT INTO release_confirms (id, po_id, confirm_date, leader_by, leader_at) VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET leader_by = excluded.leader_by, leader_at = excluded.leader_at
+              `).bind(confirmId, poId, date, user, nowIso).run();
+            } else {
+              await env.DB.prepare("UPDATE release_confirms SET packing_by = ?, packing_at = ? WHERE id = ?")
+                .bind(user, nowIso, confirmId).run();
+            }
+          } else {
+            if (!memoryDB.release_confirms) memoryDB.release_confirms = [];
+            let cur = memoryDB.release_confirms.find(c => c.id === confirmId);
+            if (step === 'packing' && !cur?.leader_at) {
+              return Response.json({ success: false, error: "Tổ trưởng chưa xác nhận chỉ lệnh đóng gói ngày này" }, { status: 400, headers });
+            }
+            if (!cur) {
+              cur = { id: confirmId, po_id: poId, confirm_date: date };
+              memoryDB.release_confirms.push(cur);
+            }
+            if (step === 'leader') {
+              cur.leader_by = user;
+              cur.leader_at = nowIso;
+            } else {
+              cur.packing_by = user;
+              cur.packing_at = nowIso;
+            }
+          }
+
+          return Response.json(await loadReleasePayload(env, poId, date), { headers });
+        } catch (err) {
+          return Response.json({ success: false, error: err.message }, { status: 500, headers });
         }
       }
 
