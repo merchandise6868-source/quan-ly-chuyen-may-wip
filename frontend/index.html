@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@500;600;700;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="styles.css?v=20261023_1800">
+  <link rel="stylesheet" href="styles.css?v=20261023_2200">
   
   <!-- cdn for sheetjs (xlsx) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -548,7 +548,7 @@
           <!-- DÃY SIZE CỦA KHÁCH: nhập tự do (size số, size chữ hoặc lẫn cả hai), kéo thả để sắp thứ tự -->
           <div class="size-editor">
             <div class="size-editor-head">
-              <span class="size-editor-title">Dãy size của khách <span class="size-new-tag">Mới</span></span>
+              <span class="size-editor-title">Dãy size của khách</span>
               <span class="size-count" id="sizeCount">0 size</span>
             </div>
             <div class="size-editor-help">Size số, size chữ, hay lẫn cả hai đều được. Thứ tự ở đây là thứ tự các dòng trên điện thoại.</div>
@@ -574,7 +574,18 @@
         </div>
       </div>
 
-      <div class="manage-grid">
+      <!-- CHI TIẾT THEO ART: danh sách để chọn khi thả chuyền Chi tiết -->
+      <div class="manage-card art-parts-card">
+        <div class="manage-card-header">
+          <h3>Chi tiết theo ART — <span id="artPartsCust" class="cust-accent-name">Tất cả</span></h3>
+          <span class="manage-header-hint">Danh sách để chọn khi thả chuyền Chi tiết</span>
+        </div>
+        <div class="manage-card-body">
+          <div id="artPartsList" class="art-parts-list"></div>
+        </div>
+      </div>
+
+      <div class="manage-grid po-grid">
 
         <!-- CARD 2: QUẢN LÝ ĐƠN HÀNG / PO & CHI TIẾT LÔ HÀNG -->
         <div class="manage-card">
@@ -639,7 +650,7 @@
                 </div>
 
                 <!-- DYNAMIC INPUT FIELDS FOR EACH BATCH -->
-                <div id="dynamicBatchInputsContainer" class="dynamic-batch-inputs-grid">
+                <div id="dynamicBatchInputsContainer" class="lot-config-wrap">
                   <!-- Injected via JavaScript -->
                 </div>
 
@@ -665,7 +676,7 @@
             <span class="manage-header-hint">Thả chuyền / Chỉ lệnh đóng gói</span>
           </div>
           <div class="manage-card-body">
-            <div class="size-preview-note">Mỗi PO của <b id="sizePreviewCust">khách hàng</b> dùng chung dãy size này, mỗi size một dòng:</div>
+            <div class="size-preview-note">Dãy size của <b id="sizePreviewCust">khách hàng</b>, mỗi size một dòng. Lô nào được chọn size riêng thì chỉ hiện các size đó:</div>
             <div class="size-preview-wrap">
               <table class="size-preview-table">
                 <colgroup><col style="width:22%"><col><col><col><col><col style="width:20%"></colgroup>
@@ -674,6 +685,7 @@
               </table>
             </div>
             <div class="size-pv-more" id="sizePreviewMore"></div>
+            <div class="lot-preview" id="lotPreviewList"></div>
           </div>
         </div>
       </div>
@@ -1155,10 +1167,17 @@
           <span class="rel-date" id="relDate"></span>
         </div>
         <div class="rel-info" id="relInfo"></div>
+        <div class="rel-seg" id="relMode" hidden>
+          <button type="button" class="rel-seg-btn on" data-rel-mode="dong">Đồng bộ</button>
+          <button type="button" class="rel-seg-btn" data-rel-mode="ct">Chi tiết</button>
+        </div>
+        <div class="rel-mode-note" id="relModeNote" hidden></div>
         <div class="rel-seg" id="relSeg">
           <button type="button" class="rel-seg-btn on" data-rel-seg="in">Nhập đóng gói</button>
           <button type="button" class="rel-seg-btn" data-rel-seg="sum">Tổng hợp</button>
         </div>
+        <div class="rel-lots" id="relLots"></div>
+        <div class="rel-lot-info" id="relLotInfo"></div>
       </div>
 
       <div class="rel-body">
@@ -1202,6 +1221,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261023_1800"></script>
+  <script src="app.js?v=20261023_2200"></script>
 </body>
 </html>

@@ -91,7 +91,7 @@ function initPWA() {
     });
 
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js?v=20261023_1800', { scope: '/' })
+      navigator.serviceWorker.register('/sw.js?v=20261023_2200', { scope: '/' })
         .then(reg => {
           console.log('✅ Service Worker registered successfully:', reg.scope);
           // Explicit update check on every page load
@@ -202,6 +202,7 @@ document.addEventListener("DOMContentLoaded", () => {
   bindPortalEvents();
   bindSizeEditorEvents();
   bindReleaseEvents();
+  bindArtPartsEvents();
   bindRoleSwitchEvents();
   bindRolePasswordEvents();
   checkLoginPortalState();
@@ -2623,8 +2624,10 @@ function renderManageTab() {
   // 5. Ensure batch configuration boxes are initialized in PO form
   initPOBatchInputs();
 
-  // 6. Khung dãy size + xem trước bảng trên điện thoại
+  // 6. Khung dãy size + xem trước bảng trên điện thoại + chi tiết theo ART
   renderSizeEditor();
+  refreshLotSizeChips();
+  loadArtParts(appState.currentCustomer);
 }
 
 // 1. RENDER MASTER CUSTOMER TABLE
@@ -2731,6 +2734,8 @@ function selectCustomerInManageTab(custId) {
 
   renderOrdersTable(custId);
   renderSizePreview();
+  refreshLotSizeChips();
+  loadArtParts(custId);
 }
 
 // 3. RENDER DETAIL ORDERS TABLE FOR SELECTED CUSTOMER
@@ -2768,7 +2773,8 @@ function renderOrdersTable(customerId) {
   tbodyOrders.innerHTML = filteredOrders.map(o => {
     const batchTags = (o.default_batches || []).map(b => {
       const qty = Number(b.into_sewing || b.batch_plan) || 0;
-      return `<span class="batch-tag-badge">${b.batch_name}: ${qty.toLocaleString('vi-VN')}</span>`;
+      const sz = Array.isArray(b.sizes) && b.sizes.length ? ` · ${sizeBriefText(b.sizes.map(String))}` : "";
+      return `<span class="batch-tag-badge">${b.batch_name}: ${qty.toLocaleString('vi-VN')}${escHtml(sz)}</span>`;
     }).join(" ");
 
     return `
@@ -2869,79 +2875,126 @@ function initPOBatchInputs() {
   }
 }
 
-// RENDER DYNAMIC BATCH INPUT BOXES (Lô 1..N + Số đuôi)
+// RENDER BẢNG CHIA LÔ (Lô 1..N + Số đuôi): số tổng (định mức NXT) + size của lô do admin chọn
 function renderBatchInputBoxes(count, initialBatches = null) {
   const container = document.getElementById("dynamicBatchInputsContainer") || document.getElementById("batchInputGrid");
   if (!container) return;
 
-  const existingValues = {};
+  // Giữ lại số và size đang nhập khi đổi số lô
+  const existing = {};
   if (!initialBatches) {
-    container.querySelectorAll(".batch-card-item").forEach(card => {
-      const bName = card.dataset.batchName;
-      const input = card.querySelector(".batch-card-input");
-      if (input && input.value !== "") {
-        existingValues[bName] = input.value;
-      }
+    container.querySelectorAll(".lot-row").forEach(row => {
+      const input = row.querySelector(".batch-card-input");
+      existing[row.dataset.batchName] = { val: input ? input.value : "", sizes: lotRowSizes(row) };
+    });
+  }
+  const fromInitial = (match) => {
+    if (!initialBatches || !Array.isArray(initialBatches) || initialBatches.length === 0) return null;
+    const found = initialBatches.find(match);
+    if (!found) return null;
+    return { val: found.into_sewing || found.batch_plan || "", sizes: Array.isArray(found.sizes) ? found.sizes.map(String) : [] };
+  };
+
+  const rows = [];
+  for (let i = 1; i <= count; i++) {
+    const bName = `Lô ${i}`;
+    const v = fromInitial(b => b.batch_name === bName) || existing[bName] || { val: "", sizes: [] };
+    rows.push({ name: bName, tail: false, ...v });
+  }
+  const tailName = "Số đuôi";
+  const tv = fromInitial(b => b.batch_name.toLowerCase().includes("đuôi") || b.batch_name === `Lô ${count + 1}`) || existing[tailName] || { val: "", sizes: [] };
+  rows.push({ name: tailName, tail: true, ...tv });
+
+  container.innerHTML = `<table class="lot-table">
+    <colgroup><col class="lot-col-name"><col class="lot-col-total"><col></colgroup>
+    <thead><tr><th>Lô</th><th>Số tổng (đôi)</th><th class="lot-th-sizes">Size của lô <span>· bấm để chọn, không chọn = tất cả size</span></th></tr></thead>
+    <tbody>${rows.map(r => `<tr class="lot-row${r.tail ? " is-tail" : ""}" data-batch-name="${escHtml(r.name)}" data-sizes="${escHtml(JSON.stringify(r.sizes))}">
+      <td><span class="lot-badge">${escHtml(r.name)}</span></td>
+      <td><input type="number" class="batch-card-input lot-total-input" placeholder="0" value="${escHtml(r.val)}" min="0"></td>
+      <td class="lot-size-cell"></td>
+    </tr>`).join("")}</tbody>
+  </table>`;
+  refreshLotSizeChips();
+
+  if (!container.dataset.lotBound) {
+    container.dataset.lotBound = "1";
+    container.addEventListener("input", (e) => {
+      if (!e.target.classList.contains("batch-card-input")) return;
+      updateBatchSummaryCheck();
+      renderLotPreview();
+    });
+    container.addEventListener("click", (e) => {
+      const chip = e.target.closest(".lot-sz");
+      const all = e.target.closest(".lot-sz-all");
+      if (!chip && !all) return;
+      e.preventDefault();
+      const row = e.target.closest(".lot-row");
+      let sizes = lotRowSizes(row);
+      if (all) sizes = [];
+      else sizes = sizes.includes(chip.dataset.size) ? sizes.filter(x => x !== chip.dataset.size) : [...sizes, chip.dataset.size];
+      row.dataset.sizes = JSON.stringify(sizes);
+      renderLotRowChips(row);
+      renderLotPreview();
     });
   }
 
-  container.innerHTML = "";
-
-  // 1. Regular Lô 1, Lô 2, ..., Lô N
-  for (let i = 1; i <= count; i++) {
-    const bName = `Lô ${i}`;
-    let val = "";
-    if (initialBatches && Array.isArray(initialBatches) && initialBatches.length > 0) {
-      const found = initialBatches.find(b => b.batch_name === bName);
-      if (found) val = found.into_sewing || found.batch_plan || "";
-    } else if (existingValues[bName] !== undefined) {
-      val = existingValues[bName];
-    }
-
-    const card = document.createElement("div");
-    card.className = "batch-card-item";
-    card.dataset.batchName = bName;
-    card.innerHTML = `
-      <div style="display:flex; justify-content:space-between; align-items:center;">
-        <span class="batch-card-badge">📦 ${bName}</span>
-        <span style="font-size:11px; color:#64748b;">Định mức (đôi):</span>
-      </div>
-      <div class="batch-card-input-wrapper">
-        <input type="number" class="batch-card-input" placeholder="0" value="${val}" min="0">
-      </div>
-    `;
-    container.appendChild(card);
-  }
-
-  // 2. Khung Số Đuôi
-  const tailName = "Số đuôi";
-  let tailVal = "";
-  if (initialBatches && Array.isArray(initialBatches) && initialBatches.length > 0) {
-    const found = initialBatches.find(b => b.batch_name.toLowerCase().includes("đuôi") || b.batch_name === `Lô ${count + 1}`);
-    if (found) tailVal = found.into_sewing || found.batch_plan || "";
-  } else if (existingValues[tailName] !== undefined) {
-    tailVal = existingValues[tailName];
-  }
-
-  const tailCard = document.createElement("div");
-  tailCard.className = "batch-card-item is-tail";
-  tailCard.dataset.batchName = tailName;
-  tailCard.innerHTML = `
-    <div style="display:flex; justify-content:space-between; align-items:center;">
-      <span class="batch-card-badge">🏷️ ${tailName}</span>
-      <span style="font-size:11px; color:#7c3aed;">Định mức (đôi):</span>
-    </div>
-    <div class="batch-card-input-wrapper">
-      <input type="number" class="batch-card-input" placeholder="0" value="${tailVal}" min="0">
-    </div>
-  `;
-  container.appendChild(tailCard);
-
-  container.querySelectorAll(".batch-card-input").forEach(input => {
-    input.addEventListener("input", updateBatchSummaryCheck);
-  });
-
   updateBatchSummaryCheck();
+}
+
+function lotRowSizes(row) {
+  try {
+    const v = JSON.parse((row && row.dataset.sizes) || "[]");
+    return Array.isArray(v) ? v.map(String) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+// Dãy size của khách đang chọn trong biểu mẫu PO
+function poFormCustomerSizes() {
+  const sel = document.getElementById("poCustomerSelect");
+  const cust = appState.customers.find(c => c.id === (sel && sel.value ? sel.value : appState.currentCustomer));
+  return getCustomerSizes(cust);
+}
+
+// Size của lô để lưu: giữ đúng thứ tự dãy size của khách
+function lotSizesForSave(row) {
+  const custSizes = poFormCustomerSizes();
+  const chosen = lotRowSizes(row);
+  return custSizes.length ? custSizes.filter(x => chosen.includes(x)) : chosen;
+}
+
+function renderLotRowChips(row) {
+  const cell = row.querySelector(".lot-size-cell");
+  if (!cell) return;
+  const custSizes = poFormCustomerSizes();
+  const chosen = lotRowSizes(row);
+  if (!custSizes.length) {
+    cell.innerHTML = '<span class="lot-size-empty">Khách hàng chưa có dãy size. Khai báo ở thẻ Khách hàng phía trên.</span>';
+    return;
+  }
+  cell.innerHTML = custSizes.map(x => `<button type="button" class="lot-sz${chosen.includes(x) ? " on" : ""}" data-size="${escHtml(x)}">${escHtml(x)}</button>`).join("")
+    + '<button type="button" class="lot-sz-all">Tất cả</button>';
+}
+
+function refreshLotSizeChips() {
+  document.querySelectorAll("#dynamicBatchInputsContainer .lot-row").forEach(renderLotRowChips);
+  renderLotPreview();
+}
+
+// Xem trước: mỗi lô của PO đang nhập sẽ hiện bao nhiêu dòng size trên điện thoại
+function renderLotPreview() {
+  const box = document.getElementById("lotPreviewList");
+  if (!box) return;
+  const custSizes = poFormCustomerSizes();
+  const items = [...document.querySelectorAll("#dynamicBatchInputsContainer .lot-row")].map(row => {
+    const qty = Number(row.querySelector(".batch-card-input")?.value) || 0;
+    if (!qty && row.classList.contains("is-tail")) return "";
+    const sizes = lotSizesForSave(row);
+    const list = sizes.length ? sizes : custSizes;
+    return `<div class="lot-preview-row"><span class="lot-badge">${escHtml(row.dataset.batchName)}</span><span>${list.length} dòng · ${escHtml(sizeBriefText(list) || "chưa có size")}</span></div>`;
+  }).join("");
+  box.innerHTML = items ? `<div class="lot-preview-title">PO đang nhập, mỗi lô hiện:</div>${items}` : "";
 }
 
 function updateBatchSummaryCheck() {
@@ -3116,7 +3169,7 @@ async function handleAddPO(e) {
 
   // 4. Collect batches from dynamic grid
   const container = document.getElementById("dynamicBatchInputsContainer") || document.getElementById("batchInputGrid");
-  const batchCards = container ? container.querySelectorAll(".batch-card-item") : [];
+  const batchCards = container ? container.querySelectorAll(".lot-row") : [];
   const batches = [];
   let sumBatches = 0;
   batchCards.forEach((card, i) => {
@@ -3129,7 +3182,8 @@ async function handleAddPO(e) {
         id: "b-" + (i + 1),
         batch_name: bName,
         batch_plan: qty,
-        into_sewing: 0
+        into_sewing: 0,
+        sizes: lotSizesForSave(card)
       });
     }
   });
@@ -5358,8 +5412,157 @@ function bindSizeEditorEvents() {
 }
 
 // ==========================================================
-// THẢ CHUYỀN / CHỈ LỆNH ĐÓNG GÓI / TỔNG HỢP
-// Mỗi ngày 4 lần nhận theo size; tích lũy = cộng dồn cả PO tới ngày đang xem
+// TAB 03: CHI TIẾT THEO ART (danh sách để chọn khi thả chuyền Chi tiết)
+// ==========================================================
+const artPartsState = { customerId: null, items: {}, dragFrom: null, seq: 0 };
+
+async function loadArtParts(customerId) {
+  if (!document.getElementById("artPartsList")) return;
+  artPartsState.customerId = customerId || null;
+  const seq = ++artPartsState.seq;
+  if (!customerId) {
+    artPartsState.items = {};
+    renderArtParts();
+    return;
+  }
+  try {
+    const res = await fetch(`/api/art-parts?customer_id=${encodeURIComponent(customerId)}&t=${Date.now()}`);
+    const data = await res.json();
+    if (seq !== artPartsState.seq) return;
+    artPartsState.items = Object.fromEntries((data.items || []).map(it => [it.art, it.parts || []]));
+  } catch (err) {
+    if (seq !== artPartsState.seq) return;
+    artPartsState.items = {};
+  }
+  renderArtParts();
+}
+
+// ART của khách = mã hàng trong các PO của khách (kèm ART đã khai báo chi tiết)
+function customerArts(customerId) {
+  const arts = [...new Set(appState.orders.filter(o => o.customer_id === customerId).map(o => String(o.style_code || "").trim()).filter(Boolean))];
+  Object.keys(artPartsState.items).forEach(a => {
+    if (!arts.includes(a) && (artPartsState.items[a] || []).length) arts.push(a);
+  });
+  return arts.sort((a, b) => a.localeCompare(b, "vi"));
+}
+
+function renderArtParts() {
+  const box = document.getElementById("artPartsList");
+  if (!box) return;
+  const cust = appState.customers.find(c => c.id === artPartsState.customerId);
+  const title = document.getElementById("artPartsCust");
+  if (title) title.textContent = cust ? cust.name : "Tất cả";
+  if (!cust) {
+    box.innerHTML = '<div class="art-empty">Chọn một khách hàng ở bảng phía trên.</div>';
+    return;
+  }
+  const arts = customerArts(cust.id);
+  if (!arts.length) {
+    box.innerHTML = `<div class="art-empty">${escHtml(cust.name)} chưa có PO nào. Tạo PO trước rồi khai báo chi tiết theo ART.</div>`;
+    return;
+  }
+  box.innerHTML = `<table class="art-table">
+    <colgroup><col class="art-col-name"><col></colgroup>
+    <thead><tr><th>ART</th><th class="art-th-parts">Các chi tiết <span>· gõ tên rồi Enter (nhiều tên cách nhau dấu phẩy), bấm × để xóa, kéo thả để đổi thứ tự</span></th></tr></thead>
+    <tbody>${arts.map(art => {
+      const parts = artPartsState.items[art] || [];
+      return `<tr data-art="${escHtml(art)}"><td class="art-name">${escHtml(art)}</td><td><div class="art-chips">${parts.map((p, i) => `<span class="art-chip" draggable="true" data-idx="${i}">${escHtml(p)}<button type="button" class="art-chip-x" data-del="${i}" aria-label="Xóa ${escHtml(p)}">×</button></span>`).join("")}<input type="text" class="form-control art-add-input" placeholder="+ Thêm chi tiết" autocomplete="off"></div></td></tr>`;
+    }).join("")}</tbody>
+  </table>`;
+}
+
+async function saveArtParts(art, parts) {
+  const customerId = artPartsState.customerId;
+  if (!customerId) return;
+  artPartsState.items[art] = parts;
+  renderArtParts();
+  try {
+    const res = await fetch("/api/art-parts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ customer_id: customerId, art, parts })
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || "Không lưu được");
+    if (customerId === artPartsState.customerId) {
+      artPartsState.items[art] = data.parts;
+      renderArtParts();
+    }
+    showToast(`💾 Đã lưu chi tiết ART ${art}`);
+  } catch (err) {
+    showToast("⚠️ Chưa lưu được chi tiết: " + err.message);
+  }
+}
+
+function bindArtPartsEvents() {
+  const box = document.getElementById("artPartsList");
+  if (!box) return;
+  box.addEventListener("keydown", async (e) => {
+    if (e.isComposing || e.keyCode === 229) return;
+    const input = e.target.closest(".art-add-input");
+    if (!input || e.key !== "Enter") return;
+    e.preventDefault();
+    const art = input.closest("tr").dataset.art;
+    const parts = [...(artPartsState.items[art] || [])];
+    const added = input.value.split(/[\t,;\n]+/).map(x => x.trim().slice(0, 40)).filter(Boolean);
+    if (!added.length) return;
+    added.forEach(x => {
+      if (!parts.some(p => p.toLowerCase() === x.toLowerCase())) parts.push(x);
+    });
+    await saveArtParts(art, parts);
+    const again = [...document.querySelectorAll("#artPartsList tr")].find(tr => tr.dataset.art === art);
+    const nextInput = again && again.querySelector(".art-add-input");
+    if (nextInput) nextInput.focus();
+  });
+  box.addEventListener("click", (e) => {
+    const del = e.target.closest(".art-chip-x");
+    if (!del) return;
+    const art = del.closest("tr").dataset.art;
+    const parts = [...(artPartsState.items[art] || [])];
+    parts.splice(Number(del.dataset.del), 1);
+    saveArtParts(art, parts);
+  });
+  // Kéo thả để đổi thứ tự chi tiết trong cùng 1 ART
+  box.addEventListener("dragstart", (e) => {
+    const chip = e.target.closest(".art-chip");
+    if (!chip) return;
+    artPartsState.dragFrom = { art: chip.closest("tr").dataset.art, idx: Number(chip.dataset.idx) };
+    chip.classList.add("is-drag");
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", "");
+  });
+  box.addEventListener("dragover", (e) => {
+    const chip = e.target.closest(".art-chip");
+    const from = artPartsState.dragFrom;
+    if (!chip || !from || chip.closest("tr").dataset.art !== from.art) return;
+    e.preventDefault();
+    box.querySelectorAll(".art-chip.is-over").forEach(c => c.classList.remove("is-over"));
+    chip.classList.add("is-over");
+  });
+  box.addEventListener("drop", (e) => {
+    const chip = e.target.closest(".art-chip");
+    const from = artPartsState.dragFrom;
+    if (!chip || !from) return;
+    const art = chip.closest("tr").dataset.art;
+    if (art !== from.art) return;
+    e.preventDefault();
+    const parts = [...(artPartsState.items[art] || [])];
+    const [moved] = parts.splice(from.idx, 1);
+    parts.splice(Number(chip.dataset.idx), 0, moved);
+    artPartsState.dragFrom = null;
+    saveArtParts(art, parts);
+  });
+  box.addEventListener("dragend", () => {
+    artPartsState.dragFrom = null;
+    box.querySelectorAll(".art-chip").forEach(c => c.classList.remove("is-drag", "is-over"));
+  });
+}
+
+// ==========================================================
+// THẢ CHUYỀN / CHỈ LỆNH ĐÓNG GÓI / TỔNG HỢP (THEO LÔ)
+// Mỗi ngày 4 lần nhận theo size; tích lũy = cộng dồn cả lô tới ngày đang xem.
+// Thả chuyền có 2 chế độ: Đồng bộ (đôi) và Chi tiết (mỗi ô kèm tên chi tiết theo ART).
+// Tổng hợp chỉ so Đồng bộ với Đóng gói.
 // ==========================================================
 const REL_PERM = {
   tcEdit: ["admin", "manager", "feeder", "worker"],
@@ -5377,13 +5580,17 @@ const REL_ICON = {
 };
 
 const relState = {
-  kind: "tha_chuyen",   // 'tha_chuyen' | 'dong_goi'
-  seg: "in",            // 'in' (nhập) | 'sum' (tổng hợp)
+  kind: "tha_chuyen",   // popup đang mở: 'tha_chuyen' | 'dong_goi'
+  mode: "dong",         // thả chuyền: 'dong' (đồng bộ) | 'ct' (chi tiết)
+  seg: "in",            // đóng gói: 'in' (nhập) | 'sum' (tổng hợp)
+  target: null,
   poId: null,
   date: null,
+  batch: null,          // tên lô đang xem ('' = số nhập trước khi chia lô)
   data: null,           // payload từ /api/release
-  day: { tc: {}, dg: {} },   // 4 ô nhận của ngày đang xem (đang gõ)
-  base: { tc: {}, dg: {} },  // tích lũy các ngày trước
+  day: { tc: {}, dg: {}, ct: {} },   // ô nhận của ngày đang xem; ct: size -> [[số, chi tiết] x4]
+  base: { tc: {}, dg: {} },          // tích lũy các ngày trước
+  ctBase: {},                        // chi tiết: size -> {chi tiết: số} các ngày trước
   dirty: false,
   timer: null,
   saving: Promise.resolve(true),
@@ -5395,10 +5602,18 @@ function relCan(perm) {
   return REL_PERM[perm].includes(getRoleInfo(appState.currentUserRole).key);
 }
 
-const relKey = kind => (kind === "tha_chuyen" ? "tc" : "dg");
 const relNum = n => (Number(n) || 0).toLocaleString("vi-VN");
 const relDaySum = arr => (arr || []).reduce((a, b) => a + (Number(b) || 0), 0);
 const relSigned = x => (x > 0 ? "+" : "−") + relNum(Math.abs(x));
+const relLotLabel = name => name || "Chưa chia lô";
+const relLotPrefKey = poId => `dd_rel_lot_${poId}`;
+
+// Loại số đang nhập trên bảng: thả chuyền đồng bộ / chi tiết hoặc đóng gói
+function relEditKind() {
+  if (relState.kind === "dong_goi") return "dong_goi";
+  return relState.mode === "ct" ? "tha_chuyen_ct" : "tha_chuyen";
+}
+const relGridKey = () => ({ tha_chuyen: "tc", tha_chuyen_ct: "ct", dong_goi: "dg" })[relEditKind()];
 
 // Nhân viên kiểm kê / Người thả chuyền / Đóng gói không có ô chọn ngày -> luôn làm việc với hôm nay
 function relWorkDate() {
@@ -5423,13 +5638,38 @@ function relFmtTime(iso) {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
-// Tích lũy 1 size = các ngày trước (server) + 4 ô của ngày đang xem
+function relReadPref(poId) {
+  try {
+    const v = localStorage.getItem(relLotPrefKey(poId));
+    return v === null ? null : v;
+  } catch (e) {
+    return null;
+  }
+}
+
+function relWritePref(poId, batch) {
+  try {
+    localStorage.setItem(relLotPrefKey(poId), batch);
+  } catch (e) {}
+}
+
+// Tích lũy 1 size (đồng bộ / đóng gói) = các ngày trước + 4 ô của ngày đang xem
 function relCum(k, size) {
   return (relState.base[k][size] || 0) + relDaySum(relState.day[k][size]);
 }
 
+// Tích lũy chi tiết của 1 size: {tên chi tiết: số}
+function relCtCum(size) {
+  const out = { ...(relState.ctBase[size] || {}) };
+  (relState.day.ct[size] || []).forEach(cell => {
+    if (cell && cell[0] > 0 && cell[1]) out[cell[1]] = (out[cell[1]] || 0) + cell[0];
+  });
+  return out;
+}
+
 function relApplyPayload(data, keepLocalDay) {
   relState.data = data;
+  relState.batch = data.batch;
   const base = { tc: {}, dg: {} };
   [["tc", "tc", "tcCum"], ["dg", "dg", "dgCum"]].forEach(([k, dayKey, cumKey]) => {
     const cum = data[cumKey] || {};
@@ -5445,6 +5685,22 @@ function relApplyPayload(data, keepLocalDay) {
     }
   });
   relState.base = base;
+
+  const ctBase = {};
+  const ctDay = data.ct || {};
+  Object.entries(data.ctCum || {}).forEach(([s, parts]) => {
+    ctBase[s] = { ...parts };
+    (ctDay[s] || []).forEach(cell => {
+      if (cell && cell[0] > 0 && cell[1] && ctBase[s][cell[1]] !== undefined) ctBase[s][cell[1]] -= cell[0];
+    });
+  });
+  relState.ctBase = ctBase;
+  if (!keepLocalDay) {
+    relState.day.ct = {};
+    Object.keys(ctDay).forEach(s => {
+      relState.day.ct[s] = [0, 1, 2, 3].map(i => [Number((ctDay[s][i] || [])[0]) || 0, String((ctDay[s][i] || [])[1] || "")]);
+    });
+  }
 }
 
 async function openReleaseModal(target) {
@@ -5463,11 +5719,15 @@ async function openReleaseModal(target) {
   Object.assign(relState, {
     kind,
     seg,
+    target,
+    mode: "dong",
     poId: appState.currentPO.id,
     date: relWorkDate(),
+    batch: null,
     data: null,
-    day: { tc: {}, dg: {} },
+    day: { tc: {}, dg: {}, ct: {} },
     base: { tc: {}, dg: {} },
+    ctBase: {},
     dirty: false
   });
 
@@ -5479,7 +5739,16 @@ async function openReleaseModal(target) {
   document.getElementById("relDate").textContent = relFmtDate(relState.date);
   renderReleaseInfo();
   relShowLoading();
-  await loadRelease();
+  await loadRelease(relReadPref(relState.poId));
+
+  // Mở từ thanh Tổng hợp: nhảy thẳng tới lô đầu tiên đang lệch
+  if (target === "sum" && relState.data) {
+    const firstBad = (relState.data.lots || []).find(l => l.bad > 0);
+    if (firstBad && firstBad.name !== relState.batch) {
+      relShowLoading();
+      await loadRelease(firstBad.name);
+    }
+  }
 }
 
 function renderReleaseInfo() {
@@ -5493,18 +5762,21 @@ function renderReleaseInfo() {
 
 function relShowLoading() {
   document.getElementById("relLoading").hidden = false;
-  ["relEmpty", "relPaneIn", "relPaneSum", "relSeg"].forEach(id => { document.getElementById(id).hidden = true; });
+  ["relEmpty", "relPaneIn", "relPaneSum", "relSeg", "relMode", "relModeNote"].forEach(id => { document.getElementById(id).hidden = true; });
+  document.getElementById("relLotInfo").textContent = "";
   document.getElementById("relFoot").innerHTML = "";
 }
 
-async function loadRelease() {
+async function loadRelease(batch) {
   const seq = ++relState.seq;
   try {
-    const res = await fetch(`/api/release?po_id=${encodeURIComponent(relState.poId)}&date=${relState.date}&t=${Date.now()}`);
+    const q = typeof batch === "string" ? `&batch=${encodeURIComponent(batch)}` : "";
+    const res = await fetch(`/api/release?po_id=${encodeURIComponent(relState.poId)}&date=${relState.date}${q}&t=${Date.now()}`);
     const data = await res.json();
     if (seq !== relState.seq) return;
     if (!data.success) throw new Error(data.error || "Không tải được số liệu");
     relApplyPayload(data, false);
+    relWritePref(relState.poId, data.batch);
     renderRelease();
   } catch (err) {
     if (seq !== relState.seq) return;
@@ -5516,16 +5788,89 @@ async function loadRelease() {
   }
 }
 
+// Lô hiện ở hàng nút: có số tổng hoặc đã có số liệu
+function relVisibleLots() {
+  const lots = (relState.data && relState.data.lots) || [];
+  const vis = lots.filter(l => l.total > 0 || l.tc_total || l.dg_total || l.ct_total || l.name === relState.batch);
+  return vis.length ? vis : lots;
+}
+
+function renderReleaseLots() {
+  const box = document.getElementById("relLots");
+  const showSum = relState.kind === "dong_goi" && relState.seg === "sum";
+  const lots = relVisibleLots();
+  box.innerHTML = lots.map(l => {
+    const on = l.name === relState.batch;
+    const bad = showSum && l.bad ? `<span class="rel-lot-bad">${l.bad} lệch</span>` : "";
+    return `<button type="button" class="rel-lot-tab${on ? " on" : ""}" data-rel-lot="${escHtml(l.name)}">${escHtml(relLotLabel(l.name))}${l.total ? ` · ${relNum(l.total)}` : ""}${bad}</button>`;
+  }).join("");
+  box.hidden = lots.length <= 1 && !(lots[0] && lots[0].legacy);
+}
+
+function relCurrentLot() {
+  return ((relState.data && relState.data.lots) || []).find(l => l.name === relState.batch) || null;
+}
+
+function renderReleaseLotInfo() {
+  const el = document.getElementById("relLotInfo");
+  const lot = relCurrentLot();
+  const label = relLotLabel(relState.batch);
+  const showSum = relState.kind === "dong_goi" && relState.seg === "sum";
+  if (!relState.data) {
+    el.textContent = "";
+    return;
+  }
+  if (lot && lot.legacy) {
+    el.innerHTML = `${label}: số đã nhập trước khi chia lô`;
+    return;
+  }
+  const total = lot ? lot.total : 0;
+  if (showSum) {
+    el.innerHTML = `${escHtml(label)}: số tổng <span class="rel-num-blue">${relNum(total)}</span> đôi`;
+    return;
+  }
+  if (relEditKind() === "tha_chuyen_ct") {
+    el.innerHTML = `${escHtml(label)}: chi tiết theo dõi riêng, không tính vào Tổng hợp với đóng gói`;
+    return;
+  }
+  const k = relGridKey();
+  const done = relState.data.sizes.reduce((a, s) => a + relCum(k, s), 0);
+  const verb = k === "tc" ? "đã thả" : "đã đóng gói";
+  if (!total) {
+    el.innerHTML = `${escHtml(label)}: chưa ghi số tổng · ${verb} <span class="rel-num-blue">${relNum(done)}</span>`;
+    return;
+  }
+  const left = total - done;
+  el.innerHTML = `${escHtml(label)}: số tổng <span class="rel-num-blue">${relNum(total)}</span> · ${verb} <span class="rel-num-blue">${relNum(done)}</span> · còn <span class="${left ? "rel-num-pink" : "rel-num-navy"}">${relNum(left)}</span>`;
+}
+
 function renderRelease() {
   const d = relState.data;
   if (!d) return;
   document.getElementById("relLoading").hidden = true;
   renderReleaseInfo();
 
+  // Đồng bộ / Chi tiết (chỉ thả chuyền)
+  const modeBox = document.getElementById("relMode");
+  const note = document.getElementById("relModeNote");
+  const hasParts = (d.parts || []).length > 0;
+  if (relState.mode === "ct" && !hasParts) relState.mode = "dong";
+  modeBox.hidden = relState.kind !== "tha_chuyen";
+  modeBox.querySelectorAll("[data-rel-mode]").forEach(b => {
+    b.classList.toggle("on", b.dataset.relMode === relState.mode);
+    if (b.dataset.relMode === "ct") b.disabled = !hasParts;
+  });
+  note.hidden = relState.kind !== "tha_chuyen" || hasParts;
+  note.textContent = "ART này chưa khai báo chi tiết. Admin khai báo ở tab Khách hàng & PO.";
+
+  // Nhập đóng gói / Tổng hợp
   const segBox = document.getElementById("relSeg");
   segBox.hidden = !(relState.kind === "dong_goi" && relCan("summary"));
   if (relState.seg === "sum" && !relCan("summary")) relState.seg = "in";
   segBox.querySelectorAll(".rel-seg-btn").forEach(b => b.classList.toggle("on", b.dataset.relSeg === relState.seg));
+
+  renderReleaseLots();
+  renderReleaseLotInfo();
 
   const noSizes = !d.sizes || d.sizes.length === 0;
   const empty = document.getElementById("relEmpty");
@@ -5534,7 +5879,6 @@ function renderRelease() {
     empty.textContent = "Khách hàng này chưa có dãy size. Quản trị khai báo ở tab Khách hàng & PO.";
     document.getElementById("relPaneIn").hidden = true;
     document.getElementById("relPaneSum").hidden = true;
-    segBox.hidden = true;
     relRenderFoot();
     return;
   }
@@ -5543,6 +5887,7 @@ function renderRelease() {
   document.getElementById("relPaneIn").hidden = showSum;
   document.getElementById("relPaneSum").hidden = !showSum;
   document.getElementById("relChips").hidden = relState.kind !== "dong_goi";
+  document.getElementById("modalRelease").dataset.mode = relEditKind() === "tha_chuyen_ct" ? "ct" : "dong";
   renderReleaseGrid();
   renderReleaseChips();
   renderReleaseSummary();
@@ -5553,22 +5898,56 @@ function relCanEditCurrent() {
   return relState.kind === "tha_chuyen" ? relCan("tcEdit") : relCan("dgEdit");
 }
 
+function relPartOptions(selected) {
+  const parts = (relState.data && relState.data.parts) || [];
+  const list = selected && !parts.includes(selected) ? [...parts, selected] : parts;
+  return list.map(p => `<option value="${escHtml(p)}"${p === selected ? " selected" : ""}>${escHtml(p)}</option>`).join("");
+}
+
+function relCtCumHtml(size) {
+  const cum = relCtCum(size);
+  const parts = (relState.data && relState.data.parts) || [];
+  const names = [...parts.filter(p => cum[p]), ...Object.keys(cum).filter(p => !parts.includes(p) && cum[p])];
+  if (!names.length) return '<span class="rel-none">—</span>';
+  return names.map(p => `<div class="rel-ct-line"><span>${escHtml(p)}</span><b>${relNum(cum[p])}</b></div>`).join("");
+}
+
 function renderReleaseGrid() {
-  const k = relKey(relState.kind);
+  const k = relGridKey();
   const editable = relCanEditCurrent();
+  const isCt = k === "ct";
+  document.getElementById("relThCum").innerHTML = isCt ? "Tích lũy<br>theo chi tiết" : "Tích lũy";
   document.getElementById("relTbody").innerHTML = relState.data.sizes.map(size => {
-    const day = relState.day[k][size] || [];
     const cells = [0, 1, 2, 3].map(i => {
-      const v = Number(day[i]) || 0;
+      if (isCt) {
+        const cell = (relState.day.ct[size] || [])[i] || [0, ""];
+        const need = cell[0] > 0 && !cell[1];
+        return `<td class="rel-ct-cell"><input type="text" class="rel-input" inputmode="numeric" autocomplete="off" data-size="${escHtml(size)}" data-i="${i}" value="${cell[0] || ""}" placeholder="0" aria-label="Size ${escHtml(size)}, lần nhận ${i + 1}"><div class="rel-part-wrap${cell[1] ? "" : " is-empty"}${need ? " is-need" : ""}"><span class="rel-part-text">${escHtml(cell[1] || (need ? "Chọn chi tiết!" : "Chi tiết"))}</span><select class="rel-part" data-size="${escHtml(size)}" data-i="${i}" aria-label="Chi tiết của size ${escHtml(size)}, lần nhận ${i + 1}"><option value="">Chi tiết</option>${relPartOptions(cell[1])}</select></div></td>`;
+      }
+      const v = Number((relState.day[k][size] || [])[i]) || 0;
       return `<td><input type="text" class="rel-input" inputmode="numeric" autocomplete="off" data-size="${escHtml(size)}" data-i="${i}" value="${v || ""}" placeholder="${editable ? "0" : ""}"${editable ? "" : ' readonly tabindex="-1"'} aria-label="Size ${escHtml(size)}, lần nhận ${i + 1}"></td>`;
     }).join("");
-    return `<tr><td class="rel-size">${escHtml(size)}</td>${cells}<td><span class="rel-cum" data-cum-size="${escHtml(size)}">${relNum(relCum(k, size))}</span></td></tr>`;
+    const cum = isCt
+      ? `<td class="rel-ct-cum" data-cum-size="${escHtml(size)}">${relCtCumHtml(size)}</td>`
+      : `<td><span class="rel-cum" data-cum-size="${escHtml(size)}">${relNum(relCum(k, size))}</span></td>`;
+    return `<tr><td class="rel-size">${escHtml(size)}</td>${cells}${cum}</tr>`;
   }).join("");
   renderReleaseTotals();
 }
 
 function renderReleaseTotals() {
-  const k = relKey(relState.kind);
+  const k = relGridKey();
+  const foot = document.getElementById("relTfoot");
+  if (k === "ct") {
+    const all = {};
+    relState.data.sizes.forEach(size => {
+      Object.entries(relCtCum(size)).forEach(([p, q]) => { all[p] = (all[p] || 0) + q; });
+    });
+    const parts = (relState.data.parts || []);
+    const names = [...parts.filter(p => all[p]), ...Object.keys(all).filter(p => !parts.includes(p) && all[p])];
+    foot.innerHTML = `<td class="rel-foot-lbl">Tổng</td><td colspan="4" class="rel-foot-note">Mỗi chi tiết cộng riêng</td><td class="rel-ct-cum">${names.length ? names.map(p => `<div class="rel-ct-line"><span>${escHtml(p)}</span><b>${relNum(all[p])}</b></div>`).join("") : '<span class="rel-none">—</span>'}</td>`;
+    return;
+  }
   const cols = [0, 0, 0, 0];
   let total = 0;
   relState.data.sizes.forEach(size => {
@@ -5576,16 +5955,17 @@ function renderReleaseTotals() {
     [0, 1, 2, 3].forEach(i => { cols[i] += Number(day[i]) || 0; });
     total += relCum(k, size);
   });
-  document.getElementById("relTfoot").innerHTML =
-    `<td class="rel-foot-lbl">Tổng</td>${cols.map(v => `<td>${relNum(v)}</td>`).join("")}<td><span class="rel-cum">${relNum(total)}</span></td>`;
+  foot.innerHTML = `<td class="rel-foot-lbl">Tổng</td>${cols.map(v => `<td>${relNum(v)}</td>`).join("")}<td><span class="rel-cum">${relNum(total)}</span></td>`;
 }
 
 function relUpdateCums() {
-  const k = relKey(relState.kind);
+  const k = relGridKey();
   document.querySelectorAll("#relTbody [data-cum-size]").forEach(el => {
-    el.textContent = relNum(relCum(k, el.dataset.cumSize));
+    if (k === "ct") el.innerHTML = relCtCumHtml(el.dataset.cumSize);
+    else el.textContent = relNum(relCum(k, el.dataset.cumSize));
   });
   renderReleaseTotals();
+  renderReleaseLotInfo();
 }
 
 function renderReleaseChips() {
@@ -5601,7 +5981,7 @@ function renderReleaseChips() {
   pack.title = c.packing_by ? `Người xác nhận: ${c.packing_by}` : "";
 }
 
-// So tích lũy thả chuyền với tích lũy đóng gói theo từng size
+// So tích lũy thả chuyền (đồng bộ) với tích lũy đóng gói theo từng size của lô đang xem
 function relStats() {
   let ok = 0, bad = 0, none = 0, ta = 0, tb = 0;
   const rows = relState.data.sizes.map(size => {
@@ -5621,6 +6001,7 @@ function relStats() {
 function renderReleaseSummary() {
   if (relState.kind !== "dong_goi" || !relState.data) return;
   const st = relStats();
+  const label = relLotLabel(relState.batch);
   document.getElementById("relSumBody").innerHTML = st.rows.map(r => {
     const res = r.state === "none"
       ? '<span class="rel-none">—</span>'
@@ -5640,11 +6021,11 @@ function renderReleaseSummary() {
   banner.className = "rel-banner" + (st.bad ? "" : (st.ok ? " is-ok" : " is-empty"));
   const sub = [`${st.ok} size OK`, st.none ? `${st.none} size chưa có số` : ""].filter(Boolean).join(" · ");
   if (st.bad) {
-    banner.innerHTML = `Giao nhận chưa đủ: <span class="rel-diff-txt">${st.bad} size lệch</span><small>${sub}</small>`;
+    banner.innerHTML = `${escHtml(label)}: giao nhận chưa đủ, <span class="rel-diff-txt">${st.bad} size lệch</span><small>${sub}</small>`;
   } else if (st.ok) {
-    banner.innerHTML = `Giao nhận đủ, tất cả size đều OK${st.none ? `<small>${st.none} size chưa có số</small>` : ""}`;
+    banner.innerHTML = `${escHtml(label)}: giao nhận đủ, tất cả size đều OK${st.none ? `<small>${st.none} size chưa có số</small>` : ""}`;
   } else {
-    banner.textContent = "Chưa có số thả chuyền và đóng gói";
+    banner.textContent = `${label}: chưa có số thả chuyền và đóng gói`;
   }
 }
 
@@ -5659,7 +6040,7 @@ function relRenderFoot() {
   }
   if (relState.kind === "tha_chuyen") {
     foot.style.gridTemplateColumns = "1fr 2fr";
-    foot.innerHTML = closeBtn + `<button type="button" class="rel-fbtn rel-fbtn-tc" data-rel-act="save">${REL_ICON.save}Lưu thả chuyền</button>`;
+    foot.innerHTML = closeBtn + `<button type="button" class="rel-fbtn rel-fbtn-tc" data-rel-act="save">${REL_ICON.save}${relState.mode === "ct" ? "Lưu thả chuyền chi tiết" : "Lưu thả chuyền"}</button>`;
     return;
   }
   if (relState.seg === "sum") {
@@ -5678,9 +6059,15 @@ function relRenderFoot() {
   if (!btns.length) btns.push(closeBtn);
   foot.style.gridTemplateColumns = btns.length > 1 ? "1fr 1fr" : "1fr";
   const hint = relCan("packConfirm") && !c.leader_at
-    ? '<div class="rel-hint">Chờ tổ trưởng xác nhận rồi mới bấm Đóng gói xác nhận.</div>'
+    ? `<div class="rel-hint">Chờ tổ trưởng xác nhận ${escHtml(relLotLabel(relState.batch))} rồi mới bấm Đóng gói xác nhận.</div>`
     : "";
   foot.innerHTML = btns.join("") + hint;
+}
+
+function relScheduleSave() {
+  relState.dirty = true;
+  clearTimeout(relState.timer);
+  relState.timer = setTimeout(saveRelease, 800);
 }
 
 function onReleaseInput(e) {
@@ -5688,16 +6075,47 @@ function onReleaseInput(e) {
   if (!el.classList.contains("rel-input") || el.readOnly || !relState.data) return;
   const clean = el.value.replace(/\D/g, "").slice(0, 6);
   if (clean !== el.value) el.value = clean;
-  const k = relKey(relState.kind);
+  const k = relGridKey();
   const size = el.dataset.size;
-  const arr = relState.day[k][size] || [0, 0, 0, 0];
-  arr[Number(el.dataset.i)] = parseInt(clean, 10) || 0;
-  relState.day[k][size] = arr;
+  const i = Number(el.dataset.i);
+  const qty = parseInt(clean, 10) || 0;
+  if (k === "ct") {
+    const cells = relState.day.ct[size] || [[0, ""], [0, ""], [0, ""], [0, ""]];
+    cells[i] = [qty, (cells[i] || [0, ""])[1]];
+    relState.day.ct[size] = cells;
+    const sel = el.closest("td").querySelector(".rel-part");
+    if (sel) relMarkPart(sel, cells[i]);
+  } else {
+    const arr = relState.day[k][size] || [0, 0, 0, 0];
+    arr[i] = qty;
+    relState.day[k][size] = arr;
+  }
   relUpdateCums();
   renderReleaseSummary();
-  relState.dirty = true;
-  clearTimeout(relState.timer);
-  relState.timer = setTimeout(saveRelease, 800);
+  relScheduleSave();
+}
+
+// Ô chọn chi tiết trong suốt (chữ 16px để iPhone không tự phóng to), nhãn hiển thị nằm phía dưới
+function relMarkPart(sel, cell) {
+  const need = cell[0] > 0 && !cell[1];
+  const wrap = sel.parentElement;
+  wrap.classList.toggle("is-empty", !cell[1]);
+  wrap.classList.toggle("is-need", need);
+  const text = wrap.querySelector(".rel-part-text");
+  if (text) text.textContent = cell[1] || (need ? "Chọn chi tiết!" : "Chi tiết");
+}
+
+function onReleaseChange(e) {
+  const sel = e.target;
+  if (!sel.classList.contains("rel-part") || !relState.data) return;
+  const size = sel.dataset.size;
+  const i = Number(sel.dataset.i);
+  const cells = relState.day.ct[size] || [[0, ""], [0, ""], [0, ""], [0, ""]];
+  cells[i] = [(cells[i] || [0, ""])[0], sel.value];
+  relState.day.ct[size] = cells;
+  relMarkPart(sel, cells[i]);
+  relUpdateCums();
+  relScheduleSave();
 }
 
 // Enter = sang ô kế tiếp (giống Excel); ô cuối thì lưu luôn
@@ -5722,31 +6140,41 @@ function saveRelease() {
   clearTimeout(relState.timer);
   relState.saving = relState.saving.then(async () => {
     if (!relState.dirty || !relState.data) return true;
-    const kind = relState.kind;
+    const kind = relEditKind();
     const poId = relState.poId;
     const date = relState.date;
-    const k = relKey(kind);
+    const batch = relState.batch || "";
     relState.dirty = false;
-    const rows = relState.data.sizes.map(size => ({
-      size,
-      n: [0, 1, 2, 3].map(i => Number((relState.day[k][size] || [])[i]) || 0)
-    }));
+    let missingPart = false;
+    const rows = relState.data.sizes.map(size => {
+      if (kind === "tha_chuyen_ct") {
+        const cells = relState.day.ct[size] || [];
+        const n = [0, 1, 2, 3].map(i => Number((cells[i] || [])[0]) || 0);
+        const p = [0, 1, 2, 3].map(i => String((cells[i] || [])[1] || ""));
+        if (n.some((q, i) => q > 0 && !p[i])) missingPart = true;
+        return { size, n, p };
+      }
+      const k = kind === "dong_goi" ? "dg" : "tc";
+      return { size, n: [0, 1, 2, 3].map(i => Number((relState.day[k][size] || [])[i]) || 0) };
+    });
     try {
       const res = await fetch("/api/release", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ po_id: poId, date, kind, rows, user: relUserName() })
+        body: JSON.stringify({ po_id: poId, date, kind, batch, rows, user: relUserName() })
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || "Lưu không thành công");
-      if (relState.poId === poId && relState.date === date && relState.kind === kind) {
+      if (relState.poId === poId && relState.date === date && relState.batch === batch && relEditKind() === kind) {
         relApplyPayload(data, true);
         relUpdateCums();
+        renderReleaseLots();
         renderReleaseChips();
         renderReleaseSummary();
         relRenderFoot();
       }
-      if (data.confirmReset) showToast("⚠️ Đã sửa số đóng gói: tổ trưởng và đóng gói cần xác nhận lại");
+      if (missingPart) showToast("⚠️ Có ô chưa chọn tên chi tiết nên chưa lưu ô đó");
+      if (data.confirmReset) showToast(`⚠️ Đã sửa số đóng gói ${relLotLabel(batch)}: tổ trưởng và đóng gói cần xác nhận lại`);
       refreshReleaseBar();
       return true;
     } catch (err) {
@@ -5761,8 +6189,28 @@ function saveRelease() {
 async function saveAndCloseRelease() {
   const ok = await saveRelease();
   if (ok === false) return;
-  showToast(`💾 Đã lưu thả chuyền ngày ${relFmtDate(relState.date)}`);
+  showToast(`💾 Đã lưu thả chuyền ${relLotLabel(relState.batch)} ngày ${relFmtDate(relState.date)}`);
   closeReleaseModal();
+}
+
+// Đổi lô: lưu nốt số đang gõ rồi mới tải lô mới
+async function switchReleaseLot(name) {
+  if (name === relState.batch) return;
+  const ok = await saveRelease();
+  if (ok === false) return;
+  relState.day = { tc: {}, dg: {}, ct: {} };
+  relShowLoading();
+  await loadRelease(name);
+}
+
+// Đổi Đồng bộ / Chi tiết: lưu nốt chế độ đang gõ rồi đổi bảng (số của cả 2 chế độ đã có sẵn)
+async function switchReleaseMode(mode) {
+  if (mode === relState.mode) return;
+  if (mode === "ct" && !((relState.data && relState.data.parts) || []).length) return;
+  const ok = await saveRelease();
+  if (ok === false) return;
+  relState.mode = mode;
+  renderRelease();
 }
 
 async function confirmRelease(step) {
@@ -5772,12 +6220,13 @@ async function confirmRelease(step) {
     const res = await fetch("/api/release/confirm", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ po_id: relState.poId, date: relState.date, step, user: relUserName() })
+      body: JSON.stringify({ po_id: relState.poId, date: relState.date, batch: relState.batch || "", step, user: relUserName() })
     });
     const data = await res.json();
     if (!data.success) throw new Error(data.error || "Không xác nhận được");
     relApplyPayload(data, true);
-    showToast(step === "leader" ? "✅ Tổ trưởng đã xác nhận chỉ lệnh đóng gói" : "✅ Đóng gói đã xác nhận nhận đủ");
+    const label = relLotLabel(relState.batch);
+    showToast(step === "leader" ? `✅ Tổ trưởng đã xác nhận chỉ lệnh đóng gói ${label}` : `✅ Đóng gói đã xác nhận nhận đủ ${label}`);
     if (step === "packing" && relCan("summary")) relState.seg = "sum";
     renderRelease();
     refreshReleaseBar();
@@ -5798,7 +6247,7 @@ async function closeReleaseModal() {
   refreshReleaseBar();
 }
 
-// Thanh "Tổng hợp thả chuyền – đóng gói" trên trang chủ + nút Tổng hợp trên laptop
+// Thanh "Tổng hợp thả chuyền – đóng gói" trên trang chủ + nút Tổng hợp trên laptop: cộng size lệch của mọi lô
 async function refreshReleaseBar() {
   if (!appState.currentUser || !relCan("summary")) return;
   const bar = document.getElementById("relSumBar");
@@ -5825,18 +6274,13 @@ async function refreshReleaseBar() {
     const res = await fetch(`/api/release?po_id=${encodeURIComponent(po.id)}&date=${appState.currentDate || getLocalDateString()}&t=${Date.now()}`);
     const data = await res.json();
     if (seq !== relBarSeq || !data.success) return;
-    let ok = 0;
-    let bad = 0;
-    (data.sizes || []).forEach(s => {
-      const a = Number((data.tcCum || {})[s]) || 0;
-      const b = Number((data.dgCum || {})[s]) || 0;
-      if (!a && !b) return;
-      if (a === b) ok++;
-      else bad++;
-    });
-    if (!data.sizes || !data.sizes.length) setState("is-empty", "Chưa có size", "");
-    else if (bad) setState("", `${bad} size lệch`, `(${bad} lệch)`);
-    else if (ok) setState("is-ok", "Đủ, tất cả OK", "(đủ)");
+    const lots = data.lots || [];
+    const bad = lots.reduce((a, l) => a + (l.bad || 0), 0);
+    const badLots = lots.filter(l => l.bad > 0).length;
+    const hasData = lots.some(l => l.tc_total || l.dg_total);
+    if (bad) setState("", `${bad} size lệch · ${badLots} lô`, `(${bad} lệch)`);
+    else if (hasData) setState("is-ok", "Đủ, tất cả OK", "(đủ)");
+    else if (!data.sizes || !data.sizes.length) setState("is-empty", "Chưa có size", "");
     else setState("is-empty", "Chưa có số", "");
   } catch (err) {
     // Mất mạng: giữ nguyên trạng thái cũ
@@ -5860,6 +6304,16 @@ function bindReleaseEvents() {
       closeReleaseModal();
       return;
     }
+    const lotBtn = e.target.closest("[data-rel-lot]");
+    if (lotBtn) {
+      switchReleaseLot(lotBtn.dataset.relLot);
+      return;
+    }
+    const modeBtn = e.target.closest("[data-rel-mode]");
+    if (modeBtn) {
+      if (!modeBtn.disabled) switchReleaseMode(modeBtn.dataset.relMode);
+      return;
+    }
     const seg = e.target.closest("[data-rel-seg]");
     if (seg) {
       relState.seg = seg.dataset.relSeg;
@@ -5876,6 +6330,7 @@ function bindReleaseEvents() {
 
   const tbody = document.getElementById("relTbody");
   tbody.addEventListener("input", onReleaseInput);
+  tbody.addEventListener("change", onReleaseChange);
   tbody.addEventListener("keydown", onReleaseKeydown);
   tbody.addEventListener("focusin", (e) => {
     if (e.target.classList.contains("rel-input") && !e.target.readOnly) e.target.select();
