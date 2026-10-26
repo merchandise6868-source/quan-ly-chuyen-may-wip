@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@500;600;700;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="styles.css?v=20261023_2200">
+  <link rel="stylesheet" href="styles.css?v=20261026_1000">
   
   <!-- cdn for sheetjs (xlsx) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -125,6 +125,10 @@
       <!-- TOP APP BAR WITH FILTERS & USER AUTHENTICATION -->
       <header class="top-app-bar compact-header">
         <div class="top-bar-inner">
+          <div class="top-brand" aria-hidden="true">
+            <span class="top-brand-logo">DD</span>
+            <span class="top-brand-text"><b>D&amp;D Long An</b><small>Đối chiếu nhập xuất tồn</small></span>
+          </div>
           <div class="top-filters-group">
             <div class="filter-item pill-filter-customer">
               <span class="pill-prefix">KH</span>
@@ -150,8 +154,11 @@
             <button class="btn-logout desktop-only-btn" id="btnLogout" title="Đăng xuất khỏi hệ thống">Đăng xuất</button>
 
             <!-- AVATAR BUTTON (BẤM ICON NGƯỜI) -->
-            <button type="button" class="btn-user-avatar" id="btnUserAvatar" title="Thông tin người dùng &amp; quyền hạn">
+            <button type="button" class="btn-user-avatar" id="btnUserAvatar" title="Tài khoản: làm mới, chuyển quyền, đăng xuất">
               <span class="avatar-icon">TK</span>
+              <span class="avatar-ini" id="avatarUserIni">TK</span>
+              <span class="avatar-meta"><span class="avatar-name" id="avatarUserName"></span><span class="avatar-role" id="avatarUserRole"></span></span>
+              <svg class="avatar-caret" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
             </button>
 
             <!-- USER POPOVER MENU -->
@@ -162,7 +169,7 @@
               </div>
               <div class="user-popover-divider"></div>
               <button type="button" class="popover-item text-primary" id="btnPopoverRefreshApp">
-                Làm mới phiên bản
+                Làm mới ứng dụng
               </button>
               <button type="button" class="popover-item" id="btnPopoverSwitchRole">
                 Chuyển quyền
@@ -487,154 +494,187 @@
     <!-- TAB 3: QUẢN LÝ KHÁCH HÀNG & ĐƠN HÀNG PO -->
     <section id="tab-manage" class="tab-pane">
 
-      <!-- STATS KPI BANNER FOR ALL COMPANIES -->
-      <div class="manage-stats-banner">
+      <!-- SỐ LIỆU TỔNG -->
+      <div class="manage-stats-banner mg-kpis">
         <div class="stat-card">
-          <span class="stat-label">Khách hàng / đối tác</span>
-          <span class="stat-value" id="statTotalCust">3</span>
+          <span class="stat-label">Khách hàng</span>
+          <span class="stat-value" id="statTotalCust">0</span>
         </div>
         <div class="stat-card">
-          <span class="stat-label">Đơn hàng / PO đang chạy</span>
-          <span class="stat-value" id="statTotalPO">3</span>
+          <span class="stat-label">PO đang chạy</span>
+          <span class="stat-value" id="statTotalPO">0</span>
         </div>
         <div class="stat-card">
-          <span class="stat-label">Tổng sản lượng kế hoạch</span>
-          <span class="stat-value" id="statTotalPlan">5.123 đôi</span>
+          <span class="stat-label">Tổng kế hoạch</span>
+          <span class="stat-value" id="statTotalPlan">0 đôi</span>
         </div>
         <div class="stat-card">
           <span class="stat-label">Tài khoản nhân sự</span>
-          <span class="stat-value" id="statTotalUsersTab3">3</span>
+          <span class="stat-value" id="statTotalUsersTab3">0</span>
         </div>
       </div>
-      
-      <!-- CARD 1: QUẢN LÝ KHÁCH HÀNG + DÃY SIZE CỦA KHÁCH -->
-      <div class="manage-card cust-mgr-card">
-        <div class="manage-card-header">
-          <h3>Danh sách khách hàng (<span id="statCustHeaderCount">0 công ty</span>)</h3>
-          <span class="manage-header-hint">Bấm một dòng để sửa khách và xem PO</span>
-        </div>
-        <div class="manage-card-body cust-mgr-body">
-          <div class="cust-mgr-left">
-            <form id="formAddCustomer" class="form-grid" novalidate>
-              <input type="hidden" id="editCustId" value="">
-              <div class="form-group">
-                <label for="custName">Tên khách hàng / công ty <span style="color:#ef4444; font-weight:bold;">*</span></label>
-                <input type="text" id="custName" class="form-control" placeholder="Ví dụ: Puma Global, Nike, D&amp;D Long An...">
+
+      <div class="mg-layout">
+
+        <!-- CỘT TRÁI: DANH SÁCH KHÁCH HÀNG -->
+        <aside class="manage-card mg-cust-panel">
+          <div class="mg-cust-head">
+            <span class="mg-cust-title">Khách hàng <span class="mg-count" id="statCustHeaderCount">0</span></span>
+            <button type="button" class="mg-btn mg-btn-primary mg-btn-sm" id="btnNewCust">+ Thêm</button>
+          </div>
+          <div class="mg-cust-list" id="tbodyCustomers"></div>
+        </aside>
+
+        <!-- CỘT PHẢI: KHÁCH ĐANG CHỌN (dãy size / ART & chi tiết / đơn hàng PO) -->
+        <div class="manage-card mg-detail" id="mgDetail">
+          <div class="mg-head">
+            <div class="mg-head-view">
+              <h3 class="mg-cust-name" id="mgCustName"></h3>
+              <span class="mg-cust-code" id="mgCustCode"></span>
+              <div class="mg-head-actions">
+                <button type="button" class="mg-btn mg-btn-outline" id="btnEditCustName">Sửa tên</button>
+                <button type="button" class="mg-btn mg-btn-outline is-danger" id="btnDeleteCust">Xóa</button>
               </div>
-              <div class="form-group">
-                <label for="custCode">Mã viết tắt <span style="color:#ef4444; font-weight:bold;">*</span></label>
-                <input type="text" id="custCode" class="form-control" placeholder="Ví dụ: PUMA, NIKE, DD...">
+            </div>
+            <form id="formAddCustomer" class="mg-head-form" novalidate>
+              <input type="hidden" id="editCustId" value="">
+              <div class="mg-head-form-title" id="mgFormTitle">Thêm khách hàng mới</div>
+              <div class="mg-head-form-row">
+                <div class="form-group mg-name-group">
+                  <label for="custName">Tên khách hàng <span class="mg-req">*</span></label>
+                  <input type="text" id="custName" class="form-control" placeholder="Ví dụ: Liên Thái, Mạnh Phát..." autocomplete="off">
+                </div>
+                <div class="form-group mg-code-group">
+                  <label for="custCode">Mã viết tắt <span class="mg-req">*</span></label>
+                  <input type="text" id="custCode" class="form-control" placeholder="Ví dụ: LTH, MP..." autocomplete="off">
+                </div>
+                <div class="mg-head-form-actions">
+                  <button type="button" class="mg-btn mg-btn-outline" id="btnCancelEditCust">Hủy</button>
+                  <button type="submit" class="mg-btn mg-btn-primary" id="btnSaveCustName">Lưu</button>
+                </div>
               </div>
             </form>
+          </div>
 
-            <div class="table-responsive" style="margin-top: 12px;">
-              <table class="flow-log-table table-clickable-customers" id="tableCustomers">
-                <thead>
-                  <tr>
-                    <th>Mã KH</th>
-                    <th>Tên khách hàng</th>
-                    <th>Dãy size</th>
-                    <th>Số PO</th>
-                    <th style="width: 120px; text-align:center;">Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody id="tbodyCustomers">
-                  <!-- Dynamic customer rows -->
-                </tbody>
+          <div class="mg-subtabs" role="tablist">
+            <button type="button" class="mg-subtab" data-mg-tab="size" role="tab">Dãy size <span class="mg-subtab-n" id="mgCntSize">0</span></button>
+            <button type="button" class="mg-subtab" data-mg-tab="art" role="tab">ART &amp; chi tiết <span class="mg-subtab-n" id="mgCntArt">0</span></button>
+            <button type="button" class="mg-subtab" data-mg-tab="stage" role="tab">Công đoạn <span class="mg-subtab-n" id="mgCntStage">0</span></button>
+            <button type="button" class="mg-subtab" data-mg-tab="po" role="tab">Đơn hàng PO <span class="mg-subtab-n" id="badgeSelectedCustPoCount">0</span></button>
+          </div>
+
+          <!-- MỤC 1: DÃY SIZE CỦA KHÁCH (nhập tự do: size số, size chữ hoặc lẫn cả hai; kéo thả để sắp thứ tự) -->
+          <div class="mg-panel" data-mg-panel="size">
+            <div class="mg-size-grid">
+              <div class="size-editor">
+                <div class="size-editor-head">
+                  <span class="size-editor-title">Dãy size của khách</span>
+                  <span class="size-count" id="sizeCount">0 size</span>
+                </div>
+                <div class="size-editor-help">Size số, size chữ, hay lẫn cả hai đều được. Thứ tự ở đây là thứ tự các dòng trên điện thoại.</div>
+                <div class="size-chips" id="sizeChips"></div>
+                <div class="size-add-row">
+                  <input type="text" id="sizeAddInput" class="form-control" placeholder="Gõ size rồi Enter, ví dụ 38 hoặc XL hoặc 4T-5T" autocomplete="off">
+                  <button type="button" class="btn size-add-btn" id="btnSizeAdd">+ Thêm</button>
+                </div>
+                <div class="size-err" id="sizeErr"></div>
+                <div class="size-hint">Gõ nhiều size một lần, cách nhau bằng dấu phẩy, hoặc dán nguyên dòng tiêu đề size từ Excel. Kéo thả ô size để đổi thứ tự.</div>
+                <div class="size-editor-foot">
+                  <div class="size-quick">
+                    <span class="size-quick-lbl">Mẫu nhanh:</span>
+                    <button type="button" class="size-quick-btn" data-size-quick="num">35 → 49</button>
+                    <button type="button" class="size-quick-btn" data-size-quick="let">S M L XL XXL</button>
+                    <button type="button" class="size-quick-btn" data-size-quick="kid">3-4 … 10T-11T</button>
+                    <button type="button" class="size-quick-btn is-clear" data-size-quick="clr">Xóa hết</button>
+                  </div>
+                  <button type="submit" form="formAddCustomer" class="mg-btn mg-btn-primary" id="btnSubmitCust">Lưu dãy size</button>
+                </div>
+              </div>
+
+              <!-- XEM TRƯỚC BẢNG THẢ CHUYỀN / ĐÓNG GÓI TRÊN ĐIỆN THOẠI -->
+              <div class="mg-preview size-preview-card">
+                <div class="mg-preview-title">Trên điện thoại sẽ hiện</div>
+                <div class="size-preview-note">Dãy size của <b id="sizePreviewCust">khách hàng</b>, mỗi size một dòng. Lô nào được chọn size riêng thì chỉ hiện các size đó.</div>
+                <div class="size-preview-wrap">
+                  <table class="size-preview-table">
+                    <colgroup><col style="width:22%"><col><col><col><col><col style="width:20%"></colgroup>
+                    <thead><tr><th>Size</th><th>Nhận 1</th><th>Nhận 2</th><th>Nhận 3</th><th>Nhận 4</th><th class="rel-th-tc">Tích lũy</th></tr></thead>
+                    <tbody id="sizePreviewBody"></tbody>
+                  </table>
+                </div>
+                <div class="size-pv-more" id="sizePreviewMore"></div>
+                <div class="lot-preview" id="lotPreviewList"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- MỤC 2: ART & CHI TIẾT (khai báo ART trước khi tạo PO) -->
+          <div class="mg-panel" data-mg-panel="art">
+            <div class="mg-panel-note">ART của <b id="artPartsCust">khách hàng</b>: thêm ART ở đây trước rồi mới tạo PO (ô Mã hàng của PO chọn từ danh sách này). Các chi tiết của ART là danh sách để chọn khi thả chuyền Chi tiết.</div>
+            <div id="artPartsList" class="art-parts-list"></div>
+          </div>
+
+          <!-- MỤC 3: BẢNG CÔNG ĐOẠN THẢ CHUYỀN CỦA KHÁCH (trình tự 1 → 10) -->
+          <div class="mg-panel" data-mg-panel="stage">
+            <div class="mg-panel-note">Trình tự công đoạn thả chuyền của <b id="stageCustName">khách hàng</b>, tối đa 10. Gõ tên theo thứ tự đi hàng, ô để trống thì bỏ qua. Danh sách này hiện trong ô <b>Công đoạn</b> khi thả chuyền. Tổng hợp so công đoạn sau với công đoạn trước, cuối cùng Đóng gói so với công đoạn cuối.</div>
+            <div class="stage-table-wrap">
+              <table class="stage-table">
+                <colgroup><col class="stage-col-no"><col><col class="stage-col-act"></colgroup>
+                <thead><tr><th>#</th><th>Tên công đoạn</th><th></th></tr></thead>
+                <tbody id="stageRows"></tbody>
               </table>
             </div>
-          </div>
-
-          <!-- DÃY SIZE CỦA KHÁCH: nhập tự do (size số, size chữ hoặc lẫn cả hai), kéo thả để sắp thứ tự -->
-          <div class="size-editor">
-            <div class="size-editor-head">
-              <span class="size-editor-title">Dãy size của khách</span>
-              <span class="size-count" id="sizeCount">0 size</span>
-            </div>
-            <div class="size-editor-help">Size số, size chữ, hay lẫn cả hai đều được. Thứ tự ở đây là thứ tự các dòng trên điện thoại.</div>
-            <div class="size-chips" id="sizeChips"></div>
-            <div class="size-add-row">
-              <input type="text" id="sizeAddInput" class="form-control" placeholder="Gõ size rồi Enter, ví dụ 38 hoặc XL hoặc 4T-5T" autocomplete="off">
-              <button type="button" class="btn size-add-btn" id="btnSizeAdd">+ Thêm</button>
-            </div>
-            <div class="size-err" id="sizeErr"></div>
-            <div class="size-hint">Gõ nhiều size một lần, cách nhau bằng dấu phẩy, hoặc dán nguyên dòng tiêu đề size từ Excel. Kéo thả ô size để đổi thứ tự.</div>
-            <div class="size-quick">
+            <div class="stage-foot">
               <span class="size-quick-lbl">Mẫu nhanh:</span>
-              <button type="button" class="size-quick-btn" data-size-quick="num">35 → 49</button>
-              <button type="button" class="size-quick-btn" data-size-quick="let">S M L XL XXL</button>
-              <button type="button" class="size-quick-btn" data-size-quick="kid">3-4 … 10T-11T</button>
-              <button type="button" class="size-quick-btn is-clear" data-size-quick="clr">Xóa hết</button>
+              <button type="button" class="size-quick-btn" data-stage-tpl="lbd">Lạng → Bắt dây</button>
+              <select id="stageCopyFrom" class="form-control stage-copy" aria-label="Chép bảng công đoạn từ khách khác"></select>
+              <span class="stage-dirty" id="stageDirty" hidden>Chưa lưu</span>
+              <button type="button" class="mg-btn mg-btn-primary" id="btnSaveStages">Lưu công đoạn</button>
             </div>
-            <div class="size-editor-actions">
-              <button type="button" class="btn btn-outline" id="btnCancelEditCust" style="display:none;">Hủy chỉnh sửa</button>
-              <button type="submit" form="formAddCustomer" class="btn btn-primary" id="btnSubmitCust">+ Thêm khách hàng</button>
+            <div class="stage-flow" id="stageFlow"></div>
+          </div>
+
+          <!-- MỤC 4: ĐƠN HÀNG PO & CHIA LÔ -->
+          <div class="mg-panel" data-mg-panel="po">
+            <div class="mg-po-toolbar">
+              <input type="search" id="poSearchInput" class="form-control mg-search" placeholder="Tìm số PO hoặc ART" autocomplete="off">
+              <button type="button" class="mg-btn mg-btn-primary" id="btnTogglePoForm">+ Thêm PO</button>
             </div>
-          </div>
-        </div>
-      </div>
 
-      <!-- CHI TIẾT THEO ART: danh sách để chọn khi thả chuyền Chi tiết -->
-      <div class="manage-card art-parts-card">
-        <div class="manage-card-header">
-          <h3>Chi tiết theo ART — <span id="artPartsCust" class="cust-accent-name">Tất cả</span></h3>
-          <span class="manage-header-hint">Danh sách để chọn khi thả chuyền Chi tiết</span>
-        </div>
-        <div class="manage-card-body">
-          <div id="artPartsList" class="art-parts-list"></div>
-        </div>
-      </div>
-
-      <div class="manage-grid po-grid">
-
-        <!-- CARD 2: QUẢN LÝ ĐƠN HÀNG / PO & CHI TIẾT LÔ HÀNG -->
-        <div class="manage-card">
-          <div class="manage-card-header">
-            <h3>Đơn hàng PO — <span id="lblSelectedCustTitle" class="cust-accent-name">Tất cả</span></h3>
-            <span class="badge-checker-ok" id="badgeSelectedCustPoCount">0 PO</span>
-          </div>
-          <div class="manage-card-body">
-            <form id="formAddPO" class="form-grid" novalidate>
+            <form id="formAddPO" class="mg-po-form" novalidate>
               <input type="hidden" id="editOrderId" value="">
-
-              <div class="form-row-2col">
+              <div class="mg-po-form-title"><span id="poFormMode">Thêm đơn hàng PO</span> — <span id="lblSelectedCustTitle"></span></div>
+              <div class="mg-hidden-field" aria-hidden="true">
+                <label for="poCustomerSelect">Khách hàng</label>
+                <select id="poCustomerSelect" class="form-control" tabindex="-1"></select>
+              </div>
+              <div class="mg-po-fields">
                 <div class="form-group">
-                  <label for="poCustomerSelect">Khách hàng <span style="color:#ef4444; font-weight:bold;">*</span></label>
-                  <select id="poCustomerSelect" class="form-control font-bold">
-                    <!-- Populated dynamically -->
+                  <label for="poNumber">Số PO <span class="mg-req">*</span></label>
+                  <input type="text" id="poNumber" class="form-control" placeholder="Ví dụ: RV2611-200" autocomplete="off">
+                </div>
+                <div class="form-group">
+                  <label for="poStyleCode">Mã hàng (ART) <span class="mg-req">*</span></label>
+                  <select id="poStyleCode" class="form-control">
+                    <option value="">— Chọn ART —</option>
                   </select>
+                  <div class="po-art-hint" id="poArtHint"></div>
                 </div>
                 <div class="form-group">
-                  <label for="poNumber">Số PO / Đơn Hàng <span style="color:#ef4444; font-weight:bold;">*</span></label>
-                  <input type="text" id="poNumber" class="form-control font-bold" placeholder="Ví dụ: PO-050, PO-100...">
+                  <label for="poLineName">Chuyền <span class="mg-opt">(tùy chọn)</span></label>
+                  <input type="text" id="poLineName" class="form-control" placeholder="Mặc định: Chuyền 1" autocomplete="off">
+                </div>
+                <div class="form-group">
+                  <label for="poPlanTotal">Kế hoạch PO (đôi) <span class="mg-req">*</span></label>
+                  <input type="number" id="poPlanTotal" class="form-control mg-plan-input" placeholder="Ví dụ: 4582" min="0">
+                  <button type="button" class="mg-link-btn" id="btnAutoSumPlan" title="Tính tổng từ các lô bên dưới">Lấy tổng các lô</button>
                 </div>
               </div>
 
-              <div class="form-row-2col">
-                <div class="form-group">
-                  <label for="poStyleCode">Mã hàng (Style) <span style="font-weight:normal; color:#64748b; font-size:11px;">(Tùy chọn)</span></label>
-                  <input type="text" id="poStyleCode" class="form-control" placeholder="Tự động theo PO nếu để trống">
-                </div>
-                <div class="form-group">
-                  <label for="poLineName">Chuyền sản xuất <span style="font-weight:normal; color:#64748b; font-size:11px;">(Tùy chọn)</span></label>
-                  <input type="text" id="poLineName" class="form-control" placeholder="Mặc định: Chuyền 1">
-                </div>
-              </div>
-
-              <div class="form-group">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-                  <label for="poPlanTotal" style="margin:0;">Tổng kế hoạch PO (đôi) <span style="color:#ef4444; font-weight:bold;">*</span></label>
-                  <button type="button" class="btn btn-outline" id="btnAutoSumPlan" style="font-size:11.5px; padding:2px 8px; border-radius:4px; border:1px solid #94a3b8; background:#f8fafc; cursor:pointer;" title="Tính tổng từ các lô bên dưới">
-                    🔄 Lấy tổng các Lô
-                  </button>
-                </div>
-                <input type="number" id="poPlanTotal" class="form-control font-bold" placeholder="Ví dụ: 4582" style="font-size: 15px;">
-              </div>
-
-              <!-- PHẦN CHỌN SỐ LÔ VÀ NHẬP TỪNG LÔ + SỐ ĐUÔI -->
-              <div class="batch-setup-box">
+              <!-- CHIA LÔ: LÔ 1..N + SỐ ĐUÔI, SỐ TỔNG VÀ SIZE CỦA LÔ -->
+              <div class="batch-setup-box mg-lot-box">
                 <div class="batch-setup-header">
-                  <label for="selectBatchCount" class="font-bold">🏷️ Cấu hình chia lô sản xuất</label>
+                  <label for="selectBatchCount">Chia lô</label>
                   <select id="selectBatchCount" class="form-control select-batch-count">
                     <option value="1">1 lô + số đuôi</option>
                     <option value="2" selected>2 lô + số đuôi</option>
@@ -648,71 +688,38 @@
                     <option value="10">10 lô + số đuôi</option>
                   </select>
                 </div>
+                <div id="dynamicBatchInputsContainer" class="lot-config-wrap"></div>
+              </div>
 
-                <!-- DYNAMIC INPUT FIELDS FOR EACH BATCH -->
-                <div id="dynamicBatchInputsContainer" class="lot-config-wrap">
-                  <!-- Injected via JavaScript -->
-                </div>
-
-                <!-- LIVE SUM CHECKER -->
+              <div class="mg-po-form-foot">
                 <div class="batch-sum-checker">
-                  <span>Tổng các lô đã chia: <strong id="lblCurrentSumBatches">0</strong> / <span id="lblTargetPoPlan">0</span> đôi</span>
+                  <span>Tổng các lô <strong id="lblCurrentSumBatches">0</strong> / <span id="lblTargetPoPlan">0</span> đôi</span>
                   <span id="lblBatchSumStatus" class="badge-checker-ok">Khớp kế hoạch</span>
                 </div>
-              </div>
-
-              <div class="form-actions-row" style="margin-top: 12px;">
-                <button type="submit" class="btn btn-primary font-bold" id="btnSubmitPO" style="padding:10px 20px; font-size:14px;">💾 Lưu đơn hàng &amp; cấu hình lô</button>
-                <button type="button" class="btn btn-outline" id="btnCancelEditPO" style="display:none;">✕ Hủy chỉnh sửa</button>
+                <div class="mg-po-form-actions">
+                  <button type="button" class="mg-btn mg-btn-outline" id="btnCancelEditPO">Hủy</button>
+                  <button type="submit" class="mg-btn mg-btn-primary" id="btnSubmitPO">Lưu đơn hàng</button>
+                </div>
               </div>
             </form>
-          </div>
-        </div>
 
-        <!-- CARD 3: XEM TRƯỚC BẢNG THẢ CHUYỀN / ĐÓNG GÓI TRÊN ĐIỆN THOẠI -->
-        <div class="manage-card size-preview-card">
-          <div class="manage-card-header">
-            <h3>Trên điện thoại sẽ hiện</h3>
-            <span class="manage-header-hint">Thả chuyền / Chỉ lệnh đóng gói</span>
-          </div>
-          <div class="manage-card-body">
-            <div class="size-preview-note">Dãy size của <b id="sizePreviewCust">khách hàng</b>, mỗi size một dòng. Lô nào được chọn size riêng thì chỉ hiện các size đó:</div>
-            <div class="size-preview-wrap">
-              <table class="size-preview-table">
-                <colgroup><col style="width:22%"><col><col><col><col><col style="width:20%"></colgroup>
-                <thead><tr><th>Size</th><th>Nhận 1</th><th>Nhận 2</th><th>Nhận 3</th><th>Nhận 4</th><th class="rel-th-tc">Tích lũy</th></tr></thead>
-                <tbody id="sizePreviewBody"></tbody>
-              </table>
-            </div>
-            <div class="size-pv-more" id="sizePreviewMore"></div>
-            <div class="lot-preview" id="lotPreviewList"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- DANH SÁCH PO CỦA KHÁCH ĐANG CHỌN -->
-      <div class="manage-card po-list-card">
-        <div class="manage-card-header">
-          <h3>Danh sách PO — <span id="lblPoListCustTitle" class="cust-accent-name">Tất cả</span></h3>
-        </div>
-        <div class="manage-card-body">
-            <div class="table-responsive">
-              <table class="flow-log-table" id="tableOrders">
+            <div class="mg-table-wrap">
+              <table class="mg-table" id="tableOrders">
+                <colgroup><col class="mg-col-po"><col class="mg-col-art"><col class="mg-col-line"><col class="mg-col-plan"><col><col class="mg-col-act"></colgroup>
                 <thead>
                   <tr>
                     <th>Số PO</th>
-                    <th>Mã hàng</th>
-                    <th>Chuyền may</th>
-                    <th>Kế hoạch</th>
-                    <th>Phân bổ lô &amp; số đuôi</th>
-                    <th>Thao tác</th>
+                    <th>ART</th>
+                    <th>Chuyền</th>
+                    <th class="mg-th-num">Kế hoạch</th>
+                    <th>Lô · size</th>
+                    <th></th>
                   </tr>
                 </thead>
-                <tbody id="tbodyOrders">
-                  <!-- Dynamic order rows -->
-                </tbody>
+                <tbody id="tbodyOrders"></tbody>
               </table>
             </div>
+          </div>
         </div>
       </div>
 
@@ -1167,6 +1174,10 @@
           <span class="rel-date" id="relDate"></span>
         </div>
         <div class="rel-info" id="relInfo"></div>
+        <div class="rel-stage" id="relStageRow" hidden>
+          <label for="relStage">Công đoạn</label>
+          <select id="relStage" class="rel-stage-sel"></select>
+        </div>
         <div class="rel-seg" id="relMode" hidden>
           <button type="button" class="rel-seg-btn on" data-rel-mode="dong">Đồng bộ</button>
           <button type="button" class="rel-seg-btn" data-rel-mode="ct">Chi tiết</button>
@@ -1203,17 +1214,14 @@
 
         <div id="relPaneSum" hidden>
           <div class="rel-banner" id="relBanner"></div>
-          <div class="rel-table-card">
-            <table class="rel-table rel-sum-table">
-              <colgroup><col class="rel-col-size2"><col><col><col></colgroup>
-              <thead>
-                <tr><th>Size</th><th class="rel-th-tc">Thả chuyền<br>tích lũy</th><th class="rel-th-dg">Đóng gói<br>tích lũy</th><th>Kết quả</th></tr>
-              </thead>
+          <div class="rel-table-card rel-sum-scroll">
+            <table class="rel-table rel-sum-table" id="relSumTable">
+              <thead><tr id="relSumHead"></tr></thead>
               <tbody id="relSumBody"></tbody>
               <tfoot><tr id="relSumFoot"></tr></tfoot>
             </table>
           </div>
-          <div class="rel-note">Số lệch = đóng gói − thả chuyền. Âm là đóng gói nhận thiếu.</div>
+          <div class="rel-note">Số nhỏ dưới mỗi ô = cột đó trừ cột ngay trước (tích lũy). Âm là ít hơn cột trước; cột Đóng gói so với công đoạn cuối.</div>
         </div>
       </div>
 
@@ -1221,6 +1229,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261023_2200"></script>
+  <script src="app.js?v=20261026_1000"></script>
 </body>
 </html>

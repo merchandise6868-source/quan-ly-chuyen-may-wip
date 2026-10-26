@@ -91,7 +91,7 @@ function initPWA() {
     });
 
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js?v=20261023_2200', { scope: '/' })
+      navigator.serviceWorker.register('/sw.js?v=20261026_1000', { scope: '/' })
         .then(reg => {
           console.log('✅ Service Worker registered successfully:', reg.scope);
           // Explicit update check on every page load
@@ -203,6 +203,8 @@ document.addEventListener("DOMContentLoaded", () => {
   bindSizeEditorEvents();
   bindReleaseEvents();
   bindArtPartsEvents();
+  bindManageLayoutEvents();
+  bindStageEditorEvents();
   bindRoleSwitchEvents();
   bindRolePasswordEvents();
   checkLoginPortalState();
@@ -453,6 +455,12 @@ function bindEvents() {
       appState.currentCustomer = e.target.value;
       try { localStorage.setItem("dd_last_customer_id", appState.currentCustomer || ""); } catch (err) {}
       await filterOrdersByCustomer();
+      if (document.getElementById("tab-manage")?.classList.contains("active")) {
+        mgState.newCust = false;
+        mgState.nameEdit = false;
+        resetPOForm();
+        renderManageTab();
+      }
     });
   }
 
@@ -561,7 +569,7 @@ function bindEvents() {
   if (formAddC) formAddC.addEventListener("submit", handleAddCustomer);
 
   const btnCancelCust = document.getElementById("btnCancelEditCust");
-  if (btnCancelCust) btnCancelCust.addEventListener("click", resetCustomerForm);
+  if (btnCancelCust) btnCancelCust.addEventListener("click", cancelCustEdit);
 
   const formAddP = document.getElementById("formAddPO");
   if (formAddP) formAddP.addEventListener("submit", handleAddPO);
@@ -2576,6 +2584,13 @@ async function handleConfirmSweepTailBatch() {
 }
 
 // TAB 4: CUSTOMER & PO MANAGEMENT FUNCTIONS (MASTER-DETAIL INTERACTIVE)
+// Trạng thái khung bên phải tab 03: đang thêm khách mới / đang sửa tên / mục đang mở / biểu mẫu PO đang mở
+const mgState = { newCust: false, nameEdit: false, tab: "po", poFormOpen: false };
+try {
+  const savedTab = localStorage.getItem("dd_mg_tab");
+  if (["size", "art", "stage", "po"].includes(savedTab)) mgState.tab = savedTab;
+} catch (e) {}
+
 function renderManageTab() {
   // 1. Calculate & Render Statistics Banner
   const totalCust = appState.customers.length;
@@ -2624,96 +2639,48 @@ function renderManageTab() {
   // 5. Ensure batch configuration boxes are initialized in PO form
   initPOBatchInputs();
 
-  // 6. Khung dãy size + xem trước bảng trên điện thoại + chi tiết theo ART
+  // 6. Khách đang chọn: nạp tên, mã, dãy size vào khung bên phải (trừ khi đang thêm khách mới)
+  if (!mgState.newCust) {
+    const editingId = document.getElementById("editCustId")?.value || "";
+    if (appState.currentCustomer && editingId !== appState.currentCustomer) fillCustomerForm(appState.currentCustomer);
+  }
+  renderMgHead();
+
+  // 7. Khung dãy size + xem trước bảng trên điện thoại + chi tiết theo ART
   renderSizeEditor();
   refreshLotSizeChips();
   loadArtParts(appState.currentCustomer);
+  if (!stageEditor.dirty || stageEditor.customerId !== appState.currentCustomer) loadStageEditor(appState.currentCustomer);
+  else renderStageSideInfo();
 }
 
-// 1. RENDER MASTER CUSTOMER TABLE
+// 1. DANH SÁCH KHÁCH HÀNG (CỘT TRÁI)
 function renderCustomerTable() {
-  const tbodyCust = document.getElementById("tbodyCustomers");
+  const list = document.getElementById("tbodyCustomers");
   const hdrCount = document.getElementById("statCustHeaderCount");
-  if (hdrCount) hdrCount.innerText = `${appState.customers.length} công ty`;
+  if (hdrCount) hdrCount.innerText = appState.customers.length;
 
-  if (!tbodyCust) return;
+  if (!list) return;
 
   if (appState.customers.length === 0) {
-    tbodyCust.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:20px; color:#64748b;">Chưa có khách hàng nào. Nhập tên và mã khách hàng ở biểu mẫu trên để bắt đầu.</td></tr>`;
+    list.innerHTML = `<div class="mg-cust-empty">Chưa có khách hàng nào. Bấm <b>+ Thêm</b> để bắt đầu.</div>`;
     return;
   }
 
-  tbodyCust.innerHTML = appState.customers.map(c => {
-    const isSelected = (c.id === appState.currentCustomer);
+  list.innerHTML = appState.customers.map(c => {
+    const isSelected = c.id === appState.currentCustomer && !mgState.newCust;
     const custPOCount = appState.orders.filter(o => o.customer_id === c.id).length;
-
-    return `
-      <tr class="customer-row-item ${isSelected ? 'selected-cust-row' : ''}" data-id="${c.id}" title="Chọn để xem danh sách PO của ${c.name}">
-        <td><strong class="mono-code">${c.code}</strong></td>
-        <td><strong>${c.name}</strong></td>
-        <td>${sizeBriefHtml(getCustomerSizes(c))}</td>
-        <td><span class="badge-po-count">${custPOCount} PO</span></td>
-        <td style="text-align:center; white-space: nowrap;">
-          <button type="button" class="btn-action-icon btn-action-edit btn-edit-cust" data-id="${c.id}" data-name="${c.name}" data-code="${c.code}" title="Sửa thông tin khách hàng">Sửa</button>
-          <button type="button" class="btn-action-icon btn-action-danger btn-delete-cust" data-id="${c.id}" data-name="${c.name}" data-code="${c.code}" title="Xóa khách hàng">Xóa</button>
-        </td>
-      </tr>
-    `;
+    return `<button type="button" class="customer-row-item mg-cust-item${isSelected ? " selected-cust-row" : ""}" data-id="${escHtml(c.id)}" title="Chọn ${escHtml(c.name)}">
+      <span class="mg-cust-item-name">${escHtml(c.name)}</span>
+      <span class="mg-cust-item-meta"><span class="mg-cust-item-code">${escHtml(c.code)}</span>${sizeBriefHtml(getCustomerSizes(c))}<span class="mg-cust-item-po">${custPOCount} PO</span></span>
+    </button>`;
   }).join("");
-
-  // Bind click event on customer rows to switch PO list on the right
-  tbodyCust.querySelectorAll(".customer-row-item").forEach(row => {
-    row.addEventListener("click", (e) => {
-      if (e.target.closest(".btn-action-icon")) return;
-      const custId = row.dataset.id;
-      selectCustomerInManageTab(custId);
-      fillCustomerForm(custId);
-    });
-  });
-
-  // Bind Edit Customer Button
-  tbodyCust.querySelectorAll(".btn-edit-cust").forEach(btn => {
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      fillCustomerForm(btn.dataset.id);
-
-      const elName = document.getElementById("custName");
-      if (elName) {
-        elName.focus();
-        elName.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
-    });
-  });
-
-  // Bind Delete Customer Button
-  tbodyCust.querySelectorAll(".btn-delete-cust").forEach(btn => {
-    btn.addEventListener("click", async (e) => {
-      e.stopPropagation();
-      const id = btn.dataset.id;
-      const name = btn.dataset.name;
-      const code = btn.dataset.code;
-
-      if (confirm(`Xóa khách hàng "${name}" (${code}) cùng toàn bộ đơn hàng PO liên quan?`)) {
-        try {
-          const res = await fetch(`/api/customers?id=${id}`, { method: "DELETE" });
-          const data = await res.json();
-          if (data.success) {
-            showToast(`Đã xóa khách hàng "${name}"`);
-            fetchMetadata();
-          } else {
-            alert("Không thể xóa khách hàng: " + (data.error || "Vui lòng thử lại"));
-          }
-        } catch (err) {
-          alert("Không thể xóa khách hàng: " + err.message);
-        }
-      }
-    });
-  });
 }
 
 // 2. SELECT CUSTOMER IN TAB 3 (SYNC SELECTION, HIGHLIGHT & ORDERS TABLE)
 function selectCustomerInManageTab(custId) {
   appState.currentCustomer = custId;
+  try { localStorage.setItem("dd_last_customer_id", custId || ""); } catch (err) {}
 
   document.querySelectorAll("#tbodyCustomers .customer-row-item").forEach(r => {
     if (r.dataset.id === custId) {
@@ -2736,60 +2703,57 @@ function selectCustomerInManageTab(custId) {
   renderSizePreview();
   refreshLotSizeChips();
   loadArtParts(custId);
+  loadStageEditor(custId);
 }
 
-// 3. RENDER DETAIL ORDERS TABLE FOR SELECTED CUSTOMER
+// 3. DANH SÁCH PO CỦA KHÁCH ĐANG CHỌN (có ô tìm theo số PO / ART)
 function renderOrdersTable(customerId) {
   const tbodyOrders = document.getElementById("tbodyOrders");
   const lblCustTitle = document.getElementById("lblSelectedCustTitle");
   const badgePoCount = document.getElementById("badgeSelectedCustPoCount");
 
   const cust = appState.customers.find(c => c.id === customerId);
-  const custNameDisplay = cust ? `${cust.name} (${cust.code})` : "Tất cả";
-  
-  if (lblCustTitle) lblCustTitle.innerText = custNameDisplay;
-  const lblPoListCust = document.getElementById("lblPoListCustTitle");
-  if (lblPoListCust) lblPoListCust.innerText = custNameDisplay;
+  if (lblCustTitle) lblCustTitle.innerText = cust ? cust.name : "";
 
-  const filteredOrders = customerId 
+  const custOrders = customerId
     ? appState.orders.filter(o => o.customer_id === customerId)
     : appState.orders;
-
-  if (badgePoCount) badgePoCount.innerText = `${filteredOrders.length} PO`;
+  if (badgePoCount) badgePoCount.innerText = custOrders.length;
 
   if (!tbodyOrders) return;
 
+  const q = (document.getElementById("poSearchInput")?.value || "").trim().toLowerCase();
+  const filteredOrders = q
+    ? custOrders.filter(o => `${o.po_number} ${o.style_code}`.toLowerCase().includes(q))
+    : custOrders;
+
   if (filteredOrders.length === 0) {
-    tbodyOrders.innerHTML = `
-      <tr>
-        <td colspan="6" style="text-align:center; padding: 24px; color: #64748b;">
-          Khách hàng <strong>${cust ? cust.name : ''}</strong> chưa có đơn hàng PO nào.Điền thông tin ở biểu mẫu phía trên để tạo PO mới.
-        </td>
-      </tr>
-    `;
+    const msg = custOrders.length
+      ? `Không có PO nào khớp “${escHtml(q)}”.`
+      : `${cust ? escHtml(cust.name) : "Khách hàng"} chưa có đơn hàng PO nào. Bấm <b>+ Thêm PO</b> để tạo.`;
+    tbodyOrders.innerHTML = `<tr><td colspan="6" class="mg-table-empty">${msg}</td></tr>`;
     return;
   }
 
+  const editingId = document.getElementById("editOrderId")?.value || "";
   tbodyOrders.innerHTML = filteredOrders.map(o => {
     const batchTags = (o.default_batches || []).map(b => {
       const qty = Number(b.into_sewing || b.batch_plan) || 0;
       const sz = Array.isArray(b.sizes) && b.sizes.length ? ` · ${sizeBriefText(b.sizes.map(String))}` : "";
-      return `<span class="batch-tag-badge">${b.batch_name}: ${qty.toLocaleString('vi-VN')}${escHtml(sz)}</span>`;
-    }).join(" ");
+      return `<span class="mg-lot-tag"><b>${escHtml(b.batch_name)}</b> ${qty.toLocaleString("vi-VN")}${escHtml(sz)}</span>`;
+    }).join("");
 
-    return `
-      <tr>
-        <td><strong class="mono-code">${o.po_number}</strong></td>
-        <td><strong>${o.style_code}</strong></td>
-        <td>${o.line_name}</td>
-        <td><strong class="mono-num text-emerald-700">${(Number(o.po_plan) || 0).toLocaleString('vi-VN')} đôi</strong></td>
-        <td style="text-align:left;">${batchTags || '<span style="color:#94a3b8;">Chưa cấu hình lô</span>'}</td>
-        <td style="text-align:center; white-space: nowrap;">
-          <button type="button" class="btn-action-icon btn-action-edit btn-edit-po" data-id="${o.id}" title="Sửa đơn hàng & cấu hình lô">Sửa</button>
-          <button type="button" class="btn-action-icon btn-action-danger btn-delete-po" data-id="${o.id}" data-ponum="${o.po_number}" title="Xóa đơn hàng PO">Xóa</button>
-        </td>
-      </tr>
-    `;
+    return `<tr${o.id === editingId ? ' class="is-editing"' : ""}>
+      <td class="mg-po-num">${escHtml(o.po_number)}</td>
+      <td class="mg-art">${escHtml(o.style_code)}</td>
+      <td>${escHtml(o.line_name)}</td>
+      <td class="mg-num">${(Number(o.po_plan) || 0).toLocaleString("vi-VN")}</td>
+      <td class="mg-lots">${batchTags || '<span class="mg-muted">Chưa chia lô</span>'}</td>
+      <td class="mg-row-actions">
+        <button type="button" class="mg-row-btn btn-edit-po" data-id="${escHtml(o.id)}" title="Sửa đơn hàng &amp; chia lô">Sửa</button>
+        <button type="button" class="mg-row-btn is-danger btn-delete-po" data-id="${escHtml(o.id)}" data-ponum="${escHtml(o.po_number)}" title="Xóa đơn hàng PO">Xóa</button>
+      </td>
+    </tr>`;
   }).join("");
 
   // Bind Edit PO Button
@@ -2809,8 +2773,7 @@ function renderOrdersTable(customerId) {
       const elPoNum = document.getElementById("poNumber");
       if (elPoNum) elPoNum.value = order.po_number;
 
-      const elStyle = document.getElementById("poStyleCode");
-      if (elStyle) elStyle.value = order.style_code;
+      refreshPoArtOptions(order.customer_id, order.style_code);
 
       const elLine = document.getElementById("poLineName");
       if (elLine) elLine.value = order.line_name;
@@ -2830,13 +2793,14 @@ function renderOrdersTable(customerId) {
       renderBatchInputBoxes(batchCount, batches);
 
       const btnSubmitPO = document.getElementById("btnSubmitPO");
-      if (btnSubmitPO) btnSubmitPO.innerText = "Cập nhật đơn hàng & cấu hình lô";
-
-      const btnCancelPO = document.getElementById("btnCancelEditPO");
-      if (btnCancelPO) btnCancelPO.style.display = "inline-flex";
+      if (btnSubmitPO) btnSubmitPO.innerText = "Cập nhật PO";
+      const mode = document.getElementById("poFormMode");
+      if (mode) mode.textContent = `Sửa PO ${order.po_number}`;
+      tbodyOrders.querySelectorAll("tr").forEach(tr => tr.classList.toggle("is-editing", tr.contains(btn)));
+      setPoFormOpen(true);
 
       const formPO = document.getElementById("formAddPO");
-      if (formPO) formPO.scrollIntoView({ behavior: "smooth", block: "center" });
+      if (formPO) formPO.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   });
 
@@ -2853,6 +2817,7 @@ function renderOrdersTable(customerId) {
           const data = await res.json();
           if (data.success) {
             showToast(`Đã xóa PO "${poNum}"`);
+            if ((document.getElementById("editOrderId")?.value || "") === id) resetPOForm();
             fetchMetadata();
           } else {
             alert("Không thể xóa PO: " + (data.error || "Vui lòng thử lại"));
@@ -2863,6 +2828,157 @@ function renderOrdersTable(customerId) {
       }
     });
   });
+}
+
+// ---- Khung bên phải tab 03: tiêu đề khách, 3 mục (Dãy size / ART & chi tiết / Đơn hàng PO) ----
+function renderMgHead() {
+  const detail = document.getElementById("mgDetail");
+  if (!detail) return;
+  const cust = appState.customers.find(c => c.id === appState.currentCustomer);
+  const isNew = mgState.newCust || !cust;
+  detail.classList.toggle("is-new", isNew);
+  detail.classList.toggle("is-editing-name", isNew || mgState.nameEdit);
+
+  const nameEl = document.getElementById("mgCustName");
+  if (nameEl) nameEl.textContent = cust ? cust.name : "";
+  const codeEl = document.getElementById("mgCustCode");
+  if (codeEl) codeEl.textContent = cust ? cust.code : "";
+  const title = document.getElementById("mgFormTitle");
+  if (title) title.textContent = isNew ? "Thêm khách hàng mới" : "Sửa tên khách hàng";
+  const btnSave = document.getElementById("btnSaveCustName");
+  if (btnSave) btnSave.textContent = isNew ? "+ Thêm khách hàng" : "Lưu tên";
+  const btnCancel = document.getElementById("btnCancelEditCust");
+  if (btnCancel) btnCancel.hidden = isNew && !appState.customers.length;
+
+  applyMgTab(isNew ? "size" : mgState.tab);
+}
+
+function applyMgTab(tab) {
+  document.querySelectorAll("#mgDetail [data-mg-tab]").forEach(b => {
+    const on = b.dataset.mgTab === tab;
+    b.classList.toggle("on", on);
+    b.setAttribute("aria-selected", on ? "true" : "false");
+  });
+  document.querySelectorAll("#mgDetail [data-mg-panel]").forEach(p => {
+    p.hidden = p.dataset.mgPanel !== tab;
+  });
+}
+
+function setMgTab(tab) {
+  if (!["size", "art", "stage", "po"].includes(tab)) return;
+  mgState.tab = tab;
+  try { localStorage.setItem("dd_mg_tab", tab); } catch (e) {}
+  applyMgTab(tab);
+}
+
+// Biểu mẫu thêm / sửa PO chỉ mở khi bấm "+ Thêm PO" hoặc "Sửa"
+function setPoFormOpen(open) {
+  mgState.poFormOpen = !!open;
+  const form = document.getElementById("formAddPO");
+  if (form) form.classList.toggle("is-open", mgState.poFormOpen);
+  const btn = document.getElementById("btnTogglePoForm");
+  if (btn) {
+    btn.textContent = mgState.poFormOpen ? "Đóng biểu mẫu" : "+ Thêm PO";
+    btn.classList.toggle("is-open", mgState.poFormOpen);
+  }
+  renderLotPreview();
+}
+
+function startNewCustomer() {
+  mgState.newCust = true;
+  mgState.nameEdit = false;
+  resetPOForm();
+  resetCustomerForm();
+  renderCustomerTable();
+  renderMgHead();
+  document.getElementById("custName")?.focus();
+}
+
+// Hủy thêm khách mới / hủy sửa tên: trả lại khách đang chọn
+function cancelCustEdit() {
+  const wasNew = mgState.newCust;
+  mgState.newCust = false;
+  mgState.nameEdit = false;
+  if (wasNew) {
+    if (appState.currentCustomer) fillCustomerForm(appState.currentCustomer);
+  } else {
+    const cust = appState.customers.find(c => c.id === appState.currentCustomer);
+    const elName = document.getElementById("custName");
+    const elCode = document.getElementById("custCode");
+    if (cust && elName) elName.value = cust.name || "";
+    if (cust && elCode) elCode.value = cust.code || "";
+  }
+  renderCustomerTable();
+  renderMgHead();
+}
+
+async function deleteCustomer(id) {
+  const cust = appState.customers.find(c => c.id === id);
+  if (!cust) return;
+  if (!confirm(`Xóa khách hàng "${cust.name}" (${cust.code}) cùng toàn bộ đơn hàng PO liên quan?`)) return;
+  try {
+    const res = await fetch(`/api/customers?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    const data = await res.json();
+    if (data.success) {
+      showToast(`Đã xóa khách hàng "${cust.name}"`);
+      if (appState.currentCustomer === id) appState.currentCustomer = null;
+      mgState.nameEdit = false;
+      resetCustomerForm();
+      resetPOForm();
+      fetchMetadata();
+    } else {
+      alert("Không thể xóa khách hàng: " + (data.error || "Vui lòng thử lại"));
+    }
+  } catch (err) {
+    alert("Không thể xóa khách hàng: " + err.message);
+  }
+}
+
+function bindManageLayoutEvents() {
+  document.getElementById("tbodyCustomers")?.addEventListener("click", (e) => {
+    const item = e.target.closest(".mg-cust-item");
+    if (!item) return;
+    const custId = item.dataset.id;
+    if (stageEditor.dirty && custId !== stageEditor.customerId && !confirm("Bảng công đoạn chưa lưu. Bỏ các thay đổi và chuyển khách?")) return;
+    const changed = custId !== appState.currentCustomer || mgState.newCust;
+    mgState.newCust = false;
+    mgState.nameEdit = false;
+    if (changed) resetPOForm();
+    selectCustomerInManageTab(custId);
+    fillCustomerForm(custId);
+    renderCustomerTable();
+    renderMgHead();
+  });
+  document.getElementById("btnNewCust")?.addEventListener("click", startNewCustomer);
+  document.getElementById("btnEditCustName")?.addEventListener("click", () => {
+    mgState.nameEdit = true;
+    renderMgHead();
+    document.getElementById("custName")?.focus();
+  });
+  document.getElementById("btnDeleteCust")?.addEventListener("click", () => deleteCustomer(appState.currentCustomer));
+  document.getElementById("mgDetail")?.addEventListener("click", (e) => {
+    const tabBtn = e.target.closest("[data-mg-tab]");
+    if (tabBtn) {
+      setMgTab(tabBtn.dataset.mgTab);
+      return;
+    }
+    const goto = e.target.closest("[data-mg-goto]");
+    if (goto) {
+      setMgTab(goto.dataset.mgGoto);
+      document.querySelector("#artPartsList .art-new-input")?.focus();
+    }
+  });
+  document.getElementById("btnTogglePoForm")?.addEventListener("click", () => {
+    if (mgState.poFormOpen) {
+      resetPOForm();
+      return;
+    }
+    resetPOForm();
+    refreshPoArtOptions();
+    setPoFormOpen(true);
+    document.getElementById("poNumber")?.focus();
+  });
+  document.getElementById("poSearchInput")?.addEventListener("input", () => renderOrdersTable(appState.currentCustomer));
 }
 
 // INITIALIZE BATCH INPUTS IF EMPTY
@@ -2970,7 +3086,7 @@ function renderLotRowChips(row) {
   const custSizes = poFormCustomerSizes();
   const chosen = lotRowSizes(row);
   if (!custSizes.length) {
-    cell.innerHTML = '<span class="lot-size-empty">Khách hàng chưa có dãy size. Khai báo ở thẻ Khách hàng phía trên.</span>';
+    cell.innerHTML = '<span class="lot-size-empty">Khách chưa có dãy size. Khai báo ở mục Dãy size.</span>';
     return;
   }
   cell.innerHTML = custSizes.map(x => `<button type="button" class="lot-sz${chosen.includes(x) ? " on" : ""}" data-size="${escHtml(x)}">${escHtml(x)}</button>`).join("")
@@ -2986,6 +3102,10 @@ function refreshLotSizeChips() {
 function renderLotPreview() {
   const box = document.getElementById("lotPreviewList");
   if (!box) return;
+  if (!mgState.poFormOpen) {
+    box.innerHTML = "";
+    return;
+  }
   const custSizes = poFormCustomerSizes();
   const items = [...document.querySelectorAll("#dynamicBatchInputsContainer .lot-row")].map(row => {
     const qty = Number(row.querySelector(".batch-card-input")?.value) || 0;
@@ -3047,9 +3167,7 @@ function resetCustomerForm() {
   const elCode = document.getElementById("custCode");
   if (elCode) elCode.value = "";
   const btnSub = document.getElementById("btnSubmitCust");
-  if (btnSub) btnSub.innerText = "+ Thêm khách hàng";
-  const btnCan = document.getElementById("btnCancelEditCust");
-  if (btnCan) btnCan.style.display = "none";
+  if (btnSub) btnSub.innerText = "Lưu khách hàng";
   sizeEditor.list = [];
   setSizeError("");
   renderSizeEditor();
@@ -3073,9 +3191,11 @@ function resetPOForm() {
   renderBatchInputBoxes(2, []);
 
   const btnSub = document.getElementById("btnSubmitPO");
-  if (btnSub) btnSub.innerText = "💾 Lưu đơn hàng & cấu hình lô";
-  const btnCan = document.getElementById("btnCancelEditPO");
-  if (btnCan) btnCan.style.display = "none";
+  if (btnSub) btnSub.innerText = "Lưu đơn hàng";
+  const mode = document.getElementById("poFormMode");
+  if (mode) mode.textContent = "Thêm đơn hàng PO";
+  document.querySelectorAll("#tbodyOrders tr.is-editing").forEach(tr => tr.classList.remove("is-editing"));
+  setPoFormOpen(false);
 }
 
 async function handleAddCustomer(e) {
@@ -3111,10 +3231,19 @@ async function handleAddCustomer(e) {
     });
     const data = await res.json();
     if (data.success) {
-      showToast(id ? "✅ Đã cập nhật khách hàng thành công!" : "✅ Đã thêm khách hàng mới thành công!");
+      showToast(id ? "✅ Đã lưu khách hàng" : "✅ Đã thêm khách hàng mới");
+      mgState.newCust = false;
+      mgState.nameEdit = false;
       resetCustomerForm();
       await fetchMetadata();
-      if (id) fillCustomerForm(id);
+      // Khách mới: chọn luôn khách vừa thêm để khai báo ART và tạo PO
+      const savedId = id || (appState.customers.find(c => String(c.name || "").trim().toLowerCase() === name.toLowerCase() && String(c.code || "") === code) || {}).id;
+      if (savedId) {
+        selectCustomerInManageTab(savedId);
+        fillCustomerForm(savedId);
+        renderCustomerTable();
+        renderMgHead();
+      }
     } else {
       alert("Không thể lưu khách hàng: " + (data.error || "Vui lòng thử lại"));
     }
@@ -3157,10 +3286,14 @@ async function handleAddPO(e) {
     return;
   }
 
-  // 3. Fallback for Style Code & Line Name if empty
+  // 3. Mã hàng (ART) chọn từ các ART đã khai báo của khách; tên chuyền để trống thì lấy mặc định
   if (!style_code) {
-    style_code = "Style " + po_number;
-    if (styleEl) styleEl.value = style_code;
+    showToast("⚠️ Chọn Mã hàng (ART). Chưa có ART thì thêm ở mục ART & chi tiết.");
+    if (styleEl) {
+      highlightField(styleEl);
+      safeScrollIntoView(styleEl);
+    }
+    return;
   }
   if (!line_name) {
     line_name = "Chuyền 1";
@@ -3214,7 +3347,7 @@ async function handleAddPO(e) {
 
   // 6. Submit to API
   const btnSubmit = document.getElementById("btnSubmitPO");
-  const origBtnText = btnSubmit ? btnSubmit.innerText : "💾 Lưu đơn hàng & cấu hình lô";
+  const origBtnText = btnSubmit ? btnSubmit.innerText : "Lưu đơn hàng";
   if (btnSubmit) {
     btnSubmit.disabled = true;
     btnSubmit.innerText = "⏳ Đang lưu...";
@@ -3246,6 +3379,7 @@ async function handleAddPO(e) {
         : appState.orders.find(o => o.po_number.toLowerCase() === po_number.toLowerCase() && o.customer_id === customer_id);
       if (savedPO) {
         appState.currentPO = savedPO;
+        try { localStorage.setItem("dd_last_po_id", savedPO.id || ""); } catch (err) {}
         const selPO = document.getElementById("selectPO");
         if (selPO) selPO.value = savedPO.id;
         loadReport();
@@ -3260,7 +3394,7 @@ async function handleAddPO(e) {
   } finally {
     if (btnSubmit) {
       btnSubmit.disabled = false;
-      btnSubmit.innerText = origBtnText;
+      btnSubmit.innerText = document.getElementById("editOrderId")?.value ? "Cập nhật PO" : "Lưu đơn hàng";
     }
   }
 }
@@ -4058,6 +4192,14 @@ const ROLE_INFO = {
   worker:  { title: "Nhân viên kiểm kê", short: "Kiểm kê", badge: "is-worker", tabs: ["tab-wip"] }
 };
 
+// Chữ viết tắt trên nút tài khoản: chữ đầu của từ đầu và từ cuối ("Sếp Tổng Quản Trị" → "ST")
+function nameInitials(name) {
+  const words = String(name || "").trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return "TK";
+  const ini = words.length > 1 ? words[0][0] + words[words.length - 1][0] : words[0].slice(0, 2);
+  return ini.toUpperCase();
+}
+
 function getRoleInfo(role) {
   const key = ROLE_INFO[role] ? role : "worker";
   return { key, ...ROLE_INFO[key] };
@@ -4102,6 +4244,12 @@ function applyUserRole(role, user = null) {
   if (popRole) {
     popRole.innerText = `Vai trò: ${info.title}`;
   }
+  const avName = document.getElementById("avatarUserName");
+  if (avName) avName.textContent = cleanName || info.title;
+  const avRole = document.getElementById("avatarUserRole");
+  if (avRole) avRole.textContent = info.short;
+  const avIni = document.getElementById("avatarUserIni");
+  if (avIni) avIni.textContent = nameInitials(cleanName || info.short);
   if (badge) {
     badge.className = `role-badge ${info.badge}`;
     badge.innerHTML = `${cleanName} · ${info.short}`;
@@ -5272,9 +5420,7 @@ function fillCustomerForm(custId) {
   const elCode = document.getElementById("custCode");
   if (elCode) elCode.value = cust.code || "";
   const btnSubmit = document.getElementById("btnSubmitCust");
-  if (btnSubmit) btnSubmit.innerText = "Cập nhật khách hàng";
-  const btnCancel = document.getElementById("btnCancelEditCust");
-  if (btnCancel) btnCancel.style.display = "inline-flex";
+  if (btnSubmit) btnSubmit.innerText = "Lưu dãy size";
   sizeEditor.list = getCustomerSizes(cust);
   setSizeError("");
   renderSizeEditor();
@@ -5289,6 +5435,8 @@ function renderSizeEditor() {
     : `<span class="size-chips-empty">Chưa có size nào</span>`;
   const cnt = document.getElementById("sizeCount");
   if (cnt) cnt.textContent = `${list.length} size`;
+  const tabCnt = document.getElementById("mgCntSize");
+  if (tabCnt) tabCnt.textContent = list.length;
   renderSizePreview();
 }
 
@@ -5299,7 +5447,7 @@ function renderSizePreview() {
   const editingId = document.getElementById("editCustId")?.value || "";
   let list;
   let name;
-  if (editingId || sizeEditor.list.length) {
+  if (editingId || sizeEditor.list.length || mgState.newCust) {
     const cust = appState.customers.find(c => c.id === editingId);
     list = sizeEditor.list;
     name = cust ? cust.name : (document.getElementById("custName")?.value.trim() || "khách hàng mới");
@@ -5416,6 +5564,191 @@ function bindSizeEditorEvents() {
 // ==========================================================
 const artPartsState = { customerId: null, items: {}, dragFrom: null, seq: 0 };
 
+// ==========================================================
+// TAB 03: BẢNG CÔNG ĐOẠN THẢ CHUYỀN CỦA KHÁCH (trình tự 1 → 10)
+// Mỗi công đoạn có id riêng: đổi tên / đổi thứ tự không làm mất số đã nhập.
+// ==========================================================
+const STAGE_SLOTS = 10;
+const STAGE_TEMPLATES = { lbd: ["Lạng", "Bắt dây"] };
+const stageEditor = { customerId: null, slots: [], dirty: false };
+
+function getCustomerStages(cust) {
+  if (!cust) return [];
+  let v = cust.stages;
+  if (typeof v === "string") {
+    try { v = JSON.parse(v || "[]"); } catch (e) { v = []; }
+  }
+  return Array.isArray(v) ? v.filter(x => x && x.name).map(x => ({ id: String(x.id || ""), name: String(x.name) })) : [];
+}
+
+function stageSlotsFrom(list) {
+  const slots = list.slice(0, STAGE_SLOTS).map(x => ({ id: x.id || "", name: x.name || "" }));
+  while (slots.length < STAGE_SLOTS) slots.push({ id: "", name: "" });
+  return slots;
+}
+
+const stageEditorList = () => stageEditor.slots.filter(x => x.name.trim()).map(x => ({ id: x.id, name: x.name.trim() }));
+
+function loadStageEditor(customerId) {
+  const cust = appState.customers.find(c => c.id === customerId);
+  stageEditor.customerId = cust ? cust.id : null;
+  stageEditor.slots = stageSlotsFrom(getCustomerStages(cust));
+  stageEditor.dirty = false;
+  renderStageEditor();
+}
+
+function renderStageEditor() {
+  const body = document.getElementById("stageRows");
+  if (!body) return;
+  body.innerHTML = stageEditor.slots.map((x, i) => {
+    const filled = !!x.name.trim();
+    return `<tr class="${filled ? "" : "is-empty"}" data-stage-row="${i}">
+      <td><span class="stage-no">${i + 1}</span></td>
+      <td><input type="text" class="form-control stage-input" data-stage-slot="${i}" value="${escHtml(x.name)}" maxlength="40" placeholder="${i === 0 ? "Ví dụ: Lạng" : "Để trống nếu không dùng"}" autocomplete="off" aria-label="Tên công đoạn ${i + 1}"></td>
+      <td class="stage-acts"><button type="button" class="stage-act" data-stage-up="${i}" aria-label="Đưa công đoạn ${i + 1} lên"${i === 0 ? " disabled" : ""}>↑</button><button type="button" class="stage-act" data-stage-down="${i}" aria-label="Đưa công đoạn ${i + 1} xuống"${i === STAGE_SLOTS - 1 ? " disabled" : ""}>↓</button><button type="button" class="stage-act is-danger" data-stage-del="${i}" aria-label="Xóa công đoạn ${i + 1}"${filled ? "" : " disabled"}>Xóa</button></td>
+    </tr>`;
+  }).join("");
+  renderStageSideInfo();
+}
+
+// Số đếm trên mục, nhãn "Chưa lưu", dòng trình tự Tổng hợp, ô chép từ khách khác
+function renderStageSideInfo() {
+  const list = stageEditorList();
+  const cust = appState.customers.find(c => c.id === stageEditor.customerId);
+  const nameEl = document.getElementById("stageCustName");
+  if (nameEl) nameEl.textContent = cust ? cust.name : "khách hàng";
+  const cnt = document.getElementById("mgCntStage");
+  if (cnt) cnt.textContent = getCustomerStages(cust).length;
+  const dirty = document.getElementById("stageDirty");
+  if (dirty) dirty.hidden = !stageEditor.dirty;
+  const flow = document.getElementById("stageFlow");
+  if (flow) {
+    flow.innerHTML = list.length
+      ? `Tổng hợp so: ${[...list.map(x => `<span class="stage-chip">${escHtml(x.name)}</span>`), '<span class="stage-chip is-pack">Đóng gói</span>'].join(' <span class="stage-arrow">→</span> ')}`
+      : "Chưa có công đoạn: thả chuyền của khách này nhập chung như hiện nay.";
+  }
+  const copy = document.getElementById("stageCopyFrom");
+  if (copy) {
+    const others = appState.customers.filter(c => c.id !== stageEditor.customerId && getCustomerStages(c).length);
+    copy.innerHTML = `<option value="">Chép từ khách khác…</option>` + others.map(c => `<option value="${escHtml(c.id)}">${escHtml(c.name)}: ${escHtml(getCustomerStages(c).map(x => x.name).join(" → "))}</option>`).join("");
+    copy.disabled = !others.length;
+  }
+  document.querySelectorAll("#stageRows tr[data-stage-row]").forEach(tr => {
+    const i = Number(tr.dataset.stageRow);
+    const filled = !!(stageEditor.slots[i] && stageEditor.slots[i].name.trim());
+    tr.classList.toggle("is-empty", !filled);
+    const del = tr.querySelector("[data-stage-del]");
+    if (del) del.disabled = !filled;
+  });
+}
+
+function markStagesDirty() {
+  stageEditor.dirty = true;
+  renderStageSideInfo();
+}
+
+// Mẫu nhanh / chép từ khách khác: tên trùng với công đoạn đang có thì giữ id cũ (không mất số đã nhập)
+function applyStageNames(names) {
+  const byName = new Map(stageEditorList().map(x => [x.name.toLowerCase(), x.id]));
+  stageEditor.slots = stageSlotsFrom(names.map(n => ({ id: byName.get(String(n).toLowerCase()) || "", name: String(n) })));
+  stageEditor.dirty = true;
+  renderStageEditor();
+}
+
+async function saveStages() {
+  const customerId = stageEditor.customerId;
+  const cust = appState.customers.find(c => c.id === customerId);
+  if (!cust) return;
+  const list = stageEditorList();
+  const names = list.map(x => x.name.toLowerCase());
+  const dup = names.find((n, i) => names.indexOf(n) !== i);
+  if (dup) {
+    showToast(`⚠️ Công đoạn "${list[names.indexOf(dup)].name}" bị trùng tên`);
+    return;
+  }
+  // Gõ lại đúng tên một công đoạn đã lưu thì dùng lại công đoạn đó (không mất số đã nhập)
+  const saved = getCustomerStages(cust);
+  const used = new Set(list.map(x => x.id).filter(Boolean));
+  list.forEach(x => {
+    if (x.id) return;
+    const old = saved.find(o => !used.has(o.id) && o.name.toLowerCase() === x.name.toLowerCase());
+    if (old) {
+      x.id = old.id;
+      used.add(old.id);
+    }
+  });
+  const removed = saved.filter(x => !used.has(x.id));
+  if (removed.length && !confirm(`Bỏ công đoạn ${removed.map(x => `"${x.name}"`).join(", ")} khỏi bảng?\nSố thả chuyền đã nhập của công đoạn này sẽ không còn hiện và không còn tính vào Tổng hợp.`)) return;
+  const btn = document.getElementById("btnSaveStages");
+  if (btn) btn.disabled = true;
+  try {
+    const res = await fetch("/api/customer-stages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ customer_id: customerId, stages: list })
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || "Không lưu được");
+    cust.stages = data.stages || [];
+    if (stageEditor.customerId === customerId) loadStageEditor(customerId);
+    const n = (data.stages || []).length;
+    showToast(n ? `✅ Đã lưu ${n} công đoạn của ${cust.name}${data.migrated ? ". Số thả chuyền nhập trước đây đã tính vào công đoạn 1" : ""}` : `Đã bỏ bảng công đoạn của ${cust.name}: thả chuyền nhập chung như cũ`);
+  } catch (ex) {
+    showToast("⚠️ " + ex.message);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function bindStageEditorEvents() {
+  const body = document.getElementById("stageRows");
+  if (!body) return;
+  body.addEventListener("input", (e) => {
+    const inp = e.target.closest(".stage-input");
+    if (!inp) return;
+    stageEditor.slots[Number(inp.dataset.stageSlot)].name = inp.value.slice(0, 40);
+    markStagesDirty();
+  });
+  body.addEventListener("keydown", (e) => {
+    if (e.isComposing || e.keyCode === 229) return;
+    const inp = e.target.closest(".stage-input");
+    if (!inp || e.key !== "Enter") return;
+    e.preventDefault();
+    const next = body.querySelector(`.stage-input[data-stage-slot="${Number(inp.dataset.stageSlot) + 1}"]`);
+    if (next) next.focus();
+    else saveStages();
+  });
+  body.addEventListener("click", (e) => {
+    const slots = stageEditor.slots;
+    const up = e.target.closest("[data-stage-up]");
+    const down = e.target.closest("[data-stage-down]");
+    const del = e.target.closest("[data-stage-del]");
+    if (up) {
+      const i = Number(up.dataset.stageUp);
+      if (i > 0) [slots[i - 1], slots[i]] = [slots[i], slots[i - 1]];
+    } else if (down) {
+      const i = Number(down.dataset.stageDown);
+      if (i < slots.length - 1) [slots[i + 1], slots[i]] = [slots[i], slots[i + 1]];
+    } else if (del) {
+      slots.splice(Number(del.dataset.stageDel), 1);
+      slots.push({ id: "", name: "" });
+    } else {
+      return;
+    }
+    stageEditor.dirty = true;
+    renderStageEditor();
+  });
+  document.querySelectorAll("[data-stage-tpl]").forEach(btn => {
+    btn.addEventListener("click", () => applyStageNames(STAGE_TEMPLATES[btn.dataset.stageTpl] || []));
+  });
+  document.getElementById("stageCopyFrom")?.addEventListener("change", (e) => {
+    const from = appState.customers.find(c => c.id === e.target.value);
+    e.target.value = "";
+    if (from) applyStageNames(getCustomerStages(from).map(x => x.name));
+  });
+  document.getElementById("btnSaveStages")?.addEventListener("click", saveStages);
+}
+
 async function loadArtParts(customerId) {
   if (!document.getElementById("artPartsList")) return;
   artPartsState.customerId = customerId || null;
@@ -5437,13 +5770,30 @@ async function loadArtParts(customerId) {
   renderArtParts();
 }
 
-// ART của khách = mã hàng trong các PO của khách (kèm ART đã khai báo chi tiết)
+// ART của khách = các ART admin đã khai báo + mã hàng trong các PO của khách
 function customerArts(customerId) {
   const arts = [...new Set(appState.orders.filter(o => o.customer_id === customerId).map(o => String(o.style_code || "").trim()).filter(Boolean))];
-  Object.keys(artPartsState.items).forEach(a => {
-    if (!arts.includes(a) && (artPartsState.items[a] || []).length) arts.push(a);
-  });
+  if (customerId && customerId === artPartsState.customerId) {
+    Object.keys(artPartsState.items).forEach(a => {
+      if (!arts.includes(a)) arts.push(a);
+    });
+  }
   return arts.sort((a, b) => a.localeCompare(b, "vi"));
+}
+
+// Ô Mã hàng (ART) trong biểu mẫu PO: chọn từ các ART đã có của khách
+function refreshPoArtOptions(customerId, value) {
+  const sel = document.getElementById("poStyleCode");
+  if (!sel) return;
+  const custSel = document.getElementById("poCustomerSelect");
+  const custId = customerId || (custSel && custSel.value) || appState.currentCustomer;
+  const keep = value !== undefined ? String(value || "") : sel.value;
+  const arts = customerArts(custId);
+  if (keep && !arts.includes(keep)) arts.push(keep);
+  sel.innerHTML = '<option value="">— Chọn ART —</option>' + arts.map(a => `<option value="${escHtml(a)}">${escHtml(a)}</option>`).join("");
+  sel.value = keep;
+  const hint = document.getElementById("poArtHint");
+  if (hint) hint.innerHTML = arts.length ? "" : 'Khách này chưa có ART. <button type="button" class="mg-link-btn" data-mg-goto="art">Thêm ART</button>';
 }
 
 function renderArtParts() {
@@ -5452,23 +5802,77 @@ function renderArtParts() {
   const cust = appState.customers.find(c => c.id === artPartsState.customerId);
   const title = document.getElementById("artPartsCust");
   if (title) title.textContent = cust ? cust.name : "Tất cả";
+  const tabCnt = document.getElementById("mgCntArt");
   if (!cust) {
-    box.innerHTML = '<div class="art-empty">Chọn một khách hàng ở bảng phía trên.</div>';
+    if (tabCnt) tabCnt.textContent = 0;
+    box.innerHTML = '<div class="art-empty">Chọn một khách hàng ở danh sách bên trái.</div>';
     return;
   }
   const arts = customerArts(cust.id);
-  if (!arts.length) {
-    box.innerHTML = `<div class="art-empty">${escHtml(cust.name)} chưa có PO nào. Tạo PO trước rồi khai báo chi tiết theo ART.</div>`;
-    return;
-  }
+  if (tabCnt) tabCnt.textContent = arts.length;
+  const usedArts = new Set(appState.orders.filter(o => o.customer_id === cust.id).map(o => String(o.style_code || "").trim()));
   box.innerHTML = `<table class="art-table">
     <colgroup><col class="art-col-name"><col></colgroup>
     <thead><tr><th>ART</th><th class="art-th-parts">Các chi tiết <span>· gõ tên rồi Enter (nhiều tên cách nhau dấu phẩy), bấm × để xóa, kéo thả để đổi thứ tự</span></th></tr></thead>
     <tbody>${arts.map(art => {
       const parts = artPartsState.items[art] || [];
-      return `<tr data-art="${escHtml(art)}"><td class="art-name">${escHtml(art)}</td><td><div class="art-chips">${parts.map((p, i) => `<span class="art-chip" draggable="true" data-idx="${i}">${escHtml(p)}<button type="button" class="art-chip-x" data-del="${i}" aria-label="Xóa ${escHtml(p)}">×</button></span>`).join("")}<input type="text" class="form-control art-add-input" placeholder="+ Thêm chi tiết" autocomplete="off"></div></td></tr>`;
-    }).join("")}</tbody>
+      const canDelete = !usedArts.has(art);
+      return `<tr data-art="${escHtml(art)}"><td class="art-name"><span>${escHtml(art)}</span>${canDelete ? `<button type="button" class="art-del" aria-label="Xóa ART ${escHtml(art)}" title="Xóa ART (chưa có PO nào dùng)">×</button>` : ""}</td><td><div class="art-chips">${parts.map((p, i) => `<span class="art-chip" draggable="true" data-idx="${i}">${escHtml(p)}<button type="button" class="art-chip-x" data-del="${i}" aria-label="Xóa ${escHtml(p)}">×</button></span>`).join("")}<input type="text" class="form-control art-add-input" placeholder="+ Thêm chi tiết" autocomplete="off"></div></td></tr>`;
+    }).join("")}
+    <tr class="art-new-row"><td colspan="2"><div class="art-new"><input type="text" class="form-control art-new-input" placeholder="Thêm ART mới, ví dụ DA-262" autocomplete="off"><button type="button" class="btn btn-primary art-new-btn">+ Thêm ART</button><span class="art-new-err"></span></div></td></tr>
+    </tbody>
   </table>`;
+  refreshPoArtOptions();
+}
+
+// Thêm ART mới cho khách (chưa cần có PO); sau đó nhập chi tiết và chọn ART này khi tạo PO
+async function addArt(name) {
+  const customerId = artPartsState.customerId;
+  const art = String(name || "").trim().slice(0, 80);
+  const err = document.querySelector("#artPartsList .art-new-err");
+  if (!customerId) return;
+  if (!art) {
+    if (err) err.textContent = "Gõ tên ART";
+    return;
+  }
+  if (customerArts(customerId).some(a => a.toLowerCase() === art.toLowerCase())) {
+    if (err) err.textContent = `ART ${art} đã có`;
+    return;
+  }
+  try {
+    const res = await fetch("/api/art-parts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ customer_id: customerId, art, parts: [] })
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || "Không thêm được");
+    if (customerId !== artPartsState.customerId) return;
+    artPartsState.items[data.art] = data.parts || [];
+    renderArtParts();
+    showToast(`✅ Đã thêm ART ${data.art}`);
+    const row = [...document.querySelectorAll("#artPartsList tr")].find(tr => tr.dataset.art === data.art);
+    const partInput = row && row.querySelector(".art-add-input");
+    if (partInput) partInput.focus();
+  } catch (ex) {
+    if (err) err.textContent = ex.message;
+  }
+}
+
+async function deleteArt(art) {
+  const customerId = artPartsState.customerId;
+  if (!customerId || !confirm(`Xóa ART ${art} cùng danh sách chi tiết của ART này?`)) return;
+  try {
+    const res = await fetch(`/api/art-parts?customer_id=${encodeURIComponent(customerId)}&art=${encodeURIComponent(art)}`, { method: "DELETE" });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || "Không xóa được");
+    if (customerId !== artPartsState.customerId) return;
+    delete artPartsState.items[art];
+    renderArtParts();
+    showToast(`Đã xóa ART ${art}`);
+  } catch (ex) {
+    showToast("⚠️ " + ex.message);
+  }
 }
 
 async function saveArtParts(art, parts) {
@@ -5497,6 +5901,19 @@ async function saveArtParts(art, parts) {
 function bindArtPartsEvents() {
   const box = document.getElementById("artPartsList");
   if (!box) return;
+  box.addEventListener("keydown", (e) => {
+    if (e.isComposing || e.keyCode === 229) return;
+    const newInput = e.target.closest(".art-new-input");
+    if (newInput && e.key === "Enter") {
+      e.preventDefault();
+      addArt(newInput.value);
+    }
+  });
+  box.addEventListener("input", (e) => {
+    if (!e.target.closest(".art-new-input")) return;
+    const err = box.querySelector(".art-new-err");
+    if (err) err.textContent = "";
+  });
   box.addEventListener("keydown", async (e) => {
     if (e.isComposing || e.keyCode === 229) return;
     const input = e.target.closest(".art-add-input");
@@ -5515,6 +5932,16 @@ function bindArtPartsEvents() {
     if (nextInput) nextInput.focus();
   });
   box.addEventListener("click", (e) => {
+    const newBtn = e.target.closest(".art-new-btn");
+    if (newBtn) {
+      addArt(box.querySelector(".art-new-input")?.value);
+      return;
+    }
+    const delArt = e.target.closest(".art-del");
+    if (delArt) {
+      deleteArt(delArt.closest("tr").dataset.art);
+      return;
+    }
     const del = e.target.closest(".art-chip-x");
     if (!del) return;
     const art = del.closest("tr").dataset.art;
@@ -5562,7 +5989,8 @@ function bindArtPartsEvents() {
 // THẢ CHUYỀN / CHỈ LỆNH ĐÓNG GÓI / TỔNG HỢP (THEO LÔ)
 // Mỗi ngày 4 lần nhận theo size; tích lũy = cộng dồn cả lô tới ngày đang xem.
 // Thả chuyền có 2 chế độ: Đồng bộ (đôi) và Chi tiết (mỗi ô kèm tên chi tiết theo ART).
-// Tổng hợp chỉ so Đồng bộ với Đóng gói.
+// Khách có bảng công đoạn: thả chuyền ghi riêng từng công đoạn (ô Công đoạn trên popup);
+// Tổng hợp so số Đồng bộ của công đoạn sau với công đoạn trước, cuối cùng Đóng gói với công đoạn cuối.
 // ==========================================================
 const REL_PERM = {
   tcEdit: ["admin", "manager", "feeder", "worker"],
@@ -5587,6 +6015,7 @@ const relState = {
   poId: null,
   date: null,
   batch: null,          // tên lô đang xem ('' = số nhập trước khi chia lô)
+  stage: "",            // id công đoạn đang nhập ('' = khách chưa có bảng công đoạn)
   data: null,           // payload từ /api/release
   day: { tc: {}, dg: {}, ct: {} },   // ô nhận của ngày đang xem; ct: size -> [[số, chi tiết] x4]
   base: { tc: {}, dg: {} },          // tích lũy các ngày trước
@@ -5607,6 +6036,7 @@ const relDaySum = arr => (arr || []).reduce((a, b) => a + (Number(b) || 0), 0);
 const relSigned = x => (x > 0 ? "+" : "−") + relNum(Math.abs(x));
 const relLotLabel = name => name || "Chưa chia lô";
 const relLotPrefKey = poId => `dd_rel_lot_${poId}`;
+const relStagePrefKey = custId => `dd_rel_stage_${custId}`;
 
 // Loại số đang nhập trên bảng: thả chuyền đồng bộ / chi tiết hoặc đóng gói
 function relEditKind() {
@@ -5651,6 +6081,26 @@ function relWritePref(poId, batch) {
   try {
     localStorage.setItem(relLotPrefKey(poId), batch);
   } catch (e) {}
+}
+
+// Máy nhớ công đoạn vừa chọn của từng khách
+function relReadStagePref(custId) {
+  try {
+    return custId ? localStorage.getItem(relStagePrefKey(custId)) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function relWriteStagePref(custId, stage) {
+  try {
+    if (custId && stage) localStorage.setItem(relStagePrefKey(custId), stage);
+  } catch (e) {}
+}
+
+function relStageName(id) {
+  const st = ((relState.data && relState.data.stages) || []).find(x => x.id === (id === undefined ? relState.stage : id));
+  return st ? st.name : "";
 }
 
 // Tích lũy 1 size (đồng bộ / đóng gói) = các ngày trước + 4 ô của ngày đang xem
@@ -5724,6 +6174,7 @@ async function openReleaseModal(target) {
     poId: appState.currentPO.id,
     date: relWorkDate(),
     batch: null,
+    stage: "",
     data: null,
     day: { tc: {}, dg: {}, ct: {} },
     base: { tc: {}, dg: {} },
@@ -5739,7 +6190,7 @@ async function openReleaseModal(target) {
   document.getElementById("relDate").textContent = relFmtDate(relState.date);
   renderReleaseInfo();
   relShowLoading();
-  await loadRelease(relReadPref(relState.poId));
+  await loadRelease(relReadPref(relState.poId), kind === "tha_chuyen" ? relReadStagePref(appState.currentPO.customer_id) : null);
 
   // Mở từ thanh Tổng hợp: nhảy thẳng tới lô đầu tiên đang lệch
   if (target === "sum" && relState.data) {
@@ -5762,21 +6213,24 @@ function renderReleaseInfo() {
 
 function relShowLoading() {
   document.getElementById("relLoading").hidden = false;
-  ["relEmpty", "relPaneIn", "relPaneSum", "relSeg", "relMode", "relModeNote"].forEach(id => { document.getElementById(id).hidden = true; });
+  ["relEmpty", "relPaneIn", "relPaneSum", "relSeg", "relMode", "relModeNote", "relStageRow"].forEach(id => { document.getElementById(id).hidden = true; });
   document.getElementById("relLotInfo").textContent = "";
   document.getElementById("relFoot").innerHTML = "";
 }
 
-async function loadRelease(batch) {
+async function loadRelease(batch, stage) {
   const seq = ++relState.seq;
   try {
-    const q = typeof batch === "string" ? `&batch=${encodeURIComponent(batch)}` : "";
+    const q = (typeof batch === "string" ? `&batch=${encodeURIComponent(batch)}` : "")
+      + (stage ? `&stage=${encodeURIComponent(stage)}` : "");
     const res = await fetch(`/api/release?po_id=${encodeURIComponent(relState.poId)}&date=${relState.date}${q}&t=${Date.now()}`);
     const data = await res.json();
     if (seq !== relState.seq) return;
     if (!data.success) throw new Error(data.error || "Không tải được số liệu");
     relApplyPayload(data, false);
+    relState.stage = data.stage || "";
     relWritePref(relState.poId, data.batch);
+    if (relState.kind === "tha_chuyen" && data.customer) relWriteStagePref(data.customer.id, relState.stage);
     renderRelease();
   } catch (err) {
     if (seq !== relState.seq) return;
@@ -5835,7 +6289,7 @@ function renderReleaseLotInfo() {
   }
   const k = relGridKey();
   const done = relState.data.sizes.reduce((a, s) => a + relCum(k, s), 0);
-  const verb = k === "tc" ? "đã thả" : "đã đóng gói";
+  const verb = k === "tc" ? (relStageName() ? `đã ${relStageName().toLowerCase()}` : "đã thả") : "đã đóng gói";
   if (!total) {
     el.innerHTML = `${escHtml(label)}: chưa ghi số tổng · ${verb} <span class="rel-num-blue">${relNum(done)}</span>`;
     return;
@@ -5849,6 +6303,15 @@ function renderRelease() {
   if (!d) return;
   document.getElementById("relLoading").hidden = true;
   renderReleaseInfo();
+
+  // Công đoạn (chỉ thả chuyền, khách có bảng công đoạn): tiêu đề và nút lưu ghi rõ công đoạn đang nhập
+  const stages = d.stages || [];
+  const stageRow = document.getElementById("relStageRow");
+  stageRow.hidden = relState.kind !== "tha_chuyen" || !stages.length;
+  document.getElementById("relStage").innerHTML = stages.map((x, i) => `<option value="${escHtml(x.id)}"${x.id === relState.stage ? " selected" : ""}>${i + 1}. ${escHtml(x.name)}</option>`).join("");
+  if (relState.kind === "tha_chuyen") {
+    document.getElementById("relTitle").textContent = relStageName() ? `Thả chuyền · ${relStageName()}` : "Thả chuyền";
+  }
 
   // Đồng bộ / Chi tiết (chỉ thả chuyền)
   const modeBox = document.getElementById("relMode");
@@ -5981,52 +6444,69 @@ function renderReleaseChips() {
   pack.title = c.packing_by ? `Người xác nhận: ${c.packing_by}` : "";
 }
 
-// So tích lũy thả chuyền (đồng bộ) với tích lũy đóng gói theo từng size của lô đang xem
+// Cột của bảng Tổng hợp: từng công đoạn theo trình tự (khách chưa có công đoạn: 1 cột Thả chuyền), cuối cùng Đóng gói.
+// Mỗi cột so với cột ngay trước (tích lũy), nên công đoạn n+1 so với n và Đóng gói so với công đoạn cuối.
+function relSumColumns() {
+  const stages = (relState.data && relState.data.stages) || [];
+  const cols = stages.length
+    ? stages.map((x, i) => ({ key: x.id, name: x.name, no: i + 1 }))
+    : [{ key: "", name: "Thả chuyền", no: 0 }];
+  cols.push({ key: "#dg", name: "Đóng gói", no: 0 });
+  return cols;
+}
+
+function relSumValue(col, size) {
+  if (col.key === "#dg") return relCum("dg", size);
+  const m = (relState.data.stageCum || {})[col.key];
+  return m ? Number(m[size]) || 0 : relCum("tc", size);
+}
+
 function relStats() {
-  let ok = 0, bad = 0, none = 0, ta = 0, tb = 0;
-  const rows = relState.data.sizes.map(size => {
-    const a = relCum("tc", size);
-    const b = relCum("dg", size);
-    ta += a;
-    tb += b;
-    let state = "bad";
-    if (!a && !b) { none++; state = "none"; }
-    else if (a === b) { ok++; state = "ok"; }
-    else bad++;
-    return { size, a, b, diff: b - a, state };
-  });
-  return { rows, ok, bad, none, ta, tb };
+  const cols = relSumColumns();
+  const sizes = relState.data.sizes;
+  const vals = sizes.map(size => cols.map(c => relSumValue(c, size)));
+  const totals = cols.map((_, k) => vals.reduce((a, row) => a + row[k], 0));
+  const steps = cols.slice(1).map((c, k) => ({
+    from: cols[k],
+    to: c,
+    bad: vals.filter(row => row[k + 1] !== row[k]).length
+  }));
+  return { cols, sizes, vals, totals, steps, hasAny: totals.some(Boolean) };
+}
+
+// Ô của bảng Tổng hợp: số tích lũy, bên dưới là lệch so với cột ngay trước (OK nếu bằng nhau)
+function relSumCell(v, prev, k, cls) {
+  const num = `<span class="rel-sum-v${v ? "" : " is-zero"}">${relNum(v)}</span>`;
+  if (!k || (!v && !prev)) return `<td${cls ? ` class="${cls}"` : ""}>${num}</td>`;
+  const d = v - prev;
+  return `<td${cls ? ` class="${cls}"` : ""}>${num}${d ? `<span class="rel-sum-d is-bad">${relSigned(d)}</span>` : '<span class="rel-sum-d">OK</span>'}</td>`;
 }
 
 function renderReleaseSummary() {
   if (relState.kind !== "dong_goi" || !relState.data) return;
   const st = relStats();
   const label = relLotLabel(relState.batch);
-  document.getElementById("relSumBody").innerHTML = st.rows.map(r => {
-    const res = r.state === "none"
-      ? '<span class="rel-none">—</span>'
-      : (r.state === "ok" ? '<span class="rel-ok">OK</span>' : `<span class="rel-diff">${relSigned(r.diff)}</span>`);
-    return `<tr><td class="rel-size">${escHtml(r.size)}</td><td class="rel-v-tc">${relNum(r.a)}</td><td class="rel-v-dg">${relNum(r.b)}</td><td>${res}</td></tr>`;
-  }).join("");
-
-  const x = st.tb - st.ta;
-  let totalRes = '<span class="rel-none">—</span>';
-  if (x) totalRes = `<span class="rel-diff">${relSigned(x)}</span>`;
-  else if (st.bad) totalRes = '<span class="rel-diff">0</span>';
-  else if (st.ta) totalRes = '<span class="rel-ok">OK</span>';
-  document.getElementById("relSumFoot").innerHTML =
-    `<td class="rel-foot-lbl">Tổng</td><td class="rel-v-tc">${relNum(st.ta)}</td><td class="rel-v-dg">${relNum(st.tb)}</td><td>${totalRes}</td>`;
+  const table = document.getElementById("relSumTable");
+  table.style.minWidth = st.cols.length > 3 ? `${52 + st.cols.length * 66}px` : "";
+  document.getElementById("relSumHead").innerHTML = '<th class="rel-sum-size">Size</th>' + st.cols.map((c, k) =>
+    `<th class="${c.key === "#dg" ? "rel-th-dg" : "rel-th-tc"}">${c.no ? `<span class="rel-sum-no">${c.no}</span>` : ""}${escHtml(c.name)}${k ? `<small>so với ${escHtml(st.cols[k - 1].name)}</small>` : ""}</th>`
+  ).join("");
+  document.getElementById("relSumBody").innerHTML = st.sizes.map((size, r) =>
+    `<tr><td class="rel-size rel-sum-size">${escHtml(size)}</td>${st.vals[r].map((v, k) => relSumCell(v, k ? st.vals[r][k - 1] : 0, k)).join("")}</tr>`
+  ).join("");
+  document.getElementById("relSumFoot").innerHTML = '<td class="rel-foot-lbl rel-sum-size">Tổng</td>'
+    + st.totals.map((v, k) => relSumCell(v, k ? st.totals[k - 1] : 0, k)).join("");
 
   const banner = document.getElementById("relBanner");
-  banner.className = "rel-banner" + (st.bad ? "" : (st.ok ? " is-ok" : " is-empty"));
-  const sub = [`${st.ok} size OK`, st.none ? `${st.none} size chưa có số` : ""].filter(Boolean).join(" · ");
-  if (st.bad) {
-    banner.innerHTML = `${escHtml(label)}: giao nhận chưa đủ, <span class="rel-diff-txt">${st.bad} size lệch</span><small>${sub}</small>`;
-  } else if (st.ok) {
-    banner.innerHTML = `${escHtml(label)}: giao nhận đủ, tất cả size đều OK${st.none ? `<small>${st.none} size chưa có số</small>` : ""}`;
-  } else {
+  if (!st.hasAny) {
+    banner.className = "rel-banner is-empty";
     banner.textContent = `${label}: chưa có số thả chuyền và đóng gói`;
+    return;
   }
+  const badSteps = st.steps.filter(x => x.bad).length;
+  banner.className = "rel-banner rel-steps" + (badSteps ? "" : " is-ok");
+  banner.innerHTML = `<div class="rel-steps-title">${escHtml(label)}: ${badSteps ? `<span class="rel-diff-txt">${badSteps} bước còn lệch</span>` : "các bước đều khớp"}</div>`
+    + st.steps.map(x => `<div class="rel-step${x.bad ? " is-bad" : ""}"><span>${escHtml(x.from.name)} → ${escHtml(x.to.name)}</span><b>${x.bad ? `${x.bad} size lệch` : "OK"}</b></div>`).join("");
 }
 
 function relRenderFoot() {
@@ -6040,7 +6520,8 @@ function relRenderFoot() {
   }
   if (relState.kind === "tha_chuyen") {
     foot.style.gridTemplateColumns = "1fr 2fr";
-    foot.innerHTML = closeBtn + `<button type="button" class="rel-fbtn rel-fbtn-tc" data-rel-act="save">${REL_ICON.save}${relState.mode === "ct" ? "Lưu thả chuyền chi tiết" : "Lưu thả chuyền"}</button>`;
+    const what = relStageName() ? `Lưu ${escHtml(relStageName())}` : "Lưu thả chuyền";
+    foot.innerHTML = closeBtn + `<button type="button" class="rel-fbtn rel-fbtn-tc" data-rel-act="save">${REL_ICON.save}${what}${relState.mode === "ct" ? " chi tiết" : ""}</button>`;
     return;
   }
   if (relState.seg === "sum") {
@@ -6144,6 +6625,7 @@ function saveRelease() {
     const poId = relState.poId;
     const date = relState.date;
     const batch = relState.batch || "";
+    const stage = kind === "dong_goi" ? "" : (relState.stage || "");
     relState.dirty = false;
     let missingPart = false;
     const rows = relState.data.sizes.map(size => {
@@ -6161,11 +6643,11 @@ function saveRelease() {
       const res = await fetch("/api/release", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ po_id: poId, date, kind, batch, rows, user: relUserName() })
+        body: JSON.stringify({ po_id: poId, date, kind, batch, stage, rows, user: relUserName() })
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || "Lưu không thành công");
-      if (relState.poId === poId && relState.date === date && relState.batch === batch && relEditKind() === kind) {
+      if (relState.poId === poId && relState.date === date && relState.batch === batch && relEditKind() === kind && (kind === "dong_goi" || (relState.stage || "") === stage)) {
         relApplyPayload(data, true);
         relUpdateCums();
         renderReleaseLots();
@@ -6189,7 +6671,7 @@ function saveRelease() {
 async function saveAndCloseRelease() {
   const ok = await saveRelease();
   if (ok === false) return;
-  showToast(`💾 Đã lưu thả chuyền ${relLotLabel(relState.batch)} ngày ${relFmtDate(relState.date)}`);
+  showToast(`💾 Đã lưu thả chuyền${relStageName() ? ` · ${relStageName()}` : ""} ${relLotLabel(relState.batch)} ngày ${relFmtDate(relState.date)}`);
   closeReleaseModal();
 }
 
@@ -6200,7 +6682,20 @@ async function switchReleaseLot(name) {
   if (ok === false) return;
   relState.day = { tc: {}, dg: {}, ct: {} };
   relShowLoading();
-  await loadRelease(name);
+  await loadRelease(name, relState.stage);
+}
+
+// Đổi công đoạn: lưu nốt số đang gõ rồi tải số của công đoạn mới (cùng lô)
+async function switchReleaseStage(stage) {
+  if (!stage || stage === relState.stage) return;
+  const ok = await saveRelease();
+  if (ok === false) {
+    document.getElementById("relStage").value = relState.stage;
+    return;
+  }
+  relState.day = { tc: {}, dg: {}, ct: {} };
+  relShowLoading();
+  await loadRelease(relState.batch, stage);
 }
 
 // Đổi Đồng bộ / Chi tiết: lưu nốt chế độ đang gõ rồi đổi bảng (số của cả 2 chế độ đã có sẵn)
@@ -6327,6 +6822,8 @@ function bindReleaseEvents() {
     else if (a === "save") saveAndCloseRelease();
     else if (a === "leader" || a === "packing") confirmRelease(a);
   });
+
+  document.getElementById("relStage").addEventListener("change", (e) => switchReleaseStage(e.target.value));
 
   const tbody = document.getElementById("relTbody");
   tbody.addEventListener("input", onReleaseInput);

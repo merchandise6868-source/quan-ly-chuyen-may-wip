@@ -369,9 +369,12 @@ function normalizePhone(p) {
 // tha_chuyen = thả chuyền đồng bộ (đôi), tha_chuyen_ct = thả chuyền theo chi tiết, dong_goi = chỉ lệnh đóng gói
 const RELEASE_KINDS = ['tha_chuyen', 'tha_chuyen_ct', 'dong_goi'];
 
-// Lô rỗng ('') = số nhập trước khi chia lô, giữ dạng id cũ để không trùng dòng
-const releaseEntryId = (poId, batch, kind, date, size) =>
-  batch ? `${poId}|${batch}|${kind}|${date}|${size}` : `${poId}|${kind}|${date}|${size}`;
+// Lô rỗng ('') = số nhập trước khi chia lô, giữ dạng id cũ để không trùng dòng.
+// Thả chuyền theo công đoạn thêm đuôi |st:<id công đoạn>; không có công đoạn thì giữ id cũ.
+const releaseEntryId = (poId, batch, kind, date, size, stage) =>
+  (batch ? `${poId}|${batch}|${kind}|${date}|${size}` : `${poId}|${kind}|${date}|${size}`) + (stage ? `|st:${stage}` : '');
+const isStageKind = kind => kind === 'tha_chuyen' || kind === 'tha_chuyen_ct';
+const MAX_STAGES = 10;
 const releaseConfirmId = (poId, batch, date) =>
   batch ? `${poId}|${batch}|${date}` : `${poId}|${date}`;
 
@@ -416,6 +419,31 @@ function cleanPartList(list) {
   return out.slice(0, 30);
 }
 
+// Bảng công đoạn của khách: [{id, name}] theo trình tự đi hàng, tối đa 10.
+// id giữ nguyên khi đổi tên / đổi thứ tự để số đã nhập không bị mất; công đoạn mới thì tạo id mới.
+function newStageId() {
+  const bytes = crypto.getRandomValues(new Uint8Array(5));
+  return 'st' + [...bytes].map(b => b.toString(36).padStart(2, '0')).join('').slice(0, 8);
+}
+
+function cleanStageList(list) {
+  const seenName = new Set();
+  const seenId = new Set();
+  const out = [];
+  for (const item of (Array.isArray(list) ? list : [])) {
+    const name = String((item && typeof item === 'object' ? item.name : item) ?? '').trim().slice(0, 40);
+    const key = name.toLowerCase();
+    if (!name || seenName.has(key)) continue;
+    let id = item && typeof item === 'object' ? String(item.id || '') : '';
+    if (!/^st[a-z0-9]{2,20}$/.test(id) || seenId.has(id)) id = newStageId();
+    seenName.add(key);
+    seenId.add(id);
+    out.push({ id, name });
+    if (out.length >= MAX_STAGES) break;
+  }
+  return out;
+}
+
 const toReleaseQty = (v) => {
   const n = parseInt(v, 10);
   return Number.isFinite(n) && n > 0 ? n : 0;
@@ -425,8 +453,21 @@ const sumValues = (obj) => Object.values(obj || {}).reduce((a, b) => a + (Number
 
 // Gom dữ liệu thả chuyền / đóng gói của 1 PO tới ngày `date`, theo lô `batchReq`
 // rows: mọi dòng của PO có entry_date <= date (mọi lô); confs: các xác nhận của PO trong ngày
-function buildReleasePayload({ po, cust, rows, confs, parts }, date, batchReq) {
+function buildReleasePayload({ po, cust, rows, confs, parts }, date, batchReq, stageReq) {
   const custSizes = cleanSizeList(parseSizeList(cust ? cust.size_list : []));
+  // Công đoạn của khách; số thả chuyền nhập trước khi có công đoạn (stage rỗng) tính vào công đoạn 1.
+  // Khách không có công đoạn: mọi số thả chuyền gộp chung như trước.
+  const stages = cleanStageList(parseSizeList(cust ? cust.stages : []));
+  const stageIds = new Set(stages.map(x => x.id));
+  const firstStage = stages.length ? stages[0].id : '';
+  const lastStage = stages.length ? stages[stages.length - 1].id : '';
+  const stage = stages.length ? (stageIds.has(stageReq) ? stageReq : firstStage) : '';
+  const rowStage = r => {
+    if (!stages.length) return '';
+    const v = String(r.stage || '');
+    if (!v) return firstStage;
+    return stageIds.has(v) ? v : null;   // công đoạn đã bị xóa khỏi bảng -> không tính
+  };
   const sizeOrder = new Map(custSizes.map((s, i) => [s.toLowerCase(), i]));
   const rank = s => sizeOrder.get(String(s).toLowerCase()) ?? 999;
   const batches = parseSizeList(po ? po.default_batches : []);
@@ -438,26 +479,33 @@ function buildReleasePayload({ po, cust, rows, confs, parts }, date, batchReq) {
     is_tail: Boolean(b.is_tail_batch || /đuôi/i.test(String(b.batch_name || '')))
   })).filter(l => l.name);
 
-  // Tích lũy theo lô cho thanh Tổng hợp (chỉ so số đồng bộ với đóng gói)
+  // Tích lũy theo lô cho thanh Tổng hợp: đóng gói so với số đồng bộ của công đoạn cuối
   const agg = {};
-  const ensure = name => agg[name] || (agg[name] = { tc: {}, dg: {}, ct: 0 });
+  const ensure = name => agg[name] || (agg[name] = { tc: {}, tcAll: 0, dg: {}, ct: 0 });
   for (const r of (rows || [])) {
     const b = r.batch_name || '';
     const qty = [r.n1, r.n2, r.n3, r.n4].reduce((a, x) => a + (Number(x) || 0), 0);
-    if (r.kind === 'tha_chuyen') ensure(b).tc[r.size] = (ensure(b).tc[r.size] || 0) + qty;
-    else if (r.kind === 'dong_goi') ensure(b).dg[r.size] = (ensure(b).dg[r.size] || 0) + qty;
-    else if (r.kind === 'tha_chuyen_ct') ensure(b).ct += qty;
+    if (r.kind === 'dong_goi') {
+      ensure(b).dg[r.size] = (ensure(b).dg[r.size] || 0) + qty;
+      continue;
+    }
+    const st = rowStage(r);
+    if (st === null) continue;
+    if (r.kind === 'tha_chuyen') {
+      ensure(b).tcAll += qty;
+      if (st === lastStage) ensure(b).tc[r.size] = (ensure(b).tc[r.size] || 0) + qty;
+    } else if (r.kind === 'tha_chuyen_ct') ensure(b).ct += qty;
   }
   if (agg[''] && !lots.some(l => l.name === '')) lots.push({ name: '', total: 0, sizes: [], is_tail: false, legacy: true });
   for (const l of lots) {
-    const a = agg[l.name] || { tc: {}, dg: {}, ct: 0 };
+    const a = agg[l.name] || { tc: {}, tcAll: 0, dg: {}, ct: 0 };
     let bad = 0;
     new Set([...Object.keys(a.tc), ...Object.keys(a.dg)]).forEach(s => {
       const x = a.tc[s] || 0;
       const y = a.dg[s] || 0;
       if ((x || y) && x !== y) bad++;
     });
-    l.tc_total = sumValues(a.tc);
+    l.tc_total = a.tcAll;
     l.dg_total = sumValues(a.dg);
     l.ct_total = a.ct;
     l.bad = bad;
@@ -471,11 +519,18 @@ function buildReleasePayload({ po, cust, rows, confs, parts }, date, batchReq) {
   const day = { tha_chuyen: {}, tha_chuyen_ct: {}, dong_goi: {} };
   const cum = { tha_chuyen: {}, dong_goi: {} };
   const ctCum = {};
+  // Tích lũy đồng bộ của từng công đoạn (bảng Tổng hợp công đoạn); khách không có công đoạn dùng khóa ''
+  const stageCum = {};
+  (stages.length ? stages.map(x => x.id) : ['']).forEach(id => { stageCum[id] = {}; });
   const dataSizes = [];
   for (const r of (rows || [])) {
     if ((r.batch_name || '') !== batch || !RELEASE_KINDS.includes(r.kind)) continue;
+    const st = isStageKind(r.kind) ? rowStage(r) : '';
+    if (st === null) continue;
     dataSizes.push(r.size);
     const n = [r.n1, r.n2, r.n3, r.n4].map(x => Number(x) || 0);
+    if (r.kind === 'tha_chuyen') stageCum[st][r.size] = (stageCum[st][r.size] || 0) + n[0] + n[1] + n[2] + n[3];
+    if (isStageKind(r.kind) && st !== stage) continue;
     if (r.kind === 'tha_chuyen_ct') {
       const p = [r.p1, r.p2, r.p3, r.p4].map(x => String(x || ''));
       n.forEach((q, i) => {
@@ -511,6 +566,9 @@ function buildReleasePayload({ po, cust, rows, confs, parts }, date, batchReq) {
     batch,
     lots,
     sizes,
+    stages,
+    stage,
+    stageCum,
     parts: cleanPartList(parseSizeList(parts)),
     tc: day.tha_chuyen,
     ct: day.tha_chuyen_ct,
@@ -555,20 +613,20 @@ async function getRolePasswordRecord(env, role) {
   return (memoryDB.role_passwords || {})[role] || null;
 }
 
-async function loadReleasePayload(env, poId, date, batch) {
+async function loadReleasePayload(env, poId, date, batch, stage) {
   if (env && env.DB) {
     const po = await env.DB.prepare(
       "SELECT id, customer_id, po_number, style_code, po_plan, default_batches FROM po_orders WHERE id = ?"
     ).bind(poId).first();
-    const cust = po ? await env.DB.prepare("SELECT id, name, size_list FROM customers WHERE id = ?").bind(po.customer_id).first() : null;
+    const cust = po ? await env.DB.prepare("SELECT id, name, size_list, stages FROM customers WHERE id = ?").bind(po.customer_id).first() : null;
     const { results: rows } = await env.DB.prepare(
-      "SELECT kind, batch_name, entry_date, size, n1, n2, n3, n4, p1, p2, p3, p4 FROM release_entries WHERE po_id = ? AND entry_date <= ?"
+      "SELECT kind, batch_name, stage, entry_date, size, n1, n2, n3, n4, p1, p2, p3, p4 FROM release_entries WHERE po_id = ? AND entry_date <= ?"
     ).bind(poId, date).all();
     const { results: confs } = await env.DB.prepare(
       "SELECT batch_name, leader_by, leader_at, packing_by, packing_at FROM release_confirms WHERE po_id = ? AND confirm_date = ?"
     ).bind(poId, date).all();
     const partRow = po ? await env.DB.prepare("SELECT parts FROM art_parts WHERE id = ?").bind(`${po.customer_id}|${po.style_code}`).first() : null;
-    return buildReleasePayload({ po, cust, rows, confs, parts: partRow ? partRow.parts : [] }, date, batch);
+    return buildReleasePayload({ po, cust, rows, confs, parts: partRow ? partRow.parts : [] }, date, batch, stage);
   }
 
   const po = (memoryDB.orders || []).find(o => o.id === poId) || null;
@@ -576,7 +634,26 @@ async function loadReleasePayload(env, poId, date, batch) {
   const rows = (memoryDB.release_entries || []).filter(r => r.po_id === poId && r.entry_date <= date);
   const confs = (memoryDB.release_confirms || []).filter(c => c.po_id === poId && c.confirm_date === date);
   const partRec = po ? (memoryDB.art_parts || {})[`${po.customer_id}|${po.style_code}`] : null;
-  return buildReleasePayload({ po, cust, rows, confs, parts: partRec ? partRec.parts : [] }, date, batch);
+  return buildReleasePayload({ po, cust, rows, confs, parts: partRec ? partRec.parts : [] }, date, batch, stage);
+}
+
+// Công đoạn để ghi số thả chuyền: khách có bảng công đoạn thì phải là 1 công đoạn trong bảng
+// (máy cũ chưa gửi công đoạn -> công đoạn 1); khách chưa có công đoạn thì để rỗng như trước.
+async function resolveReleaseStage(env, poId, stageReq) {
+  let raw = [];
+  if (env && env.DB) {
+    const row = await env.DB.prepare(
+      "SELECT c.stages FROM po_orders o JOIN customers c ON c.id = o.customer_id WHERE o.id = ?"
+    ).bind(poId).first();
+    raw = row ? row.stages : [];
+  } else {
+    const po = (memoryDB.orders || []).find(o => o.id === poId);
+    const cust = po ? (memoryDB.customers || []).find(c => c.id === po.customer_id) : null;
+    raw = cust ? cust.stages : [];
+  }
+  const stages = cleanStageList(parseSizeList(raw));
+  if (!stages.length) return '';
+  return stages.some(x => x.id === stageReq) ? stageReq : stages[0].id;
 }
 
 // Helper: Auto-initialize D1 Database tables and seed initial data
@@ -784,8 +861,12 @@ async function initD1Tables(db) {
     try {
       await db.prepare("ALTER TABLE customers ADD COLUMN size_list TEXT DEFAULT '[]'").run();
     } catch (e) {}
+    // Bảng công đoạn thả chuyền theo khách hàng (mảng JSON [{id, name}], tối đa 10, đúng trình tự)
+    try {
+      await db.prepare("ALTER TABLE customers ADD COLUMN stages TEXT DEFAULT '[]'").run();
+    } catch (e) {}
     // Thả chuyền / đóng gói theo lô; p1..p4 = tên chi tiết của 4 ô Nhận (thả chuyền Chi tiết)
-    for (const col of ["batch_name TEXT DEFAULT ''", "p1 TEXT DEFAULT ''", "p2 TEXT DEFAULT ''", "p3 TEXT DEFAULT ''", "p4 TEXT DEFAULT ''"]) {
+    for (const col of ["batch_name TEXT DEFAULT ''", "p1 TEXT DEFAULT ''", "p2 TEXT DEFAULT ''", "p3 TEXT DEFAULT ''", "p4 TEXT DEFAULT ''", "stage TEXT DEFAULT ''"]) {
       try {
         await db.prepare(`ALTER TABLE release_entries ADD COLUMN ${col}`).run();
       } catch (e) {}
@@ -1560,8 +1641,8 @@ export default {
           if (id) {
             const idx = memoryDB.customers.findIndex(c => c.id === id);
             if (idx >= 0) {
-              const prevSizes = memoryDB.customers[idx].size_list;
-              memoryDB.customers[idx] = { id, name, code, size_list: sizeJson ?? prevSizes ?? '[]' };
+              const prev = memoryDB.customers[idx];
+              memoryDB.customers[idx] = { ...prev, id, name, code, size_list: sizeJson ?? prev.size_list ?? '[]' };
             }
           } else {
             memoryDB.customers.push({ id: 'cust-' + Date.now(), name, code, size_list: sizeJson ?? '[]' });
@@ -2628,10 +2709,11 @@ export default {
           const poId = url.searchParams.get('po_id');
           const date = url.searchParams.get('date');
           const batch = url.searchParams.has('batch') ? String(url.searchParams.get('batch') || '').slice(0, 60) : null;
+          const stage = String(url.searchParams.get('stage') || '').slice(0, 24);
           if (!poId || !isIsoDate(date)) {
             return Response.json({ success: false, error: "Thiếu PO hoặc ngày" }, { status: 400, headers });
           }
-          return Response.json(await loadReleasePayload(env, poId, date, batch), { headers });
+          return Response.json(await loadReleasePayload(env, poId, date, batch, stage), { headers });
         } catch (err) {
           return Response.json({ success: false, error: err.message }, { status: 500, headers });
         }
@@ -2648,6 +2730,7 @@ export default {
             return Response.json({ success: false, error: "Thiếu PO, ngày hoặc loại phiếu" }, { status: 400, headers });
           }
           const isCt = kind === 'tha_chuyen_ct';
+          const stage = isStageKind(kind) ? await resolveReleaseStage(env, poId, String(body.stage || '').slice(0, 24)) : '';
           const rows = (Array.isArray(body.rows) ? body.rows : [])
             .map(r => {
               const n = [0, 1, 2, 3].map(i => toReleaseQty(Array.isArray(r.n) ? r.n[i] : 0));
@@ -2663,26 +2746,26 @@ export default {
 
           if (env && env.DB) {
             const { results: existing } = await env.DB.prepare(
-              "SELECT size, n1, n2, n3, n4, p1, p2, p3, p4 FROM release_entries WHERE po_id = ? AND kind = ? AND entry_date = ? AND COALESCE(batch_name, '') = ?"
-            ).bind(poId, kind, date, batch).all();
+              "SELECT size, n1, n2, n3, n4, p1, p2, p3, p4 FROM release_entries WHERE po_id = ? AND kind = ? AND entry_date = ? AND COALESCE(batch_name, '') = ? AND COALESCE(stage, '') = ?"
+            ).bind(poId, kind, date, batch, stage).all();
             const prev = new Map((existing || []).map(e => [e.size, {
               n: [e.n1, e.n2, e.n3, e.n4].map(x => Number(x) || 0),
               p: [e.p1, e.p2, e.p3, e.p4].map(x => String(x || ''))
             }]));
             const stmts = [];
             for (const r of rows) {
-              const id = releaseEntryId(poId, batch, kind, date, r.size);
+              const id = releaseEntryId(poId, batch, kind, date, r.size, stage);
               if (!same(prev.get(r.size), r)) changed = true;
               if (r.n.every(x => x === 0)) {
                 if (prev.has(r.size)) stmts.push(env.DB.prepare("DELETE FROM release_entries WHERE id = ?").bind(id));
               } else {
                 stmts.push(env.DB.prepare(`
-                  INSERT INTO release_entries (id, po_id, batch_name, kind, entry_date, size, n1, n2, n3, n4, p1, p2, p3, p4, updated_by, updated_at)
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                  INSERT INTO release_entries (id, po_id, batch_name, stage, kind, entry_date, size, n1, n2, n3, n4, p1, p2, p3, p4, updated_by, updated_at)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                   ON CONFLICT(id) DO UPDATE SET n1 = excluded.n1, n2 = excluded.n2, n3 = excluded.n3, n4 = excluded.n4,
                     p1 = excluded.p1, p2 = excluded.p2, p3 = excluded.p3, p4 = excluded.p4,
                     updated_by = excluded.updated_by, updated_at = CURRENT_TIMESTAMP
-                `).bind(id, poId, batch, kind, date, r.size, r.n[0], r.n[1], r.n[2], r.n[3], r.p[0], r.p[1], r.p[2], r.p[3], user));
+                `).bind(id, poId, batch, stage, kind, date, r.size, r.n[0], r.n[1], r.n[2], r.n[3], r.p[0], r.p[1], r.p[2], r.p[3], user));
               }
             }
             // Tổ trưởng sửa số đóng gói sau khi đã xác nhận -> phải xác nhận lại (chỉ lô đó)
@@ -2693,7 +2776,7 @@ export default {
           } else {
             if (!memoryDB.release_entries) memoryDB.release_entries = [];
             for (const r of rows) {
-              const id = releaseEntryId(poId, batch, kind, date, r.size);
+              const id = releaseEntryId(poId, batch, kind, date, r.size, stage);
               const idx = memoryDB.release_entries.findIndex(e => e.id === id);
               const cur = idx >= 0 ? memoryDB.release_entries[idx] : null;
               const before = cur ? { n: [cur.n1, cur.n2, cur.n3, cur.n4], p: [cur.p1, cur.p2, cur.p3, cur.p4] } : null;
@@ -2702,7 +2785,7 @@ export default {
                 if (idx >= 0) memoryDB.release_entries.splice(idx, 1);
               } else {
                 const rec = {
-                  id, po_id: poId, batch_name: batch, kind, entry_date: date, size: r.size,
+                  id, po_id: poId, batch_name: batch, stage, kind, entry_date: date, size: r.size,
                   n1: r.n[0], n2: r.n[1], n3: r.n[2], n4: r.n[3],
                   p1: r.p[0], p2: r.p[1], p3: r.p[2], p4: r.p[3], updated_by: user
                 };
@@ -2715,7 +2798,7 @@ export default {
             }
           }
 
-          const payload = await loadReleasePayload(env, poId, date, batch);
+          const payload = await loadReleasePayload(env, poId, date, batch, stage);
           payload.confirmReset = kind === 'dong_goi' && changed;
           return Response.json(payload, { headers });
         } catch (err) {
@@ -2776,6 +2859,52 @@ export default {
         }
       }
 
+      // Bảng công đoạn thả chuyền của 1 khách (admin khai báo ở tab Khách hàng & PO, tối đa 10 công đoạn).
+      // Lần đầu có công đoạn: số thả chuyền đã nhập trước đó (chưa có công đoạn) chuyển sang công đoạn 1.
+      if (url.pathname === '/api/customer-stages' && request.method === 'POST') {
+        try {
+          const body = await request.json();
+          const customerId = String(body.customer_id || '');
+          if (!customerId) {
+            return Response.json({ success: false, error: "Thiếu khách hàng" }, { status: 400, headers });
+          }
+          const stages = cleanStageList(body.stages);
+          const first = stages.length ? stages[0].id : '';
+          let migrated = 0;
+          if (env && env.DB) {
+            const found = await env.DB.prepare("SELECT id FROM customers WHERE id = ?").bind(customerId).first();
+            if (!found) return Response.json({ success: false, error: "Không tìm thấy khách hàng" }, { status: 404, headers });
+            const stmts = [env.DB.prepare("UPDATE customers SET stages = ? WHERE id = ?").bind(JSON.stringify(stages), customerId)];
+            if (first) {
+              stmts.push(env.DB.prepare(`
+                UPDATE release_entries SET stage = ?, id = id || ?
+                WHERE COALESCE(stage, '') = '' AND kind IN ('tha_chuyen', 'tha_chuyen_ct')
+                  AND po_id IN (SELECT id FROM po_orders WHERE customer_id = ?)
+              `).bind(first, `|st:${first}`, customerId));
+            }
+            const results = await env.DB.batch(stmts);
+            migrated = first && results[1] && results[1].meta ? (results[1].meta.changes || 0) : 0;
+          } else {
+            const cust = (memoryDB.customers || []).find(c => c.id === customerId);
+            if (!cust) return Response.json({ success: false, error: "Không tìm thấy khách hàng" }, { status: 404, headers });
+            cust.stages = JSON.stringify(stages);
+            if (first) {
+              const poIds = new Set((memoryDB.orders || []).filter(o => o.customer_id === customerId).map(o => o.id));
+              for (const e of (memoryDB.release_entries || [])) {
+                if (!e.stage && isStageKind(e.kind) && poIds.has(e.po_id)) {
+                  e.stage = first;
+                  e.id = `${e.id}|st:${first}`;
+                  migrated++;
+                }
+              }
+            }
+          }
+          return Response.json({ success: true, customer_id: customerId, stages, migrated }, { headers });
+        } catch (err) {
+          return Response.json({ success: false, error: err.message }, { status: 500, headers });
+        }
+      }
+
       // Danh sách chi tiết theo ART của 1 khách (admin khai báo ở tab Khách hàng & PO)
       if (url.pathname === '/api/art-parts' && request.method === 'GET') {
         try {
@@ -2815,6 +2944,26 @@ export default {
             memoryDB.art_parts[id] = { customer_id: customerId, art, parts, updated_at: updatedAt };
           }
           return Response.json({ success: true, customer_id: customerId, art, parts, updated_at: updatedAt }, { headers });
+        } catch (err) {
+          return Response.json({ success: false, error: err.message }, { status: 500, headers });
+        }
+      }
+
+      // Xóa 1 ART (chỉ dùng cho ART chưa có PO nào; giao diện kiểm tra trước khi gọi)
+      if (url.pathname === '/api/art-parts' && request.method === 'DELETE') {
+        try {
+          const customerId = url.searchParams.get('customer_id') || '';
+          const art = String(url.searchParams.get('art') || '').trim();
+          if (!customerId || !art) {
+            return Response.json({ success: false, error: "Thiếu khách hàng hoặc ART" }, { status: 400, headers });
+          }
+          const id = `${customerId}|${art}`;
+          if (env && env.DB) {
+            await env.DB.prepare("DELETE FROM art_parts WHERE id = ?").bind(id).run();
+          } else if (memoryDB.art_parts) {
+            delete memoryDB.art_parts[id];
+          }
+          return Response.json({ success: true }, { headers });
         } catch (err) {
           return Response.json({ success: false, error: err.message }, { status: 500, headers });
         }
