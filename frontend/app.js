@@ -91,7 +91,7 @@ function initPWA() {
     });
 
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js?v=20261026_1000', { scope: '/' })
+      navigator.serviceWorker.register('/sw.js?v=20261026_1500', { scope: '/' })
         .then(reg => {
           console.log('✅ Service Worker registered successfully:', reg.scope);
           // Explicit update check on every page load
@@ -205,6 +205,8 @@ document.addEventListener("DOMContentLoaded", () => {
   bindArtPartsEvents();
   bindManageLayoutEvents();
   bindStageEditorEvents();
+  bindOrderPasteEvents();
+  bindPackLogEvents();
   bindRoleSwitchEvents();
   bindRolePasswordEvents();
   checkLoginPortalState();
@@ -455,6 +457,7 @@ function bindEvents() {
       appState.currentCustomer = e.target.value;
       try { localStorage.setItem("dd_last_customer_id", appState.currentCustomer || ""); } catch (err) {}
       await filterOrdersByCustomer();
+      if (document.getElementById("tab-pack-log")?.classList.contains("active")) loadPackLog();
       if (document.getElementById("tab-manage")?.classList.contains("active")) {
         mgState.newCust = false;
         mgState.nameEdit = false;
@@ -513,6 +516,8 @@ function bindEvents() {
       if (targetPane) targetPane.classList.add("active");
       if (btn.dataset.tab === "tab-manage") {
         renderManageTab();
+      } else if (btn.dataset.tab === "tab-pack-log") {
+        loadPackLog();
       } else if (btn.dataset.tab === "tab-users") {
         fetchUsers();
         loadRolePasswords();
@@ -1144,6 +1149,40 @@ async function filterOrdersByCustomer() {
   }
 }
 
+// Số tổng (định mức) lô của thẻ NXT lấy theo cấu hình lô hiện tại của PO (dán đơn hàng / sửa PO):
+// lô đã có trong báo cáo ngày thì cập nhật số tổng, lô mới của PO thì thêm thẻ trống. Số liệu đã nhập giữ nguyên;
+// lô số đuôi vẫn theo quy tắc ngày vét.
+function syncReportLotsWithPO(po) {
+  const defs = (po && po.default_batches) || [];
+  if (!defs.length || !appState.report) return;
+  const isTail = b => Boolean(b && (b.is_tail_batch || /đuôi/i.test(String(b.batch_name || ""))));
+  const list = appState.report.batches || (appState.report.batches = []);
+  defs.forEach((d, i) => {
+    if (isTail(d)) return;
+    const plan = Number(d.batch_plan || d.into_sewing) || 0;
+    const cur = list.find(b => b.batch_name === d.batch_name);
+    if (cur) {
+      if (plan) cur.batch_plan = plan;
+      return;
+    }
+    list.push({
+      id: d.id || `b-${i + 1}`, batch_name: d.batch_name, batch_plan: plan,
+      into_sewing: 0, delivered: 0, wip_sewing: 0, wip_qc: 0, wip_pairing: 0, wip_packing: 0, wip_warehouse: 0,
+      daily_out: 0, daily_finished: 0,
+      note_sewing: "", note_qc: "", note_pairing: "", note_packing: "", note_warehouse: "",
+      shortage_reason_type: "", shortage_note: "", shortage_mat_xac: 0, shortage_hang_phe: 0, shortage_khac: 0,
+      is_tail_batch: false
+    });
+  });
+  // Thẻ xếp theo thứ tự lô của PO; lô không còn trong PO để sau, lô số đuôi cuối cùng
+  const rank = b => {
+    if (isTail(b)) return 1000;
+    const k = defs.findIndex(d => d.batch_name === b.batch_name);
+    return k < 0 ? 500 : k;
+  };
+  list.sort((a, b) => rank(a) - rank(b));
+}
+
 // LOAD REPORT DATA
 async function loadReport() {
   if (!appState.currentPO) return;
@@ -1316,6 +1355,8 @@ async function loadReport() {
           });
         }
       }
+
+      syncReportLotsWithPO(po);
 
       appState.hasUnsavedChanges = false;
       renderReportUI();
@@ -2736,18 +2777,31 @@ function renderOrdersTable(customerId) {
   }
 
   const editingId = document.getElementById("editOrderId")?.value || "";
-  tbodyOrders.innerHTML = filteredOrders.map(o => {
+  // Gom PO theo đợt đã dán (PO chưa có đợt xếp cuối)
+  const hasWave = filteredOrders.some(o => o.wave);
+  const waveNames = [...new Set(filteredOrders.map(o => o.wave || ""))]
+    .sort((a, b) => (a ? 0 : 1) - (b ? 0 : 1) || a.localeCompare(b, "vi", { numeric: true }));
+  const ordered = hasWave ? waveNames.flatMap(w => filteredOrders.filter(o => (o.wave || "") === w)) : filteredOrders;
+  let lastWave = null;
+  tbodyOrders.innerHTML = ordered.map(o => {
+    let waveRow = "";
+    if (hasWave && (o.wave || "") !== lastWave) {
+      lastWave = o.wave || "";
+      const n = ordered.filter(x => (x.wave || "") === lastWave).length;
+      waveRow = `<tr class="mg-wave-row"><td colspan="6">${escHtml(lastWave || "Chưa ghi đợt")}<span>${n} PO</span></td></tr>`;
+    }
+    const nSizes = Object.keys(getOrderSizes(o)).length;
     const batchTags = (o.default_batches || []).map(b => {
       const qty = Number(b.into_sewing || b.batch_plan) || 0;
       const sz = Array.isArray(b.sizes) && b.sizes.length ? ` · ${sizeBriefText(b.sizes.map(String))}` : "";
       return `<span class="mg-lot-tag"><b>${escHtml(b.batch_name)}</b> ${qty.toLocaleString("vi-VN")}${escHtml(sz)}</span>`;
     }).join("");
 
-    return `<tr${o.id === editingId ? ' class="is-editing"' : ""}>
-      <td class="mg-po-num">${escHtml(o.po_number)}</td>
+    return waveRow + `<tr${o.id === editingId ? ' class="is-editing"' : ""}>
+      <td class="mg-po-num">${escHtml(o.po_number)}${o.crd ? `<small class="mg-ord-n">CRD ${escHtml(relFmtDate(o.crd))}</small>` : ""}</td>
       <td class="mg-art">${escHtml(o.style_code)}</td>
       <td>${escHtml(o.line_name)}</td>
-      <td class="mg-num">${(Number(o.po_plan) || 0).toLocaleString("vi-VN")}</td>
+      <td class="mg-num">${(Number(o.po_plan) || 0).toLocaleString("vi-VN")}${nSizes ? `<small class="mg-ord-n">đơn ${nSizes} size</small>` : ""}</td>
       <td class="mg-lots">${batchTags || '<span class="mg-muted">Chưa chia lô</span>'}</td>
       <td class="mg-row-actions">
         <button type="button" class="mg-row-btn btn-edit-po" data-id="${escHtml(o.id)}" title="Sửa đơn hàng &amp; chia lô">Sửa</button>
@@ -2790,7 +2844,9 @@ function renderOrdersTable(customerId) {
       const selCount = document.getElementById("selectBatchCount") || document.getElementById("poBatchCountSelect");
       if (selCount) selCount.value = String(Math.min(batchCount, 10));
 
+      poFormState.order = getOrderSizes(order);
       renderBatchInputBoxes(batchCount, batches);
+      renderPoOrderSizes();
 
       const btnSubmitPO = document.getElementById("btnSubmitPO");
       if (btnSubmitPO) btnSubmitPO.innerText = "Cập nhật PO";
@@ -2943,7 +2999,10 @@ function bindManageLayoutEvents() {
     const changed = custId !== appState.currentCustomer || mgState.newCust;
     mgState.newCust = false;
     mgState.nameEdit = false;
-    if (changed) resetPOForm();
+    if (changed) {
+      resetPOForm();
+      closeOrderPaste();
+    }
     selectCustomerInManageTab(custId);
     fillCustomerForm(custId);
     renderCustomerTable();
@@ -2974,11 +3033,468 @@ function bindManageLayoutEvents() {
       return;
     }
     resetPOForm();
+    closeOrderPaste();
     refreshPoArtOptions();
     setPoFormOpen(true);
     document.getElementById("poNumber")?.focus();
   });
   document.getElementById("poSearchInput")?.addEventListener("input", () => renderOrdersTable(appState.currentCustomer));
+}
+
+// ==========================================================
+// ĐƠN HÀNG THEO SIZE: dán từ Excel theo đợt (tab 03), hiện trên biểu mẫu PO
+// ==========================================================
+const poFormState = { order: null };   // đơn theo size của PO đang sửa (dùng để tự cộng số tổng lô)
+const orderPaste = { parsed: null };
+
+const ORDER_PO_LABEL = /^(po|ry|ry no\.?|số po|so po|po no\.?|po number|po#|đơn hàng|don hang)$/i;
+const ORDER_ART_LABEL = /^(art|art no\.?|article|mã hàng|ma hang|mã art|ma art|style)$/i;
+const ORDER_LOT_LABEL = /^(clsx|lô|lo|lot|lô sx|lo sx|lô sản xuất|lo san xuat)$/i;
+const ORDER_COLOR_LABEL = /^(mã màu|ma mau|màu|mau|color|colour)$/i;
+const ORDER_CRD_LABEL = /^(crd|ngày giao|ngay giao|delivery|ngày xuất|ngay xuat)$/i;
+const ORDER_WAVE_LABEL = /^(đợt|dot|đợt giao|wave)$/i;
+const ORDER_TOTAL_LABEL = /^(tổng|tong|total|cộng|cong|sum)/i;
+const ORDER_WAVE_LINE = /^(đợt|dot|lần|lan|wave)(\s|\d|$)/i;
+const isOrderLabel = c => [ORDER_PO_LABEL, ORDER_ART_LABEL, ORDER_LOT_LABEL, ORDER_COLOR_LABEL, ORDER_CRD_LABEL, ORDER_WAVE_LABEL, ORDER_TOTAL_LABEL].some(re => re.test(c));
+
+function getOrderSizes(o) {
+  let v = o ? o.size_qty : null;
+  if (typeof v === "string") {
+    try { v = JSON.parse(v || "{}"); } catch (e) { v = {}; }
+  }
+  const out = {};
+  if (v && typeof v === "object" && !Array.isArray(v)) {
+    Object.entries(v).forEach(([k, q]) => { if (Number(q) > 0) out[k] = Number(q); });
+  }
+  return out;
+}
+
+const orderQty = cell => {
+  const t = String(cell || "").replace(/[.,\s]/g, "");
+  return /^\d+$/.test(t) ? parseInt(t, 10) : 0;
+};
+
+// Cột tiêu đề là size: có trong dãy size của khách, hoặc trông giống size (số, chữ S M L XL, 4T-5T)
+function isOrderSizeLike(h, known) {
+  const v = String(h || "").trim();
+  if (!v) return false;
+  return known.has(v.toLowerCase())
+    || /^\d{1,2}([.,]5)?$/.test(v)
+    || /^(\d?x{0,4}s|s|m|l|\d?x{0,4}l)$/i.test(v)
+    || /^\d{1,2}\s*t?\s*-\s*\d{1,2}\s*t?$/i.test(v)
+    || /^\d{1,2}t$/i.test(v);
+}
+
+// Tách dữ liệu copy từ Excel: Tab giữa các ô, xuống dòng giữa các hàng; ô có xuống dòng (ví dụ "CÔNG
+// ĐOẠN") được Excel bọc trong dấu ngoặc kép. Không có Tab (gõ tay) thì tách theo khoảng trắng.
+function parseOrderGrid(text) {
+  const src = String(text || "").replace(/\r\n?/g, "\n");
+  if (!src.includes("\t")) return src.split("\n").map(l => l.trim() ? l.trim().split(/\s+/) : []);
+  const rows = [];
+  let row = [];
+  let cell = "";
+  let quoted = false;
+  for (let i = 0; i < src.length; i++) {
+    const ch = src[i];
+    if (quoted) {
+      if (ch === '"' && src[i + 1] === '"') { cell += '"'; i++; }
+      else if (ch === '"') quoted = false;
+      else cell += ch;
+    } else if (ch === '"' && cell === "") quoted = true;
+    else if (ch === "\t") { row.push(cell); cell = ""; }
+    else if (ch === "\n") { row.push(cell); rows.push(row); row = []; cell = ""; }
+    else cell += ch;
+  }
+  row.push(cell);
+  rows.push(row);
+  return rows.map(r => r.map(c => c.replace(/\s+/g, " ").trim()));
+}
+
+// "Lô 1", "lo 1", "1" -> "Lô 1"
+function normalizeLotName(v) {
+  const t = String(v || "").trim();
+  const m = t.match(/^(?:lô|lo|lot)?\s*(\d+)$/i);
+  return m ? `Lô ${parseInt(m[1], 10)}` : t.slice(0, 40);
+}
+
+// CRD dạng ngày/tháng/năm (3/11/2026, 03.11.2026) hoặc 2026-11-03 -> 2026-11-03
+function parseCrdDate(v) {
+  const t = String(v || "").trim();
+  let m = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (m) return `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`;
+  m = t.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/);
+  if (!m) return "";
+  const y = m[3].length === 2 ? `20${m[3]}` : m[3];
+  const mo = parseInt(m[2], 10);
+  const d = parseInt(m[1], 10);
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) return "";
+  return `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
+// Tên đợt: dòng "Đợt ..." giữ nguyên; dòng tiêu đề có ngày (… 20.10.2026) -> "Đợt 20.10.2026"
+function orderWaveName(line) {
+  const t = String(line || "").replace(/\s+/g, " ").trim();
+  if (ORDER_WAVE_LINE.test(t)) return t.slice(0, 60);
+  const m = t.match(/\d{1,2}[./-]\d{1,2}[./-]\d{2,4}/);
+  return (m ? `Đợt ${m[0]}` : t).slice(0, 60);
+}
+
+// Đọc bảng đơn hàng dán từ Excel. Hai dạng:
+//  - mỗi dòng 1 PO: PO | ART | size... | Tổng (đợt theo dòng "Đợt ..." phía trên)
+//  - mỗi dòng 1 lô: STT | CLSX (lô) | RY (PO) | ART | Mã màu | CRD | Tổng | size... (đợt theo dòng tiêu đề)
+// Cùng RY khác màu -> mỗi màu 1 PO "RY · MÀU".
+function parseOrderPaste(text, custId) {
+  const cust = appState.customers.find(c => c.id === custId);
+  const known = new Set(getCustomerSizes(cust).map(x => x.toLowerCase()));
+  const waves = [];
+  const sizeCols = [];
+  const pos = new Map();   // tên PO (thường) -> PO
+  let cur = null;
+  let head = null;
+  let prevRow = [];
+  const ensureWave = name => {
+    let w = waves.find(x => x.name === name);
+    if (!w) {
+      w = { name, pos: [] };
+      waves.push(w);
+    }
+    return w;
+  };
+  parseOrderGrid(text).forEach(cells => {
+    const filled = cells.filter(Boolean);
+    if (!filled.length) return;
+    if (cells.some(c => ORDER_PO_LABEL.test(c))) {
+      const at = re => cells.findIndex(c => re.test(c));
+      let total = at(ORDER_TOTAL_LABEL);
+      if (total < 0) total = prevRow.findIndex(c => ORDER_TOTAL_LABEL.test(c));
+      head = {
+        po: at(ORDER_PO_LABEL), art: at(ORDER_ART_LABEL), lot: at(ORDER_LOT_LABEL), color: at(ORDER_COLOR_LABEL),
+        crd: at(ORDER_CRD_LABEL), wave: at(ORDER_WAVE_LABEL), total, sizes: []
+      };
+      head.sizes = cells.map((c, i) => ({ size: c, i })).filter(x => x.i !== total && x.size && !isOrderLabel(x.size) && isOrderSizeLike(x.size, known));
+      head.sizes.forEach(x => { if (!sizeCols.some(c => c.toLowerCase() === x.size.toLowerCase())) sizeCols.push(x.size); });
+      return;
+    }
+    const hasQty = head && head.sizes.some(x => orderQty(cells[x.i]) > 0);
+    if (!hasQty) {
+      if (ORDER_WAVE_LINE.test(filled[0]) || filled.length === 1) cur = ensureWave(orderWaveName(filled.join(" ")));
+      prevRow = cells;
+      return;
+    }
+    if (ORDER_TOTAL_LABEL.test(filled[0])) return;
+    const get = i => (i >= 0 ? String(cells[i] || "").trim() : "");
+    const ry = get(head.po);
+    const color = get(head.color);
+    const name = (color ? `${ry} · ${color}` : ry).slice(0, 60);
+    const key = name.toLowerCase();
+    const sizes = {};
+    head.sizes.forEach(x => {
+      const q = orderQty(cells[x.i]);
+      if (q) sizes[x.size] = (sizes[x.size] || 0) + q;
+    });
+    const waveName = head.wave >= 0 && get(head.wave) ? get(head.wave).slice(0, 60) : (cur ? cur.name : "");
+    let po = pos.get(key);
+    if (!po || head.lot < 0) {
+      if (po) po.dupRows = (po.dupRows || 0) + 1;   // dạng mỗi dòng 1 PO: dán trùng PO thì lấy dòng sau
+      po = { key, name, ry, color, art: get(head.art), crd: parseCrdDate(get(head.crd)), lots: [], sizes: {}, dupRows: po ? po.dupRows : 0 };
+      if (!pos.has(key)) ensureWave(waveName).pos.push(po);
+      else {
+        const w = waves.find(x => x.pos.some(p => p.key === key));
+        w.pos[w.pos.findIndex(p => p.key === key)] = po;
+      }
+      pos.set(key, po);
+    }
+    if (!po.art) po.art = get(head.art);
+    if (!po.crd) po.crd = parseCrdDate(get(head.crd));
+    if (head.lot >= 0) {
+      const lotName = normalizeLotName(get(head.lot));
+      const dup = po.lots.find(l => l.name === lotName && !l.error);
+      if (dup) dup.error = "Lô trùng, lấy dòng sau";
+      po.lots.push({ name: lotName, sizes, total: Object.values(sizes).reduce((a, b) => a + b, 0), sheetTotal: orderQty(get(head.total)), crd: parseCrdDate(get(head.crd)), error: lotName ? "" : "Thiếu tên lô" });
+    } else {
+      po.sizes = sizes;
+      po.sheetTotal = orderQty(get(head.total));
+    }
+  });
+
+  // Cộng các lô thành đơn của PO; so với PO / ART đang có để ghi chú và chọn PO đích
+  const myOrders = appState.orders.filter(o => o.customer_id === custId);
+  const byName = new Map();
+  myOrders.forEach(o => {
+    const k = String(o.po_number || "").trim().toLowerCase();
+    if (!byName.has(k)) byName.set(k, []);
+    byName.get(k).push(o);
+  });
+  const arts = new Set(customerArts(custId).map(a => a.toLowerCase()));
+  const all = waves.flatMap(w => w.pos);
+  const regularLots = o => (o.default_batches || []).filter(b => !/đuôi/i.test(String(b.batch_name || "")));
+  // Số lô của bảng dán có số tổng trùng với lô của PO cũ (mỗi lô cũ chỉ khớp 1 lần)
+  const lotScore = (po, o) => {
+    const pool = regularLots(o).map(b => Number(b.batch_plan) || 0);
+    let n = 0;
+    po.lots.filter(l => !l.error).forEach(l => {
+      const i = pool.indexOf(l.total);
+      if (i >= 0) {
+        n++;
+        pool.splice(i, 1);
+      }
+    });
+    return n;
+  };
+  const newer = (a, b) => String(b.created_at || "").localeCompare(String(a.created_at || ""));
+  const used = new Set();
+  all.forEach(po => {
+    if (po.lots.length) {
+      po.sizes = {};
+      po.lots.filter(l => !l.error).forEach(l => Object.entries(l.sizes).forEach(([k, q]) => { po.sizes[k] = (po.sizes[k] || 0) + q; }));
+    }
+    po.total = Object.values(po.sizes).reduce((a, b) => a + b, 0);
+    po.target = null;
+    po.preNotes = [];
+  });
+  // 1. Cùng tên PO: nhiều PO trùng tên thì chọn PO có lô khớp nhất, rồi PO mới nhất
+  all.forEach(po => {
+    const cands = (byName.get(po.key) || []).filter(o => !used.has(o.id));
+    if (!cands.length) return;
+    const best = cands.slice().sort((a, b) => lotScore(po, b) - lotScore(po, a) || newer(a, b))[0];
+    po.target = best;
+    used.add(best.id);
+    if (cands.length > 1) po.preNotes.push(["warn", `Có ${cands.length} PO tên ${best.po_number}: cập nhật PO ${relNum(best.po_plan)} đôi`]);
+  });
+  // 2. PO cũ chỉ ghi RY (chưa ghi màu): giao cho màu có lô khớp (ít nhất 60% số lô của màu đó), đổi tên "RY · MÀU".
+  //    PO cùng RY mà lô không khớp (đơn đợt trước) thì giữ nguyên.
+  const pending = all.filter(p => p.color && !p.target);
+  const pairs = [];
+  pending.forEach(p => (byName.get(p.ry.toLowerCase()) || []).forEach(o => {
+    const sc = lotScore(p, o);
+    if (sc && sc >= Math.ceil(p.lots.filter(l => !l.error).length * 0.6)) pairs.push({ p, o, sc });
+  }));
+  pairs.sort((a, b) => b.sc - a.sc || all.indexOf(a.p) - all.indexOf(b.p));
+  pairs.forEach(({ p, o }) => {
+    if (p.target || used.has(o.id)) return;
+    p.target = o;
+    p.rename = o.po_number;
+    used.add(o.id);
+    const oldN = regularLots(o).length;
+    if (oldN > p.lots.length) p.preNotes.push(["warn", `PO ${o.po_number} cũ có ${oldN} lô (${relNum(o.po_plan)} đôi): giữ ${p.lots.length} lô ${p.color}`]);
+  });
+  pending.filter(p => !p.target).forEach(p => {
+    const same = byName.get(p.ry.toLowerCase()) || [];
+    const untouched = same.filter(o => !used.has(o.id));
+    if (untouched.length) p.preNotes.push(["keep", `Giữ nguyên PO ${p.ry} cũ (${untouched.map(o => relNum(o.po_plan) + " đôi").join(", ")}) vì lô không khớp`]);
+  });
+  all.forEach(po => {
+    po.notes = [...po.preNotes];
+    po.error = !po.ry ? "Thiếu số PO / RY"
+      : !po.total ? "Không có số size"
+      : (!po.art && !po.target) ? "Thiếu ART" : "";
+    if (po.error) return;
+    if (po.dupRows) po.notes.push(["warn", "PO dán trùng, lấy dòng sau"]);
+    if (po.target) {
+      if (po.rename) po.notes.push(["up", `Đổi tên ${po.rename} → ${po.name}`]);
+      po.notes.push(Number(po.target.po_plan) !== po.total ? ["up", `Kế hoạch ${relNum(po.target.po_plan)} → ${relNum(po.total)}`] : ["keep", "Cập nhật số theo size"]);
+      if (po.target.wave && po.target.wave !== (waves.find(w => w.pos.includes(po)) || {}).name) po.notes.push(["keep", `Trước: ${po.target.wave}`]);
+    } else {
+      po.notes.push(["new", "PO mới"]);
+    }
+    if (po.art && !arts.has(po.art.toLowerCase())) po.notes.push(["art", "ART mới"]);
+    const okLots = po.lots.filter(l => !l.error);
+    if (okLots.length) {
+      const old = po.target ? regularLots(po.target) : [];
+      const same = old.length === okLots.length && okLots.every(l => old.some(b => b.batch_name === l.name && Number(b.batch_plan) === l.total));
+      po.notes.push(same ? ["keep", `${okLots.length} lô khớp chia lô cũ`] : ["up", `Chia ${okLots.length} lô${old.length ? ` (trước: ${old.length} lô)` : ""}`]);
+    }
+    if (!po.lots.length && po.sheetTotal && po.sheetTotal !== po.total) po.notes.push(["warn", `Cột Tổng ghi ${relNum(po.sheetTotal)}`]);
+    po.lots.forEach(l => { if (!l.error && l.sheetTotal && l.sheetTotal !== l.total) l.warn = `Cột Tổng ghi ${relNum(l.sheetTotal)}`; });
+  });
+  // Chỉ lấy cột size có số (cột size trống cả bảng thì bỏ, không tính là size mới)
+  const usedSizes = sizeCols.filter(x => all.some(p => p.sizes[x] || p.lots.some(l => l.sizes[x])));
+  return { waves, sizeCols: usedSizes, newSizes: usedSizes.filter(x => !known.has(x.toLowerCase())), hasHead: !!head, hasLots: !!(head && head.lot >= 0) };
+}
+
+function setOrderPasteOpen(open) {
+  const panel = document.getElementById("poPastePanel");
+  if (!panel) return;
+  panel.hidden = !open;
+  document.getElementById("btnTogglePaste")?.classList.toggle("is-open", open);
+  if (open) {
+    const cust = appState.customers.find(c => c.id === appState.currentCustomer);
+    document.getElementById("poPasteCust").textContent = cust ? cust.name : "";
+    document.getElementById("poPasteBox").focus();
+  }
+}
+
+function closeOrderPaste() {
+  orderPaste.parsed = null;
+  const box = document.getElementById("poPasteBox");
+  if (box) box.value = "";
+  const pv = document.getElementById("poPastePreview");
+  if (pv) pv.innerHTML = "";
+  setOrderPasteOpen(false);
+}
+
+function readOrderPaste() {
+  const box = document.getElementById("poPasteBox");
+  const pv = document.getElementById("poPastePreview");
+  if (!box || !pv) return;
+  const parsed = parseOrderPaste(box.value, appState.currentCustomer);
+  orderPaste.parsed = parsed;
+  const all = parsed.waves.flatMap(w => w.pos);
+  if (!parsed.hasHead || !all.length) {
+    pv.innerHTML = `<div class="mg-paste-err">Chưa đọc được dòng nào. Cần có dòng tiêu đề gồm cột <b>PO</b> (hoặc <b>RY</b>), <b>ART</b> và các cột size, bên dưới là các dòng PO hoặc các dòng lô (cột <b>CLSX</b>).</div>`;
+    return;
+  }
+  const ok = all.filter(p => !p.error);
+  const nNew = ok.filter(p => !p.target).length;
+  const nLots = ok.reduce((a, p) => a + p.lots.filter(l => !l.error).length, 0);
+  const newArts = [...new Set(ok.filter(p => p.notes.some(n => n[0] === "art")).map(p => p.art))];
+  const badLots = all.reduce((a, p) => a + p.lots.filter(l => l.error).length, 0);
+  const bad = all.length - ok.length;
+  const sz = parsed.sizeCols;
+  const cols = sz.length + 6;
+  const sizeCells = (m, cls) => sz.map(x => `<td class="${m[x] ? cls : "mg-muted"}">${m[x] ? relNum(m[x]) : "·"}</td>`).join("");
+  const notesHtml = (list, error) => error ? `<span class="mg-note is-bad">${escHtml(error)}</span>` : list.map(n => `<span class="mg-note is-${n[0]}">${escHtml(n[1])}</span>`).join("");
+  const body = parsed.waves.map((w, wi) => w.pos.length ? `<tr class="mg-wave-row"><td colspan="${cols}"><input type="text" class="mg-wave-input" data-wave-idx="${wi}" value="${escHtml(w.name)}" placeholder="Tên đợt" maxlength="60" aria-label="Tên đợt"><span>${w.pos.length} PO</span></td></tr>`
+    + w.pos.map(po => {
+      const head = `<td class="mg-po-num">${escHtml(po.name || "—")}</td>`;
+      if (!po.lots.length) {
+        return `<tr class="${po.error ? "is-bad" : ""}">${head}<td class="mg-muted">·</td><td class="mg-art">${escHtml(po.art)}</td><td class="mg-crd">${po.crd ? escHtml(relFmtDate(po.crd)) : ""}</td>${sizeCells(po.sizes, "mg-num")}<td class="mg-num">${relNum(po.total)}</td><td class="mg-paste-notes">${notesHtml(po.notes, po.error)}</td></tr>`;
+      }
+      return po.lots.map((l, i) => `<tr class="mg-lot-line${po.error || l.error ? " is-bad" : ""}">${i ? "<td></td>" : head}<td><span class="lot-badge">${escHtml(l.name || "?")}</span></td><td class="mg-art">${i ? "" : escHtml(po.art)}</td><td class="mg-crd">${l.crd ? escHtml(relFmtDate(l.crd)) : ""}</td>${sizeCells(l.sizes, "mg-num")}<td class="mg-num">${relNum(l.total)}</td><td class="mg-paste-notes">${l.error ? `<span class="mg-note is-bad">${escHtml(l.error)}</span>` : (l.warn ? `<span class="mg-note is-warn">${escHtml(l.warn)}</span>` : "")}</td></tr>`).join("")
+        + `<tr class="mg-po-total${po.error ? " is-bad" : ""}"><td colspan="4">Cộng ${escHtml(po.name)}</td>${sizeCells(po.sizes, "mg-num")}<td class="mg-num">${relNum(po.total)}</td><td class="mg-paste-notes">${notesHtml(po.notes, po.error)}</td></tr>`;
+    }).join("") : "").join("");
+  pv.innerHTML = `<div class="mg-paste-sum">
+      <span>${parsed.waves.filter(w => w.pos.length).length} đợt</span><span>${ok.length} PO lưu được</span><span>${nNew} PO mới</span>
+      ${nLots ? `<span>${nLots} lô</span>` : ""}
+      ${newArts.length ? `<span>ART mới: ${escHtml(newArts.join(", "))}</span>` : ""}
+      ${parsed.newSizes.length ? `<span>Size mới: ${escHtml(parsed.newSizes.join(", "))}</span>` : ""}
+      ${bad ? `<span class="is-bad">${bad} PO lỗi, không lưu</span>` : ""}
+      ${badLots ? `<span class="is-bad">${badLots} dòng lô bỏ qua</span>` : ""}
+    </div>
+    <div class="mg-table-wrap"><table class="mg-table mg-paste-table">
+      <thead><tr><th>PO</th><th>Lô</th><th>ART</th><th>CRD</th>${sz.map(x => `<th class="mg-th-num">${escHtml(x)}</th>`).join("")}<th class="mg-th-num">Tổng</th><th>Ghi chú</th></tr></thead>
+      <tbody>${body}</tbody>
+    </table></div>
+    <div class="mg-paste-actions is-end"><span class="mg-paste-note">Sửa được tên đợt ở dòng xanh đậm trước khi lưu.</span><button type="button" class="mg-btn mg-btn-primary" id="btnPasteSave"${ok.length ? "" : " disabled"}>Lưu ${ok.length} PO</button></div>`;
+}
+
+async function saveOrderPaste() {
+  const parsed = orderPaste.parsed;
+  const custId = appState.currentCustomer;
+  if (!parsed || !custId) return;
+  const waves = parsed.waves
+    .map(w => ({
+      name: w.name,
+      rows: w.pos.filter(p => !p.error).map(p => ({
+        id: p.target ? p.target.id : undefined,
+        po_number: p.name,
+        art: p.art,
+        crd: p.crd,
+        sizes: p.sizes,
+        lots: p.lots.filter(l => !l.error).map(l => ({ name: l.name, sizes: l.sizes, crd: l.crd }))
+      }))
+    }))
+    .filter(w => w.rows.length);
+  if (!waves.length) return;
+  const btn = document.getElementById("btnPasteSave");
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "Đang lưu...";
+  }
+  try {
+    const res = await fetch("/api/order-import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ customer_id: custId, waves })
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || "Không lưu được");
+    closeOrderPaste();
+    await fetchMetadata();
+    if ((data.newSizes || []).length) fillCustomerForm(custId);
+    loadArtParts(custId);
+    const extra = [
+      data.renamed ? `${data.renamed} PO đổi tên theo màu` : "",
+      (data.newArts || []).length ? `ART mới: ${data.newArts.join(", ")}` : "",
+      (data.newSizes || []).length ? `size mới: ${data.newSizes.join(", ")}` : ""
+    ].filter(Boolean).join("; ");
+    showToast(`✅ Đã lưu đơn hàng: ${data.created} PO mới, ${data.updated} PO cập nhật${extra ? `. ${extra}` : ""}`);
+  } catch (ex) {
+    showToast("⚠️ " + ex.message);
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "Lưu lại";
+    }
+  }
+}
+
+function bindOrderPasteEvents() {
+  document.getElementById("btnTogglePaste")?.addEventListener("click", () => {
+    const panel = document.getElementById("poPastePanel");
+    if (panel && !panel.hidden) {
+      closeOrderPaste();
+      return;
+    }
+    resetPOForm();
+    setOrderPasteOpen(true);
+  });
+  document.getElementById("btnPasteCancel")?.addEventListener("click", closeOrderPaste);
+  document.getElementById("poOrderSizes")?.addEventListener("click", (e) => {
+    if (e.target.closest("#btnLotsFromOrder")) fillLotTotalsFromOrder();
+  });
+  document.getElementById("btnPasteRead")?.addEventListener("click", readOrderPaste);
+  const box = document.getElementById("poPasteBox");
+  // Ô dán đơn: Tab chèn ký tự Tab (giống Excel) thay vì nhảy ô; dán xong tự đọc
+  box?.addEventListener("keydown", (e) => {
+    if (e.key !== "Tab") return;
+    e.preventDefault();
+    const at = box.selectionStart;
+    box.value = box.value.slice(0, at) + "\t" + box.value.slice(box.selectionEnd);
+    box.selectionStart = box.selectionEnd = at + 1;
+  });
+  box?.addEventListener("paste", () => setTimeout(readOrderPaste, 0));
+  document.getElementById("poPastePreview")?.addEventListener("click", (e) => {
+    if (e.target.closest("#btnPasteSave")) saveOrderPaste();
+  });
+  document.getElementById("poPastePreview")?.addEventListener("input", (e) => {
+    const inp = e.target.closest(".mg-wave-input");
+    if (inp && orderPaste.parsed) orderPaste.parsed.waves[Number(inp.dataset.waveIdx)].name = inp.value.trim().slice(0, 60);
+  });
+}
+
+// Đơn theo size của PO đang sửa, hiện trên bảng chia lô
+function renderPoOrderSizes() {
+  const el = document.getElementById("poOrderSizes");
+  if (!el) return;
+  const order = poFormState.order || {};
+  const sizes = Object.keys(order);
+  el.hidden = !sizes.length;
+  if (!sizes.length) {
+    el.innerHTML = "";
+    return;
+  }
+  const total = sizes.reduce((a, x) => a + order[x], 0);
+  el.innerHTML = `<div class="po-order-title">Đơn hàng theo size (đã dán) · tổng <b>${relNum(total)}</b> đôi</div>
+    <div class="po-order-list">${sizes.map(x => `<span class="po-order-chip"><span>${escHtml(x)}</span><b>${relNum(order[x])}</b></span>`).join("")}</div>
+    <div class="po-order-hint">Bấm chọn size của lô thì số tổng của lô tự cộng theo đơn (vẫn sửa tay được). Lô trùng size thì gõ số tổng từng lô.
+      <button type="button" class="mg-link-btn" id="btnLotsFromOrder">Tính lại số tổng các lô theo đơn</button></div>`;
+}
+
+// Mọi lô đã chọn size: số tổng = cộng số đơn của các size đó
+function fillLotTotalsFromOrder() {
+  const order = poFormState.order || {};
+  let n = 0;
+  document.querySelectorAll("#dynamicBatchInputsContainer .lot-row").forEach(row => {
+    const sizes = lotRowSizes(row);
+    if (!sizes.length) return;
+    const inp = row.querySelector(".batch-card-input");
+    if (!inp) return;
+    inp.value = sizes.reduce((a, x) => a + (Number(order[x]) || 0), 0);
+    n++;
+  });
+  updateBatchSummaryCheck();
+  renderLotPreview();
+  showToast(n ? `Đã tính số tổng ${n} lô theo đơn hàng` : "⚠️ Chưa lô nào chọn size. Bấm chọn size của lô trước.");
 }
 
 // INITIALIZE BATCH INPUTS IF EMPTY
@@ -3050,6 +3566,15 @@ function renderBatchInputBoxes(count, initialBatches = null) {
       else sizes = sizes.includes(chip.dataset.size) ? sizes.filter(x => x !== chip.dataset.size) : [...sizes, chip.dataset.size];
       row.dataset.sizes = JSON.stringify(sizes);
       renderLotRowChips(row);
+      const order = poFormState.order || {};
+      if (!all && sizes.length && Object.keys(order).length) {
+        const sum = sizes.reduce((a, x) => a + (Number(order[x]) || 0), 0);
+        const inp = row.querySelector(".batch-card-input");
+        if (inp && sum) {
+          inp.value = sum;
+          updateBatchSummaryCheck();
+        }
+      }
       renderLotPreview();
     });
   }
@@ -3188,7 +3713,9 @@ function resetPOForm() {
   const selCount = document.getElementById("selectBatchCount") || document.getElementById("poBatchCountSelect");
   if (selCount) selCount.value = "2";
 
+  poFormState.order = null;
   renderBatchInputBoxes(2, []);
+  renderPoOrderSizes();
 
   const btnSub = document.getElementById("btnSubmitPO");
   if (btnSub) btnSub.innerText = "Lưu đơn hàng";
@@ -4184,8 +4711,8 @@ function bindPortalEvents() {
 
 // Bảng quyền: tên hiển thị và các tab được xem
 const ROLE_INFO = {
-  admin:   { title: "Ban giám đốc (Admin)", short: "Admin", badge: "is-admin", tabs: ["tab-wip", "tab-flow-log", "tab-manage", "tab-users"] },
-  manager: { title: "Quản lý điều hành", short: "Quản lý", badge: "is-manager", tabs: ["tab-wip", "tab-flow-log"] },
+  admin:   { title: "Ban giám đốc (Admin)", short: "Admin", badge: "is-admin", tabs: ["tab-wip", "tab-flow-log", "tab-manage", "tab-users", "tab-pack-log"] },
+  manager: { title: "Quản lý điều hành", short: "Quản lý", badge: "is-manager", tabs: ["tab-wip", "tab-flow-log", "tab-pack-log"] },
   leader:  { title: "Tổ trưởng", short: "Tổ trưởng", badge: "is-manager", tabs: ["tab-wip"] },
   feeder:  { title: "Người thả chuyền", short: "Thả chuyền", badge: "is-worker", tabs: ["tab-wip"] },
   packer:  { title: "Đóng gói", short: "Đóng gói", badge: "is-worker", tabs: ["tab-wip"] },
@@ -6375,11 +6902,46 @@ function relCtCumHtml(size) {
   return names.map(p => `<div class="rel-ct-line"><span>${escHtml(p)}</span><b>${relNum(cum[p])}</b></div>`).join("");
 }
 
+// Cột Đơn hàng (thả chuyền Đồng bộ, PO đã dán đơn theo size): so tích lũy cả PO của công đoạn đang chọn với số đơn
+function relOrderSource() {
+  const d = relState.data;
+  if (!d) return "";
+  if (Object.keys(d.lotOrder || {}).length) return "lot";
+  return Object.keys(d.order || {}).length ? "po" : "";
+}
+
+function relShowOrder() {
+  return relState.kind === "tha_chuyen" && relGridKey() === "tc" && !!relOrderSource();
+}
+
+const relOrderQty = size => Number(((relOrderSource() === "lot" ? relState.data.lotOrder : relState.data.order) || {})[size]) || 0;
+const relOrderCum = size => (relOrderSource() === "lot" ? relCum("tc", size) : relPoCum(size));
+
+// Tích lũy cả PO (mọi lô) của size, cộng cả số đang gõ chưa lưu của lô đang xem
+function relPoCum(size) {
+  const d = relState.data;
+  return (Number((d.poCum || {})[size]) || 0) - (Number((d.tcCum || {})[size]) || 0) + relCum("tc", size);
+}
+
+function relOrderCellHtml(size) {
+  const order = relOrderQty(size);
+  if (!order) return '<span class="rel-none">—</span>';
+  const d = relOrderCum(size) - order;
+  const cls = d === 0 ? "is-ok" : (d < 0 ? "is-less" : "is-over");
+  const text = d === 0 ? "OK" : (d < 0 ? `còn ${relNum(-d)}` : `vượt ${relNum(d)}`);
+  return `<div class="rel-ord ${cls}"><small>${relNum(order)}</small><b>${text}</b></div>`;
+}
+
 function renderReleaseGrid() {
   const k = relGridKey();
   const editable = relCanEditCurrent();
   const isCt = k === "ct";
-  document.getElementById("relThCum").innerHTML = isCt ? "Tích lũy<br>theo chi tiết" : "Tích lũy";
+  const showOrd = relShowOrder();
+  document.getElementById("relGridCols").innerHTML = showOrd
+    ? '<col style="width:12%"><col><col><col><col><col style="width:16%"><col style="width:18%">'
+    : '<col class="rel-col-size"><col><col><col><col><col class="rel-col-cum">';
+  document.getElementById("relGridHead").innerHTML = `<th>Size</th><th>Nhận 1</th><th>Nhận 2</th><th>Nhận 3</th><th>Nhận 4</th><th class="rel-th-cum" id="relThCum">${isCt ? "Tích lũy<br>theo chi tiết" : "Tích lũy"}</th>`
+    + (showOrd ? `<th class="rel-th-ord">Đơn hàng<small>${relOrderSource() === "lot" ? "lô này" : "cả PO"}</small></th>` : "");
   document.getElementById("relTbody").innerHTML = relState.data.sizes.map(size => {
     const cells = [0, 1, 2, 3].map(i => {
       if (isCt) {
@@ -6393,7 +6955,8 @@ function renderReleaseGrid() {
     const cum = isCt
       ? `<td class="rel-ct-cum" data-cum-size="${escHtml(size)}">${relCtCumHtml(size)}</td>`
       : `<td><span class="rel-cum" data-cum-size="${escHtml(size)}">${relNum(relCum(k, size))}</span></td>`;
-    return `<tr><td class="rel-size">${escHtml(size)}</td>${cells}${cum}</tr>`;
+    const ord = showOrd ? `<td class="rel-ord-td" data-ord-size="${escHtml(size)}">${relOrderCellHtml(size)}</td>` : "";
+    return `<tr><td class="rel-size">${escHtml(size)}</td>${cells}${cum}${ord}</tr>`;
   }).join("");
   renderReleaseTotals();
 }
@@ -6418,7 +6981,13 @@ function renderReleaseTotals() {
     [0, 1, 2, 3].forEach(i => { cols[i] += Number(day[i]) || 0; });
     total += relCum(k, size);
   });
-  foot.innerHTML = `<td class="rel-foot-lbl">Tổng</td>${cols.map(v => `<td>${relNum(v)}</td>`).join("")}<td><span class="rel-cum">${relNum(total)}</span></td>`;
+  let ordFoot = "";
+  if (relShowOrder()) {
+    const withOrder = relState.data.sizes.filter(size => relOrderQty(size) > 0);
+    const ok = withOrder.filter(size => relOrderCum(size) === relOrderQty(size)).length;
+    ordFoot = `<td>${withOrder.length && ok === withOrder.length ? '<span class="rel-ord is-ok"><b>OK</b></span>' : `<span class="rel-ord-count">${ok}/${withOrder.length} đủ</span>`}</td>`;
+  }
+  foot.innerHTML = `<td class="rel-foot-lbl">Tổng</td>${cols.map(v => `<td>${relNum(v)}</td>`).join("")}<td><span class="rel-cum">${relNum(total)}</span></td>${ordFoot}`;
 }
 
 function relUpdateCums() {
@@ -6426,6 +6995,9 @@ function relUpdateCums() {
   document.querySelectorAll("#relTbody [data-cum-size]").forEach(el => {
     if (k === "ct") el.innerHTML = relCtCumHtml(el.dataset.cumSize);
     else el.textContent = relNum(relCum(k, el.dataset.cumSize));
+  });
+  document.querySelectorAll("#relTbody [data-ord-size]").forEach(el => {
+    el.innerHTML = relOrderCellHtml(el.dataset.ordSize);
   });
   renderReleaseTotals();
   renderReleaseLotInfo();
@@ -6839,6 +7411,163 @@ function bindReleaseEvents() {
   document.addEventListener("visibilitychange", () => {
     if (document.hidden && relState.dirty) saveRelease();
   });
+}
+
+// ==========================================================
+// TAB 05: NHẬT KÝ ĐÓNG GÓI (số Chỉ lệnh đóng gói theo ngày × lô × size của từng PO, theo dõi đủ đơn)
+// ==========================================================
+const packLogState = { customerId: null, orders: [], seq: 0 };
+
+async function loadPackLog() {
+  const body = document.getElementById("plBody");
+  if (!body) return;
+  const custId = appState.currentCustomer;
+  const cust = appState.customers.find(c => c.id === custId);
+  document.getElementById("plCust").textContent = cust ? cust.name : "chưa chọn khách";
+  if (!custId) {
+    body.innerHTML = '<div class="pl-empty">Chọn khách hàng ở ô KH phía trên.</div>';
+    return;
+  }
+  if (packLogState.customerId !== custId) {
+    document.getElementById("plWave").value = "";
+    document.getElementById("plPo").value = "";
+  }
+  const seq = ++packLogState.seq;
+  body.innerHTML = '<div class="pl-empty">Đang tải nhật ký…</div>';
+  try {
+    const res = await fetch(`/api/pack-log?customer_id=${encodeURIComponent(custId)}&t=${Date.now()}`);
+    const data = await res.json();
+    if (seq !== packLogState.seq) return;
+    if (!data.success) throw new Error(data.error || "Không tải được");
+    packLogState.customerId = custId;
+    packLogState.orders = data.orders || [];
+    renderPackLogFilters();
+    renderPackLog();
+  } catch (err) {
+    if (seq !== packLogState.seq) return;
+    body.innerHTML = `<div class="pl-empty">Không tải được nhật ký: ${escHtml(err.message)}</div>`;
+  }
+}
+
+const plWaveKey = o => o.wave || "__none__";
+
+function renderPackLogFilters() {
+  const waveSel = document.getElementById("plWave");
+  const poSel = document.getElementById("plPo");
+  const orders = packLogState.orders;
+  const waves = [...new Set(orders.map(o => o.wave).filter(Boolean))].sort((a, b) => a.localeCompare(b, "vi", { numeric: true }));
+  const keepWave = waveSel.value;
+  waveSel.innerHTML = '<option value="">Tất cả đợt</option>' + waves.map(w => `<option value="${escHtml(w)}">${escHtml(w)}</option>`).join("")
+    + (orders.some(o => !o.wave) ? '<option value="__none__">Chưa ghi đợt</option>' : "");
+  waveSel.value = [...waveSel.options].some(o => o.value === keepWave) ? keepWave : "";
+  const keepPo = poSel.value;
+  const list = orders.filter(o => !waveSel.value || plWaveKey(o) === waveSel.value);
+  poSel.innerHTML = '<option value="">Tất cả PO</option>' + list.map(o => `<option value="${escHtml(o.id)}">${escHtml(o.po_number)} · ${escHtml(o.style_code)}</option>`).join("");
+  poSel.value = list.some(o => o.id === keepPo) ? keepPo : "";
+}
+
+function plSizesOf(o, custSizes) {
+  const set = new Set(Object.keys(o.order || {}));
+  Object.values(o.days || {}).forEach(day => Object.values(day).forEach(m => Object.keys(m).forEach(x => set.add(x))));
+  const rank = x => {
+    const i = custSizes.findIndex(c => c.toLowerCase() === String(x).toLowerCase());
+    return i < 0 ? 999 : i;
+  };
+  return [...set].sort((a, b) => rank(a) - rank(b) || String(a).localeCompare(String(b), "vi", { numeric: true }));
+}
+
+function plCardHtml(o, custSizes, from, to) {
+  const sizes = plSizesOf(o, custSizes);
+  const order = o.order || {};
+  const orderSizes = Object.keys(order);
+  const cum = o.cum || {};
+  const orderTotal = orderSizes.reduce((a, x) => a + order[x], 0);
+  const packedCapped = orderSizes.reduce((a, x) => a + Math.min(cum[x] || 0, order[x]), 0);
+  const packedAll = Object.values(cum).reduce((a, b) => a + b, 0);
+  const pct = orderTotal ? Math.round(packedCapped * 100 / orderTotal) : 0;
+  const dates = Object.keys(o.days || {}).filter(d => (!from || d >= from) && (!to || d <= to)).sort().reverse();
+  const rows = dates.map(d => {
+    const day = o.days[d];
+    const lots = o.lots.filter(l => day[l]);
+    return lots.map((l, i) => {
+      const m = day[l];
+      const sum = Object.values(m).reduce((a, b) => a + b, 0);
+      return `<tr class="${i ? "pl-sub-row" : ""}"><td class="pl-date">${i ? "" : relFmtDate(d)}</td><td><span class="lot-badge">${escHtml(relLotLabel(l))}</span></td>${sizes.map(x => `<td class="${m[x] ? "pl-v" : "pl-zero"}">${m[x] ? relNum(m[x]) : "·"}</td>`).join("")}<td class="pl-v">${relNum(sum)}</td></tr>`;
+    }).join("");
+  }).join("");
+  const remainCell = x => {
+    if (!order[x]) return '<td class="pl-zero">·</td>';
+    const r = order[x] - (cum[x] || 0);
+    if (r === 0) return `<td><span class="pl-ok" title="Đủ ngày ${escHtml(relFmtDate(o.done[x] || ""))}">OK</span></td>`;
+    return r > 0 ? `<td class="pl-remain">${relNum(r)}</td>` : `<td class="pl-remain">vượt ${relNum(-r)}</td>`;
+  };
+  const badge = o.done_date
+    ? `<span class="pl-badge is-done">Đủ đơn ngày ${escHtml(relFmtDate(o.done_date))}</span>`
+    : (orderTotal ? '<span class="pl-badge">Chưa đủ đơn</span>' : '<span class="pl-badge is-none">Chưa dán đơn theo size</span>');
+  const stats = orderTotal
+    ? `Đơn <b class="pl-v">${relNum(orderTotal)}</b> · Đã đóng gói <b class="pl-v">${relNum(packedAll)}</b> (${pct}%) · Còn thiếu <b class="${orderTotal - packedCapped ? "pl-remain" : "pl-ok-txt"}">${relNum(orderTotal - packedCapped)}</b>`
+    : `Đã đóng gói <b class="pl-v">${relNum(packedAll)}</b>`;
+  return `<div class="manage-card pl-po">
+    <div class="pl-po-head">
+      <span class="pl-po-num">${escHtml(o.po_number)}</span>
+      <span class="pl-po-meta">ART <b class="mg-art">${escHtml(o.style_code)}</b>${o.crd ? ` · CRD <b>${escHtml(relFmtDate(o.crd))}</b>` : ""} · ${stats}</span>
+      ${orderTotal ? `<span class="pl-prog"><i class="${o.done_date ? "is-done" : ""}" style="width:${pct}%"></i></span>` : ""}
+      ${badge}
+    </div>
+    ${(o.lot_info || []).length ? `<div class="pl-lots">${o.lot_info.map(l => {
+      const lt = Object.values(l.order).reduce((a, b) => a + b, 0);
+      const got = Object.keys(l.order).reduce((a, x) => a + Math.min(l.cum[x] || 0, l.order[x]), 0);
+      return `<span class="pl-lot${l.done_date ? " is-done" : ""}"><b>${escHtml(relLotLabel(l.name))}</b>${l.done_date ? `đủ ${escHtml(relFmtDate(l.done_date))}` : `${relNum(got)}/${relNum(lt)}`}</span>`;
+    }).join("")}</div>` : ""}
+    <div class="mg-table-wrap pl-table-wrap"><table class="mg-table pl-table" style="min-width:${230 + sizes.length * 54}px">
+      <colgroup><col style="width:110px"><col style="width:76px">${sizes.map(() => "<col>").join("")}<col style="width:70px"></colgroup>
+      <thead><tr><th>Ngày</th><th>Lô</th>${sizes.map(x => `<th class="mg-th-num">${escHtml(x)}</th>`).join("")}<th class="mg-th-num">Cộng</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="${sizes.length + 3}" class="pl-none">${Object.keys(o.days || {}).length ? "Không có số đóng gói trong khoảng ngày đang lọc" : "Chưa có số đóng gói"}</td></tr>`}</tbody>
+      <tfoot>
+        <tr><td colspan="2">Lũy kế</td>${sizes.map(x => `<td class="pl-v">${relNum(cum[x] || 0)}</td>`).join("")}<td class="pl-v">${relNum(packedAll)}</td></tr>
+        ${orderTotal ? `<tr><td colspan="2">Đơn hàng</td>${sizes.map(x => `<td>${order[x] ? relNum(order[x]) : "·"}</td>`).join("")}<td>${relNum(orderTotal)}</td></tr>
+        <tr><td colspan="2">Còn</td>${sizes.map(remainCell).join("")}<td>${o.done_date ? '<span class="pl-ok">OK</span>' : `<span class="pl-remain">${relNum(orderTotal - packedCapped)}</span>`}</td></tr>` : ""}
+      </tfoot>
+    </table></div>
+  </div>`;
+}
+
+function renderPackLog() {
+  const body = document.getElementById("plBody");
+  if (!body) return;
+  const wave = document.getElementById("plWave").value;
+  const poId = document.getElementById("plPo").value;
+  const from = document.getElementById("plFrom").value;
+  const to = document.getElementById("plTo").value;
+  const cust = appState.customers.find(c => c.id === packLogState.customerId);
+  const custSizes = getCustomerSizes(cust);
+  const picked = packLogState.orders.filter(o => (!wave || plWaveKey(o) === wave) && (!poId || o.id === poId));
+  // PO chưa dán đơn theo size và chưa có số đóng gói thì không hiện cho gọn
+  const shown = picked.filter(o => Object.keys(o.order || {}).length || Object.keys(o.days || {}).length);
+  const doneCount = shown.filter(o => o.done_date).length;
+  document.getElementById("plCount").textContent = shown.length
+    ? `${shown.length} PO · ${doneCount} đủ đơn${picked.length > shown.length ? ` · ${picked.length - shown.length} PO chưa có đơn / số đóng gói (ẩn)` : ""}`
+    : "";
+  if (!shown.length) {
+    body.innerHTML = `<div class="pl-empty">${picked.length ? "Các PO này chưa dán đơn theo size và chưa có số đóng gói." : "Không có PO nào."} Dán đơn hàng ở tab Khách hàng &amp; PO → Đơn hàng PO.</div>`;
+    return;
+  }
+  const waveNames = [...new Set(shown.map(plWaveKey))].sort((a, b) => (a === "__none__") - (b === "__none__") || a.localeCompare(b, "vi", { numeric: true }));
+  body.innerHTML = waveNames.map(w => {
+    const list = shown.filter(o => plWaveKey(o) === w);
+    return `<div class="pl-wave"><span>${escHtml(w === "__none__" ? "Chưa ghi đợt" : w)}</span>${list.length} PO · ${list.filter(o => o.done_date).length} đủ đơn</div>`
+      + list.map(o => plCardHtml(o, custSizes, from, to)).join("");
+  }).join("");
+}
+
+function bindPackLogEvents() {
+  if (!document.getElementById("tab-pack-log")) return;
+  document.getElementById("plWave").addEventListener("change", () => {
+    renderPackLogFilters();
+    renderPackLog();
+  });
+  ["plPo", "plFrom", "plTo"].forEach(id => document.getElementById(id).addEventListener("change", renderPackLog));
+  document.getElementById("btnPlReload").addEventListener("click", loadPackLog);
 }
 
 // ==========================================================

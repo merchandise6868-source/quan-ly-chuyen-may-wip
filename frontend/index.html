@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@500;600;700;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="styles.css?v=20261026_1000">
+  <link rel="stylesheet" href="styles.css?v=20261026_1500">
   
   <!-- cdn for sheetjs (xlsx) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -203,6 +203,11 @@
           <span class="tab-num">04</span>
           <span class="tab-txt-desktop">Phân quyền &amp; tài khoản</span>
           <span class="tab-txt-mobile">Phân quyền</span>
+        </button>
+        <button class="tab-btn admin-only-tab" id="tabBtnPackLog" data-tab="tab-pack-log">
+          <span class="tab-num">05</span>
+          <span class="tab-txt-desktop">Nhật ký đóng gói</span>
+          <span class="tab-txt-mobile">Nhật ký</span>
         </button>
         <div class="status-tag" id="reportStatusTag">Bản nháp</div>
       </nav>
@@ -638,7 +643,23 @@
           <div class="mg-panel" data-mg-panel="po">
             <div class="mg-po-toolbar">
               <input type="search" id="poSearchInput" class="form-control mg-search" placeholder="Tìm số PO hoặc ART" autocomplete="off">
+              <button type="button" class="mg-btn mg-btn-outline" id="btnTogglePaste">Dán đơn hàng</button>
               <button type="button" class="mg-btn mg-btn-primary" id="btnTogglePoForm">+ Thêm PO</button>
+            </div>
+
+            <!-- DÁN ĐƠN HÀNG THEO ĐỢT (copy từ Excel): mỗi dòng 1 PO, số đôi theo size -->
+            <div class="mg-paste" id="poPastePanel" hidden>
+              <div class="mg-po-form-title">Dán đơn hàng — <span id="poPasteCust"></span></div>
+              <div class="mg-paste-hint">Copy nguyên bảng đơn hàng từ Excel (kể cả dòng tiêu đề) rồi dán vào ô dưới (Ctrl+V). Đọc được 2 dạng:
+                <b>mỗi dòng 1 lô</b> (CLSX | RY | ART | Mã màu | CRD | Tổng | các size) thì tự chia lô; cùng RY khác màu thì mỗi màu 1 PO "RY · MÀU";
+                hoặc <b>mỗi dòng 1 PO</b> (PO | ART | các size | Tổng). Dòng tiêu đề có ngày (… 20.10.2026) hoặc dòng "Đợt …" dùng làm tên đợt.</div>
+              <textarea id="poPasteBox" class="mg-paste-box" spellcheck="false" placeholder="Đợt 1 - giao 15/11&#10;PO&#9;ART&#9;37&#9;38&#9;39&#9;Tổng&#10;RV2610-156&#9;DA-260&#9;80&#9;120&#9;160&#9;360"></textarea>
+              <div class="mg-paste-actions">
+                <button type="button" class="mg-btn mg-btn-primary" id="btnPasteRead">Đọc dữ liệu</button>
+                <button type="button" class="mg-btn mg-btn-outline" id="btnPasteCancel">Đóng</button>
+                <span class="mg-paste-note">PO đã có thì cập nhật; PO và ART chưa có thì tự tạo. Bảng không có cột CLSX thì chia lô bằng nút <b>Sửa</b> ở từng PO.</span>
+              </div>
+              <div id="poPastePreview"></div>
             </div>
 
             <form id="formAddPO" class="mg-po-form" novalidate>
@@ -688,6 +709,7 @@
                     <option value="10">10 lô + số đuôi</option>
                   </select>
                 </div>
+                <div class="po-order-sizes" id="poOrderSizes" hidden></div>
                 <div id="dynamicBatchInputsContainer" class="lot-config-wrap"></div>
               </div>
 
@@ -723,6 +745,27 @@
         </div>
       </div>
 
+    </section>
+
+    <!-- TAB 5: NHẬT KÝ ĐÓNG GÓI (số Chỉ lệnh đóng gói theo ngày, PO, lô, size; theo dõi đủ đơn) -->
+    <section id="tab-pack-log" class="tab-pane">
+      <div class="manage-card pl-card">
+        <div class="pl-head">
+          <div>
+            <h2 class="pl-title">Nhật ký đóng gói — <span id="plCust">khách hàng</span></h2>
+            <div class="pl-sub">Số lấy từ Chỉ lệnh đóng gói. Đủ đơn = lũy kế đóng gói của size bằng số trên đơn hàng.</div>
+          </div>
+          <button type="button" class="mg-btn mg-btn-outline" id="btnPlReload">Tải lại</button>
+        </div>
+        <div class="pl-filters">
+          <label>Đợt <select id="plWave"></select></label>
+          <label>PO <select id="plPo"></select></label>
+          <label>Từ ngày <input type="date" id="plFrom"></label>
+          <label>đến <input type="date" id="plTo"></label>
+          <span class="pl-count" id="plCount"></span>
+        </div>
+      </div>
+      <div id="plBody"></div>
     </section>
 
     <!-- TAB 4: PHÂN QUYỀN & QUẢN LÝ TÀI KHOẢN -->
@@ -1202,9 +1245,9 @@
           </div>
           <div class="rel-table-card">
             <table class="rel-table">
-              <colgroup><col class="rel-col-size"><col><col><col><col><col class="rel-col-cum"></colgroup>
+              <colgroup id="relGridCols"><col class="rel-col-size"><col><col><col><col><col class="rel-col-cum"></colgroup>
               <thead>
-                <tr><th>Size</th><th>Nhận 1</th><th>Nhận 2</th><th>Nhận 3</th><th>Nhận 4</th><th class="rel-th-cum" id="relThCum">Tích lũy</th></tr>
+                <tr id="relGridHead"><th>Size</th><th>Nhận 1</th><th>Nhận 2</th><th>Nhận 3</th><th>Nhận 4</th><th class="rel-th-cum" id="relThCum">Tích lũy</th></tr>
               </thead>
               <tbody id="relTbody"></tbody>
               <tfoot><tr id="relTfoot"></tr></tfoot>
@@ -1229,6 +1272,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261026_1000"></script>
+  <script src="app.js?v=20261026_1500"></script>
 </body>
 </html>

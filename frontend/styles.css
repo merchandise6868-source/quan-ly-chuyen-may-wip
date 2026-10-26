@@ -9430,3 +9430,258 @@ body.role-packer #reportStatusTag {
 .rel-step b { white-space: nowrap; }
 .rel-step.is-bad { color: #db2777; }
 .rel-banner.is-ok .rel-step { background: #ffffff; }
+
+/* ========================================================
+   ĐƠN HÀNG THEO SIZE: dán theo đợt (tab 03), cột Đơn hàng (Thả chuyền),
+   tab 05 Nhật ký đóng gói. OK đủ đơn = xanh lá, còn lại theo bộ màu thẻ NXT
+   ======================================================== */
+#btnTogglePaste.is-open { border-color: #1e3a5f; box-shadow: inset 0 0 0 1px #1e3a5f; }
+.mg-paste {
+  margin-bottom: 14px;
+  padding: 12px 14px 14px;
+  background: #fbfcfe;
+  border: 1px solid #1e3a5f;
+  border-radius: 12px;
+}
+.mg-paste[hidden] { display: none; }
+.mg-paste-hint { font-size: 12px; color: #475569; margin-bottom: 8px; line-height: 1.5; }
+.mg-paste-box {
+  width: 100%;
+  min-height: 150px;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1.5px solid #ec4899;
+  border-radius: 8px;
+  background: #fdf2f8;
+  color: #0f172a;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.5;
+  white-space: pre;
+  overflow: auto;
+  resize: vertical;
+  tab-size: 10;
+  outline: none;
+}
+.mg-paste-box:focus { border-color: #db2777; box-shadow: 0 0 0 2px #fbcfe8; }
+.mg-paste-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.mg-paste-actions.is-end { justify-content: flex-end; }
+.mg-paste-note { font-size: 11.5px; color: #64748b; }
+.mg-paste-err {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fdf2f8;
+  color: #db2777;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.mg-paste-sum { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 8px; }
+.mg-paste-sum span {
+  padding: 3px 9px;
+  border-radius: 6px;
+  background: #f0f4f8;
+  color: #1e3a5f;
+  font-size: 12px;
+  font-weight: 700;
+}
+.mg-paste-sum span.is-bad { background: #fdf2f8; color: #db2777; }
+.mg-paste-table { min-width: 0; table-layout: auto; }
+.mg-paste-table td, .mg-paste-table th { white-space: nowrap; }
+.mg-paste-table tr.is-bad td { background: #fdf2f8; }
+.mg-paste-notes { white-space: normal !important; }
+.mg-note {
+  display: inline-block;
+  margin: 1px 3px 1px 0;
+  padding: 1px 7px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  background: #f0f4f8;
+  color: #1e3a5f;
+}
+.mg-note.is-up { background: #fff7ed; color: #9a3412; }
+.mg-note.is-art,
+.mg-note.is-warn,
+.mg-note.is-bad { background: #fdf2f8; color: #db2777; }
+.mg-table tr.mg-wave-row td {
+  background: #1e3a5f;
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 12.5px;
+  text-align: left;
+}
+.mg-table tr.mg-wave-row td span { margin-left: 8px; font-weight: 600; color: #bcd0ea; font-size: 11.5px; }
+.mg-table tbody tr.mg-wave-row:hover td { background: #1e3a5f; }
+.mg-ord-n { display: block; font-family: 'Be Vietnam Pro', sans-serif; font-size: 10.5px; font-weight: 600; color: #64748b; }
+
+/* Biểu mẫu PO: đơn theo size phía trên bảng chia lô */
+.po-order-sizes { margin: 8px 0 4px; padding: 8px 10px; border-radius: 8px; background: #f0f4f8; }
+.po-order-sizes[hidden] { display: none; }
+.po-order-title { font-size: 12px; font-weight: 700; color: #1e3a5f; margin-bottom: 5px; }
+.po-order-title b { font-family: var(--font-mono); color: #1d4ed8; }
+.po-order-list { display: flex; flex-wrap: wrap; gap: 4px; }
+.po-order-chip {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 40px;
+  padding: 2px 5px;
+  border-radius: 6px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  line-height: 1.15;
+}
+.po-order-chip span { font-family: var(--font-mono); font-size: 11.5px; font-weight: 800; color: #1e3a5f; }
+.po-order-chip b { font-family: var(--font-mono); font-size: 11px; color: #1d4ed8; }
+.po-order-hint { margin-top: 5px; font-size: 11px; color: #64748b; }
+
+/* Popup thả chuyền: cột Đơn hàng (so với tích lũy cả PO của công đoạn đang chọn) */
+.rel-th-ord { color: #1e3a5f !important; }
+.rel-th-ord small { display: block; font-size: 9.5px; font-weight: 600; color: #94a3b8; }
+.rel-ord { border-radius: 6px; padding: 2px 0; line-height: 1.15; }
+.rel-ord small { display: block; font-family: var(--font-mono); font-size: 10px; font-weight: 700; color: #94a3b8; }
+.rel-ord b { display: block; font-size: 11.5px; font-weight: 800; }
+.rel-ord.is-ok { background: #dcfce7; }
+.rel-ord.is-ok b { color: #15803d; }
+.rel-ord.is-less b { color: #64748b; font-weight: 700; }
+.rel-ord.is-over { background: #fdf2f8; }
+.rel-ord.is-over b { color: #db2777; }
+.rel-ord-count { font-family: 'Be Vietnam Pro', sans-serif; font-size: 11px; font-weight: 700; color: #64748b; }
+.rel-table tfoot .rel-ord.is-ok { display: inline-block; padding: 2px 10px; }
+
+/* Tab 05: Nhật ký đóng gói */
+#tab-pack-log .manage-card {
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+}
+.pl-card { margin-bottom: 12px; }
+.pl-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 12px 16px 8px; }
+.pl-title { margin: 0; font-size: 18px; font-weight: 800; color: #1e3a5f; }
+.pl-sub { margin-top: 2px; font-size: 12.5px; color: #64748b; }
+.pl-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 4px 16px 12px; }
+.pl-filters label { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: #475569; }
+.pl-filters select,
+.pl-filters input {
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  background: #ffffff;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e3a5f;
+}
+.pl-filters select { max-width: 260px; }
+.pl-count { margin-left: auto; font-size: 12px; font-weight: 700; color: #475569; }
+.pl-empty {
+  padding: 18px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #64748b;
+  font-size: 13px;
+  text-align: center;
+}
+.pl-wave { display: flex; align-items: center; gap: 8px; margin: 14px 2px 6px; font-size: 13px; font-weight: 700; color: #475569; }
+.pl-wave span { background: #1e3a5f; color: #ffffff; border-radius: 6px; padding: 3px 10px; font-size: 13px; font-weight: 800; }
+.pl-po { margin-bottom: 10px; }
+.pl-po-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 9px 12px;
+  background: #f0f4f8;
+  border-bottom: 1px solid #e2e8f0;
+}
+.pl-po-num { font-family: var(--font-mono); font-size: 14px; font-weight: 800; color: #1e3a5f; }
+.pl-po-meta { font-size: 12.5px; font-weight: 600; color: #475569; }
+.pl-prog { flex: 1 1 120px; max-width: 220px; height: 8px; border-radius: 6px; background: #e2e8f0; overflow: hidden; }
+.pl-prog i { display: block; height: 100%; background: #1d4ed8; }
+.pl-prog i.is-done { background: #16a34a; }
+.pl-badge {
+  margin-left: auto;
+  padding: 2px 9px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #1e3a5f;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.pl-badge.is-done { background: #16a34a; border-color: #16a34a; color: #ffffff; }
+.pl-badge.is-none { color: #64748b; font-weight: 700; }
+.pl-table-wrap { border: none; border-radius: 0; }
+.pl-table { table-layout: fixed; }
+.pl-table th, .pl-table td { white-space: nowrap; text-align: center; }
+.pl-table th:nth-child(1), .pl-table th:nth-child(2),
+.pl-table td:nth-child(1), .pl-table td:nth-child(2) { text-align: left; }
+.pl-table td.pl-date { font-family: var(--font-mono); font-size: 12.5px; font-weight: 800; color: #1e3a5f; }
+.pl-table tr.pl-sub-row td { border-top: 1px dashed #eef2f7; }
+.pl-v { font-family: var(--font-mono); font-weight: 800; color: #1d4ed8; }
+.pl-zero { color: #cbd5e1; }
+.pl-none { color: #94a3b8; padding: 14px !important; }
+.pl-table tfoot td {
+  background: #f0f4f8;
+  border-top: 1.5px solid #cbd5e1;
+  font-family: var(--font-mono);
+  font-weight: 800;
+  color: #334155;
+  padding: 7px 10px;
+}
+.pl-table tfoot td:first-child { font-family: 'Be Vietnam Pro', sans-serif; color: #1e3a5f; }
+.pl-remain { color: #db2777 !important; font-family: var(--font-mono); font-weight: 800; }
+.pl-ok {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 5px;
+  background: #dcfce7;
+  color: #15803d;
+  font-family: 'Be Vietnam Pro', sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+}
+.pl-ok-txt { color: #15803d; }
+
+.po-order-hint .mg-link-btn { margin: 0 0 0 6px; }
+.pl-table th.mg-th-num { text-align: center; }
+.pl-table tfoot td:nth-child(2) { text-align: center; }
+
+/* Dán đơn theo lô (CLSX): dòng lô, dòng cộng PO, ô sửa tên đợt; nhật ký: trạng thái từng lô */
+.mg-table tr.mg-wave-row .mg-wave-input {
+  width: 260px;
+  max-width: 60%;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 800;
+}
+.mg-table tr.mg-wave-row .mg-wave-input:focus { outline: none; border-color: #ffffff; background: rgba(255, 255, 255, 0.2); }
+.mg-paste-table tr.mg-po-total td { background: #f0f4f8; font-weight: 800; color: #1e3a5f; border-top: 1px solid #cbd5e1; }
+.mg-paste-table tr.mg-po-total.is-bad td { background: #fdf2f8; }
+.mg-paste-table td.mg-crd { font-family: var(--font-mono); font-size: 12px; color: #475569; }
+.pl-lots { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 12px 0; }
+.pl-lot {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: #1d4ed8;
+}
+.pl-lot b { font-family: 'Be Vietnam Pro', sans-serif; color: #1e3a5f; }
+.pl-lot.is-done { background: #dcfce7; border-color: #bbf7d0; color: #15803d; }

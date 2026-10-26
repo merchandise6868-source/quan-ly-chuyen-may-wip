@@ -444,6 +444,22 @@ function cleanStageList(list) {
   return out;
 }
 
+// Số đơn hàng theo size của PO: {size: số đôi}, giữ thứ tự cột size lúc dán
+function parseSizeQty(raw) {
+  let v = raw;
+  if (typeof v === 'string') {
+    try { v = JSON.parse(v || '{}'); } catch (e) { v = {}; }
+  }
+  const out = {};
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return out;
+  for (const [k, q] of Object.entries(v)) {
+    const size = String(k ?? '').trim().slice(0, 20);
+    const n = parseInt(q, 10);
+    if (size && Number.isFinite(n) && n > 0 && Object.keys(out).length < 60) out[size] = n;
+  }
+  return out;
+}
+
 const toReleaseQty = (v) => {
   const n = parseInt(v, 10);
   return Number.isFinite(n) && n > 0 ? n : 0;
@@ -476,8 +492,13 @@ function buildReleasePayload({ po, cust, rows, confs, parts }, date, batchReq, s
     name: String(b.batch_name || ''),
     total: Number(b.batch_plan) || 0,
     sizes: cleanSizeList(b.sizes || []).sort((x, y) => rank(x) - rank(y)),
-    is_tail: Boolean(b.is_tail_batch || /đuôi/i.test(String(b.batch_name || '')))
+    is_tail: Boolean(b.is_tail_batch || /đuôi/i.test(String(b.batch_name || ''))),
+    size_qty: parseSizeQty(b.size_qty)
   })).filter(l => l.name);
+
+  // Tích lũy cả PO (mọi lô) của công đoạn đang chọn: so với đơn hàng theo size (cột Đơn hàng)
+  const order = parseSizeQty(po ? po.size_qty : {});
+  const poCum = {};
 
   // Tích lũy theo lô cho thanh Tổng hợp: đóng gói so với số đồng bộ của công đoạn cuối
   const agg = {};
@@ -493,6 +514,7 @@ function buildReleasePayload({ po, cust, rows, confs, parts }, date, batchReq, s
     if (st === null) continue;
     if (r.kind === 'tha_chuyen') {
       ensure(b).tcAll += qty;
+      if (st === stage) poCum[r.size] = (poCum[r.size] || 0) + qty;
       if (st === lastStage) ensure(b).tc[r.size] = (ensure(b).tc[r.size] || 0) + qty;
     } else if (r.kind === 'tha_chuyen_ct') ensure(b).ct += qty;
   }
@@ -561,7 +583,7 @@ function buildReleasePayload({ po, cust, rows, confs, parts }, date, batchReq, s
     success: true,
     po_id: po ? po.id : null,
     date,
-    po: po ? { po_number: po.po_number, style_code: po.style_code, po_plan: Number(po.po_plan) || 0 } : null,
+    po: po ? { po_number: po.po_number, style_code: po.style_code, po_plan: Number(po.po_plan) || 0, wave: po.wave || '' } : null,
     customer: cust ? { id: cust.id, name: cust.name } : null,
     batch,
     lots,
@@ -569,6 +591,9 @@ function buildReleasePayload({ po, cust, rows, confs, parts }, date, batchReq, s
     stages,
     stage,
     stageCum,
+    order,
+    lotOrder: lot && Object.keys(lot.size_qty || {}).length ? lot.size_qty : {},
+    poCum,
     parts: cleanPartList(parseSizeList(parts)),
     tc: day.tha_chuyen,
     ct: day.tha_chuyen_ct,
@@ -616,7 +641,7 @@ async function getRolePasswordRecord(env, role) {
 async function loadReleasePayload(env, poId, date, batch, stage) {
   if (env && env.DB) {
     const po = await env.DB.prepare(
-      "SELECT id, customer_id, po_number, style_code, po_plan, default_batches FROM po_orders WHERE id = ?"
+      "SELECT id, customer_id, po_number, style_code, po_plan, default_batches, wave, size_qty FROM po_orders WHERE id = ?"
     ).bind(poId).first();
     const cust = po ? await env.DB.prepare("SELECT id, name, size_list, stages FROM customers WHERE id = ?").bind(po.customer_id).first() : null;
     const { results: rows } = await env.DB.prepare(
@@ -826,6 +851,16 @@ async function initD1Tables(db) {
     } catch (e) {}
     try {
       await db.prepare("ALTER TABLE po_orders ADD COLUMN tail_batch_name TEXT").run();
+    } catch (e) {}
+    // Đơn hàng dán theo đợt: tên đợt + số đôi theo size (JSON {size: số})
+    try {
+      await db.prepare("ALTER TABLE po_orders ADD COLUMN wave TEXT DEFAULT ''").run();
+    } catch (e) {}
+    try {
+      await db.prepare("ALTER TABLE po_orders ADD COLUMN size_qty TEXT DEFAULT '{}'").run();
+    } catch (e) {}
+    try {
+      await db.prepare("ALTER TABLE po_orders ADD COLUMN crd TEXT DEFAULT ''").run();
     } catch (e) {}
 
     // Safe schema migrations for report_batches table (daily_out, note_export, shortage breakdown)
@@ -1695,8 +1730,15 @@ export default {
           const orderId = id || ('po-' + Date.now());
 
           if (env && env.DB) {
-            await env.DB.prepare("INSERT OR REPLACE INTO po_orders (id, customer_id, style_code, po_number, line_name, po_plan, tail_sweep_date, tail_batch_name, default_batches) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
-              .bind(orderId, customer_id, style_code || 'Mã Style', po_number || 'PO-001', line_name || 'Chuyền 1', Number(po_plan) || 0, tail_sweep_date || null, tail_batch_name || null, JSON.stringify(parsedBatches))
+            // Chỉ ghi các cột của biểu mẫu PO; giữ nguyên đợt và đơn hàng theo size đã dán
+            await env.DB.prepare(`
+              INSERT INTO po_orders (id, customer_id, style_code, po_number, line_name, po_plan, tail_sweep_date, tail_batch_name, default_batches)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT(id) DO UPDATE SET customer_id = excluded.customer_id, style_code = excluded.style_code,
+                po_number = excluded.po_number, line_name = excluded.line_name, po_plan = excluded.po_plan,
+                tail_sweep_date = excluded.tail_sweep_date, tail_batch_name = excluded.tail_batch_name,
+                default_batches = excluded.default_batches
+            `).bind(orderId, customer_id, style_code || 'Mã Style', po_number || 'PO-001', line_name || 'Chuyền 1', Number(po_plan) || 0, tail_sweep_date || null, tail_batch_name || null, JSON.stringify(parsedBatches))
               .run();
             const { results: ordersRaw } = await env.DB.prepare("SELECT * FROM po_orders ORDER BY created_at DESC").all();
             const orders = (ordersRaw || []).map(o => ({
@@ -1710,6 +1752,7 @@ export default {
             const idx = memoryDB.orders.findIndex(o => o.id === id);
             if (idx >= 0) {
               memoryDB.orders[idx] = {
+                ...memoryDB.orders[idx],
                 id,
                 customer_id,
                 style_code,
@@ -2854,6 +2897,233 @@ export default {
           }
 
           return Response.json(await loadReleasePayload(env, poId, date, batch), { headers });
+        } catch (err) {
+          return Response.json({ success: false, error: err.message }, { status: 500, headers });
+        }
+      }
+
+      // Dán đơn hàng theo đợt: mỗi dòng 1 PO (ART + số đôi theo size).
+      // PO đã có (cùng khách, cùng số PO) thì cập nhật đợt / ART / số theo size / kế hoạch, giữ chia lô;
+      // PO chưa có thì tạo mới 1 lô; ART chưa có thì thêm; size chưa có thì nối vào dãy size của khách.
+      if (url.pathname === '/api/order-import' && request.method === 'POST') {
+        try {
+          const body = await request.json();
+          const customerId = String(body.customer_id || '');
+          let cust;
+          let orders;
+          let arts;
+          if (env && env.DB) {
+            cust = await env.DB.prepare("SELECT id, size_list FROM customers WHERE id = ?").bind(customerId).first();
+            if (cust) {
+              orders = (await env.DB.prepare("SELECT id, po_number, style_code, po_plan, default_batches FROM po_orders WHERE customer_id = ?").bind(customerId).all()).results || [];
+              arts = ((await env.DB.prepare("SELECT art FROM art_parts WHERE customer_id = ?").bind(customerId).all()).results || []).map(r => r.art);
+            }
+          } else {
+            cust = (memoryDB.customers || []).find(c => c.id === customerId);
+            orders = (memoryDB.orders || []).filter(o => o.customer_id === customerId);
+            arts = Object.values(memoryDB.art_parts || {}).filter(r => r.customer_id === customerId).map(r => r.art);
+          }
+          if (!cust) return Response.json({ success: false, error: "Không tìm thấy khách hàng" }, { status: 404, headers });
+
+          const byId = new Map(orders.map(o => [o.id, o]));
+          const byPo = new Map(orders.map(o => [String(o.po_number || '').trim().toLowerCase(), o]));
+          const knownArts = new Set([...arts, ...orders.map(o => o.style_code)].map(a => String(a || '').trim().toLowerCase()).filter(Boolean));
+          const sizeList = cleanSizeList(parseSizeList(cust.size_list));
+          const knownSizes = new Set(sizeList.map(x => x.toLowerCase()));
+          const isoDate = v => (/^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? String(v) : '');
+          const newSizes = [];
+          const newArts = [];
+          const rows = new Map();   // PO đích -> dòng cuối cùng (dán trùng PO thì lấy dòng sau)
+          let skipped = 0;
+          for (const w of (Array.isArray(body.waves) ? body.waves : [])) {
+            const wave = String(w && w.name || '').trim().slice(0, 60);
+            for (const r of (Array.isArray(w && w.rows) ? w.rows : [])) {
+              const poNumber = String(r.po_number || '').trim().slice(0, 60);
+              const art = String(r.art || '').trim().slice(0, 80);
+              // Lô theo bảng dán: tên lô, số đôi theo size (số tổng = cộng các size)
+              const lots = (Array.isArray(r.lots) ? r.lots : [])
+                .map(l => ({ name: String(l.name || '').trim().slice(0, 40), sizes: parseSizeQty(l.sizes), crd: isoDate(l.crd) }))
+                .filter(l => l.name && sumValues(l.sizes) > 0);
+              let sizes = parseSizeQty(r.sizes);
+              if (lots.length) {
+                sizes = {};
+                lots.forEach(l => Object.entries(l.sizes).forEach(([k, q]) => { sizes[k] = (sizes[k] || 0) + q; }));
+              }
+              const total = sumValues(sizes);
+              const pickedById = r.id ? byId.get(String(r.id)) : null;   // PO đích do giao diện chọn (gán màu cho PO cũ)
+              const prev = pickedById || byPo.get(poNumber.toLowerCase()) || null;
+              if (!poNumber || !total || (!art && !prev)) {
+                skipped++;
+                continue;
+              }
+              rows.set(prev ? prev.id : poNumber.toLowerCase(), { poNumber, art, sizes, total, wave, lots, crd: isoDate(r.crd), prev, pickedById: !!pickedById });
+            }
+          }
+
+          let created = 0;
+          let updated = 0;
+          let renamed = 0;
+          const stmts = [];
+          const now = new Date().toISOString();
+          let seq = 0;
+          for (const r of rows.values()) {
+            Object.keys(r.sizes).forEach(sz => {
+              if (!knownSizes.has(sz.toLowerCase())) {
+                knownSizes.add(sz.toLowerCase());
+                newSizes.push(sz);
+              }
+            });
+            if (r.art && !knownArts.has(r.art.toLowerCase())) {
+              knownArts.add(r.art.toLowerCase());
+              newArts.push(r.art);
+            }
+            const sizeJson = JSON.stringify(r.sizes);
+            const prev = r.prev;
+            // Chia lô theo bảng dán; giữ lô Số đuôi và số vào chuyền đã có theo tên lô
+            let batches = null;
+            let plan = r.total;
+            if (r.lots.length) {
+              const old = prev ? parseSizeList(prev.default_batches) : [];
+              const oldByName = new Map(old.map(b => [String(b.batch_name || ''), b]));
+              batches = r.lots.map((l, i) => ({
+                id: 'b-' + (i + 1),
+                batch_name: l.name,
+                batch_plan: sumValues(l.sizes),
+                into_sewing: Number((oldByName.get(l.name) || {}).into_sewing) || 0,
+                sizes: Object.keys(l.sizes),
+                size_qty: l.sizes,
+                ...(l.crd ? { crd: l.crd } : {})
+              }));
+              const tails = old.filter(b => /đuôi/i.test(String(b.batch_name || '')) && !r.lots.some(l => l.name === b.batch_name));
+              tails.forEach((b, i) => batches.push({ ...b, id: 'b-' + (batches.length + 1) }));
+              plan = batches.reduce((a, b) => a + (Number(b.batch_plan) || 0), 0);
+            }
+            if (prev) {
+              updated++;
+              const art = r.art || prev.style_code;
+              // PO theo màu: đổi tên PO cũ (ví dụ MEXICO -> MEXICO · ĐEN) nếu tên mới chưa bị PO khác dùng.
+              // Khớp theo số PO (khác hoa / thường) thì giữ nguyên tên đang có.
+              const clash = byPo.get(r.poNumber.toLowerCase());
+              const name = r.pickedById && !(clash && clash.id !== prev.id) ? r.poNumber : prev.po_number;
+              if (name !== prev.po_number) renamed++;
+              const batchJson = batches ? JSON.stringify(batches) : null;
+              if (env && env.DB) {
+                stmts.push(env.DB.prepare(`
+                  UPDATE po_orders SET po_number = ?, wave = COALESCE(NULLIF(?, ''), wave), size_qty = ?, style_code = ?, po_plan = ?,
+                    crd = COALESCE(NULLIF(?, ''), crd), default_batches = COALESCE(?, default_batches) WHERE id = ?
+                `).bind(name, r.wave, sizeJson, art, plan, r.crd, batchJson, prev.id));
+              } else {
+                Object.assign(prev, { po_number: name, size_qty: sizeJson, style_code: art, po_plan: plan });
+                if (r.wave) prev.wave = r.wave;
+                if (r.crd) prev.crd = r.crd;
+                if (batches) prev.default_batches = batches;
+              }
+            } else {
+              created++;
+              const id = `po-${Date.now()}-${++seq}`;
+              const list = batches || [{ id: 'b-1', batch_name: 'Lô 1', batch_plan: r.total, into_sewing: 0, sizes: [] }];
+              if (env && env.DB) {
+                stmts.push(env.DB.prepare(`
+                  INSERT INTO po_orders (id, customer_id, style_code, po_number, line_name, po_plan, default_batches, wave, size_qty, crd)
+                  VALUES (?, ?, ?, ?, 'Chuyền 1', ?, ?, ?, ?, ?)
+                `).bind(id, customerId, r.art, r.poNumber, plan, JSON.stringify(list), r.wave, sizeJson, r.crd));
+              } else {
+                memoryDB.orders.push({
+                  id, customer_id: customerId, style_code: r.art, po_number: r.poNumber, line_name: 'Chuyền 1',
+                  po_plan: plan, tail_sweep_date: null, tail_batch_name: null, default_batches: list, wave: r.wave, size_qty: sizeJson, crd: r.crd
+                });
+              }
+            }
+          }
+          const newList = newSizes.length ? JSON.stringify(cleanSizeList([...sizeList, ...newSizes])) : null;
+          if (env && env.DB) {
+            for (const art of newArts) {
+              stmts.push(env.DB.prepare(`
+                INSERT INTO art_parts (id, customer_id, art, parts, updated_at) VALUES (?, ?, ?, '[]', ?)
+                ON CONFLICT(id) DO NOTHING
+              `).bind(`${customerId}|${art}`, customerId, art, now));
+            }
+            if (newList) stmts.push(env.DB.prepare("UPDATE customers SET size_list = ? WHERE id = ?").bind(newList, customerId));
+            if (stmts.length) await env.DB.batch(stmts);
+          } else {
+            if (!memoryDB.art_parts) memoryDB.art_parts = {};
+            for (const art of newArts) {
+              const id = `${customerId}|${art}`;
+              if (!memoryDB.art_parts[id]) memoryDB.art_parts[id] = { customer_id: customerId, art, parts: [], updated_at: now };
+            }
+            if (newList) cust.size_list = newList;
+          }
+          return Response.json({ success: true, created, updated, renamed, skipped, newArts, newSizes }, { headers });
+        } catch (err) {
+          return Response.json({ success: false, error: err.message }, { status: 500, headers });
+        }
+      }
+
+      // Nhật ký đóng gói: số Chỉ lệnh đóng gói theo ngày × lô × size của từng PO của khách,
+      // kèm đơn hàng theo size, lũy kế và ngày đủ đơn (tính trên toàn bộ số đã nhập)
+      if (url.pathname === '/api/pack-log' && request.method === 'GET') {
+        try {
+          const customerId = url.searchParams.get('customer_id') || '';
+          let orders;
+          let rows;
+          if (env && env.DB) {
+            orders = (await env.DB.prepare(
+              "SELECT id, po_number, style_code, po_plan, default_batches, wave, size_qty, crd, created_at FROM po_orders WHERE customer_id = ?"
+            ).bind(customerId).all()).results || [];
+            rows = (await env.DB.prepare(`
+              SELECT r.po_id, r.batch_name, r.entry_date, r.size, r.n1, r.n2, r.n3, r.n4
+              FROM release_entries r JOIN po_orders o ON o.id = r.po_id
+              WHERE o.customer_id = ? AND r.kind = 'dong_goi'
+            `).bind(customerId).all()).results || [];
+          } else {
+            orders = (memoryDB.orders || []).filter(o => o.customer_id === customerId);
+            const ids = new Set(orders.map(o => o.id));
+            rows = (memoryDB.release_entries || []).filter(r => r.kind === 'dong_goi' && ids.has(r.po_id));
+          }
+          const out = orders.map(o => {
+            const order = parseSizeQty(o.size_qty);
+            const batchList = parseSizeList(o.default_batches).filter(b => b && b.batch_name);
+            const lots = batchList.map(b => String(b.batch_name || ''));
+            const days = {};
+            for (const r of rows) {
+              if (r.po_id !== o.id) continue;
+              const qty = [r.n1, r.n2, r.n3, r.n4].reduce((a, x) => a + (Number(x) || 0), 0);
+              if (!qty) continue;
+              const lot = r.batch_name || '';
+              const day = days[r.entry_date] || (days[r.entry_date] = {});
+              const m = day[lot] || (day[lot] = {});
+              m[r.size] = (m[r.size] || 0) + qty;
+              if (!lots.includes(lot)) lots.push(lot);
+            }
+            const cum = {};
+            const done = {};
+            Object.keys(days).sort().forEach(date => {
+              Object.values(days[date]).forEach(m => Object.entries(m).forEach(([sz, q]) => {
+                cum[sz] = (cum[sz] || 0) + q;
+                if (order[sz] && !done[sz] && cum[sz] >= order[sz]) done[sz] = date;
+              }));
+            });
+            const orderSizes = Object.keys(order);
+            const allDone = orderSizes.length > 0 && orderSizes.every(sz => done[sz]);
+            // Từng lô có số đơn theo size: lũy kế của lô và ngày lô đủ đơn
+            const lotInfo = batchList.map(b => ({ name: String(b.batch_name), order: parseSizeQty(b.size_qty) }))
+              .filter(l => Object.keys(l.order).length)
+              .map(l => {
+                const lc = {};
+                let doneDate = '';
+                Object.keys(days).sort().forEach(date => {
+                  Object.entries((days[date] || {})[l.name] || {}).forEach(([sz, q]) => { lc[sz] = (lc[sz] || 0) + q; });
+                  if (!doneDate && Object.keys(l.order).every(sz => (lc[sz] || 0) >= l.order[sz])) doneDate = date;
+                });
+                return { name: l.name, order: l.order, cum: lc, done_date: doneDate };
+              });
+            return {
+              id: o.id, po_number: o.po_number, style_code: o.style_code, po_plan: Number(o.po_plan) || 0,
+              wave: o.wave || '', crd: o.crd || '', created_at: o.created_at || '', order, lots, lot_info: lotInfo, days, cum, done,
+              done_date: allDone ? orderSizes.map(sz => done[sz]).sort().pop() : ''
+            };
+          });
+          return Response.json({ success: true, orders: out }, { headers });
         } catch (err) {
           return Response.json({ success: false, error: err.message }, { status: 500, headers });
         }
