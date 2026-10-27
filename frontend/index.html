@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@500;600;700;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="styles.css?v=20261026_1500">
+  <link rel="stylesheet" href="styles.css?v=20261027_1200">
   
   <!-- cdn for sheetjs (xlsx) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -651,7 +651,7 @@
             <div class="mg-paste" id="poPastePanel" hidden>
               <div class="mg-po-form-title">Dán đơn hàng — <span id="poPasteCust"></span></div>
               <div class="mg-paste-hint">Copy nguyên bảng đơn hàng từ Excel (kể cả dòng tiêu đề) rồi dán vào ô dưới (Ctrl+V). Đọc được 2 dạng:
-                <b>mỗi dòng 1 lô</b> (CLSX | RY | ART | Mã màu | CRD | Tổng | các size) thì tự chia lô; cùng RY khác màu thì mỗi màu 1 PO "RY · MÀU";
+                <b>mỗi dòng 1 lô</b> (CLSX | RY | ART | Mã màu | CRD | Tổng | các size) thì tự chia lô; cùng RY là 1 PO (nhiều màu vẫn chung 1 PO, lô đánh số liên tục Lô 1, 2, 3…);
                 hoặc <b>mỗi dòng 1 PO</b> (PO | ART | các size | Tổng). Dòng tiêu đề có ngày (… 20.10.2026) hoặc dòng "Đợt …" dùng làm tên đợt.</div>
               <textarea id="poPasteBox" class="mg-paste-box" spellcheck="false" placeholder="Đợt 1 - giao 15/11&#10;PO&#9;ART&#9;37&#9;38&#9;39&#9;Tổng&#10;RV2610-156&#9;DA-260&#9;80&#9;120&#9;160&#9;360"></textarea>
               <div class="mg-paste-actions">
@@ -1272,6 +1272,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261026_1500"></script>
+  <script src="app.js?v=20261027_1200"></script>
 </body>
 </html>

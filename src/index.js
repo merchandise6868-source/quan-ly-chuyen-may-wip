@@ -493,7 +493,8 @@ function buildReleasePayload({ po, cust, rows, confs, parts }, date, batchReq, s
     total: Number(b.batch_plan) || 0,
     sizes: cleanSizeList(b.sizes || []).sort((x, y) => rank(x) - rank(y)),
     is_tail: Boolean(b.is_tail_batch || /đuôi/i.test(String(b.batch_name || ''))),
-    size_qty: parseSizeQty(b.size_qty)
+    size_qty: parseSizeQty(b.size_qty),
+    color: String(b.color || '')
   })).filter(l => l.name);
 
   // Tích lũy cả PO (mọi lô) của công đoạn đang chọn: so với đơn hàng theo size (cột Đơn hàng)
@@ -502,7 +503,8 @@ function buildReleasePayload({ po, cust, rows, confs, parts }, date, batchReq, s
 
   // Tích lũy theo lô cho thanh Tổng hợp: đóng gói so với số đồng bộ của công đoạn cuối
   const agg = {};
-  const ensure = name => agg[name] || (agg[name] = { tc: {}, tcAll: 0, dg: {}, ct: 0 });
+  // tcCur / ctCur: số của công đoạn đang chọn (nút lô làm mờ khi công đoạn này chưa nhập gì)
+  const ensure = name => agg[name] || (agg[name] = { tc: {}, tcAll: 0, tcCur: 0, dg: {}, ct: 0, ctCur: 0 });
   for (const r of (rows || [])) {
     const b = r.batch_name || '';
     const qty = [r.n1, r.n2, r.n3, r.n4].reduce((a, x) => a + (Number(x) || 0), 0);
@@ -514,13 +516,19 @@ function buildReleasePayload({ po, cust, rows, confs, parts }, date, batchReq, s
     if (st === null) continue;
     if (r.kind === 'tha_chuyen') {
       ensure(b).tcAll += qty;
-      if (st === stage) poCum[r.size] = (poCum[r.size] || 0) + qty;
+      if (st === stage) {
+        poCum[r.size] = (poCum[r.size] || 0) + qty;
+        ensure(b).tcCur += qty;
+      }
       if (st === lastStage) ensure(b).tc[r.size] = (ensure(b).tc[r.size] || 0) + qty;
-    } else if (r.kind === 'tha_chuyen_ct') ensure(b).ct += qty;
+    } else if (r.kind === 'tha_chuyen_ct') {
+      ensure(b).ct += qty;
+      if (st === stage) ensure(b).ctCur += qty;
+    }
   }
   if (agg[''] && !lots.some(l => l.name === '')) lots.push({ name: '', total: 0, sizes: [], is_tail: false, legacy: true });
   for (const l of lots) {
-    const a = agg[l.name] || { tc: {}, tcAll: 0, dg: {}, ct: 0 };
+    const a = agg[l.name] || { tc: {}, tcAll: 0, tcCur: 0, dg: {}, ct: 0, ctCur: 0 };
     let bad = 0;
     new Set([...Object.keys(a.tc), ...Object.keys(a.dg)]).forEach(s => {
       const x = a.tc[s] || 0;
@@ -530,6 +538,9 @@ function buildReleasePayload({ po, cust, rows, confs, parts }, date, batchReq, s
     l.tc_total = a.tcAll;
     l.dg_total = sumValues(a.dg);
     l.ct_total = a.ct;
+    l.tc_stage = a.tcCur;
+    l.ct_stage = a.ctCur;
+    l.tc_last = sumValues(a.tc);
     l.bad = bad;
   }
 
@@ -2060,22 +2071,30 @@ export default {
         const allKeys = Object.keys(memoryDB.reports).filter(k => k.startsWith(poId + '_') || k.startsWith(resolvedPoId + '_')).sort();
         const cumExportsByBatch = {};
         const cumImportsByBatch = {};
+        // Giống cách tính trên D1: nhận = cộng into_sewing; xuất = max(cộng daily_out, delivered lớn nhất); mỗi lô cộng 1 lần
+        const memAgg = {};
         allKeys.forEach(k => {
           const repDate = k.split('_').slice(1).join('_');
           if (repDate < date) {
             const rep = memoryDB.reports[k];
             if (rep && rep.batches) {
               rep.batches.forEach(b => {
-                const bName = b.batch_name;
-                const bTrim = bName ? bName.trim() : "";
-                const dOut = Math.max(Number(b.daily_out) || 0, Number(b.delivered) || 0);
-                const dIn = Number(b.into_sewing) || 0;
-                cumExportsByBatch[bName] = (cumExportsByBatch[bName] || 0) + dOut;
-                if (bTrim) cumExportsByBatch[bTrim] = (cumExportsByBatch[bTrim] || 0) + dOut;
-                cumImportsByBatch[bName] = (cumImportsByBatch[bName] || 0) + dIn;
-                if (bTrim) cumImportsByBatch[bTrim] = (cumImportsByBatch[bTrim] || 0) + dIn;
+                const a = memAgg[b.batch_name] || (memAgg[b.batch_name] = { out: 0, maxDelivered: 0, in: 0 });
+                a.out += Number(b.daily_out) || 0;
+                a.maxDelivered = Math.max(a.maxDelivered, Number(b.delivered) || 0);
+                a.in += Number(b.into_sewing) || 0;
               });
             }
+          }
+        });
+        Object.entries(memAgg).forEach(([bName, a]) => {
+          const bTrim = bName ? bName.trim() : "";
+          const effOut = Math.max(a.out, a.maxDelivered);
+          cumExportsByBatch[bName] = effOut;
+          cumImportsByBatch[bName] = a.in;
+          if (bTrim) {
+            cumExportsByBatch[bTrim] = effOut;
+            cumImportsByBatch[bTrim] = a.in;
           }
         });
 
@@ -2942,7 +2961,7 @@ export default {
               const art = String(r.art || '').trim().slice(0, 80);
               // Lô theo bảng dán: tên lô, số đôi theo size (số tổng = cộng các size)
               const lots = (Array.isArray(r.lots) ? r.lots : [])
-                .map(l => ({ name: String(l.name || '').trim().slice(0, 40), sizes: parseSizeQty(l.sizes), crd: isoDate(l.crd) }))
+                .map(l => ({ name: String(l.name || '').trim().slice(0, 40), sizes: parseSizeQty(l.sizes), crd: isoDate(l.crd), color: String(l.color || '').trim().slice(0, 30) }))
                 .filter(l => l.name && sumValues(l.sizes) > 0);
               let sizes = parseSizeQty(r.sizes);
               if (lots.length) {
@@ -2950,13 +2969,14 @@ export default {
                 lots.forEach(l => Object.entries(l.sizes).forEach(([k, q]) => { sizes[k] = (sizes[k] || 0) + q; }));
               }
               const total = sumValues(sizes);
-              const pickedById = r.id ? byId.get(String(r.id)) : null;   // PO đích do giao diện chọn (gán màu cho PO cũ)
-              const prev = pickedById || byPo.get(poNumber.toLowerCase()) || null;
+              const pickedById = r.id ? byId.get(String(r.id)) : null;   // PO đích do giao diện chọn (theo lô khớp)
+              // r.new: giao diện thấy PO cùng tên nhưng lô không khớp (đơn đợt trước) -> tạo PO mới, không ghi đè
+              const prev = pickedById || (r.new ? null : byPo.get(poNumber.toLowerCase())) || null;
               if (!poNumber || !total || (!art && !prev)) {
                 skipped++;
                 continue;
               }
-              rows.set(prev ? prev.id : poNumber.toLowerCase(), { poNumber, art, sizes, total, wave, lots, crd: isoDate(r.crd), prev, pickedById: !!pickedById });
+              rows.set(prev ? prev.id : 'new|' + poNumber.toLowerCase(), { poNumber, art, sizes, total, wave, lots, crd: isoDate(r.crd), prev, pickedById: !!pickedById });
             }
           }
 
@@ -2992,7 +3012,8 @@ export default {
                 into_sewing: Number((oldByName.get(l.name) || {}).into_sewing) || 0,
                 sizes: Object.keys(l.sizes),
                 size_qty: l.sizes,
-                ...(l.crd ? { crd: l.crd } : {})
+                ...(l.crd ? { crd: l.crd } : {}),
+                ...(l.color ? { color: l.color } : {})
               }));
               const tails = old.filter(b => /đuôi/i.test(String(b.batch_name || '')) && !r.lots.some(l => l.name === b.batch_name));
               tails.forEach((b, i) => batches.push({ ...b, id: 'b-' + (batches.length + 1) }));

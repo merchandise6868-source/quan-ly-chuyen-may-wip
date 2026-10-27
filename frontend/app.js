@@ -91,7 +91,7 @@ function initPWA() {
     });
 
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js?v=20261026_1500', { scope: '/' })
+      navigator.serviceWorker.register('/sw.js?v=20261027_1200', { scope: '/' })
         .then(reg => {
           console.log('✅ Service Worker registered successfully:', reg.scope);
           // Explicit update check on every page load
@@ -1174,13 +1174,21 @@ function syncReportLotsWithPO(po) {
       is_tail_batch: false
     });
   });
+  // Lô không còn trong PO (ví dụ đã tách sang PO màu khác khi dán đơn) mà chưa có số nào thì bỏ thẻ;
+  // lô có số trong ngày hoặc có lũy kế các ngày trước thì giữ để không mất số liệu
+  const nums = ["into_sewing", "delivered", "daily_out", "daily_finished", "wip_sewing", "wip_qc", "wip_pairing", "wip_packing", "wip_warehouse", "shortage_mat_xac", "shortage_hang_phe", "shortage_khac"];
+  const notes = ["note_sewing", "note_qc", "note_pairing", "note_packing", "note_warehouse", "note_export", "shortage_note"];
+  const hasData = b => nums.some(k => Number(b[k]) > 0) || notes.some(k => String(b[k] || "").trim())
+    || Number((appState.cumImportsByBatch || {})[b.batch_name]) > 0 || Number((appState.cumExportsByBatch || {})[b.batch_name]) > 0;
+  const kept = list.filter(b => isTail(b) || defs.some(d => d.batch_name === b.batch_name) || hasData(b));
   // Thẻ xếp theo thứ tự lô của PO; lô không còn trong PO để sau, lô số đuôi cuối cùng
   const rank = b => {
     if (isTail(b)) return 1000;
     const k = defs.findIndex(d => d.batch_name === b.batch_name);
     return k < 0 ? 500 : k;
   };
-  list.sort((a, b) => rank(a) - rank(b));
+  kept.sort((a, b) => rank(a) - rank(b));
+  appState.report.batches = kept;
 }
 
 // LOAD REPORT DATA
@@ -2794,7 +2802,7 @@ function renderOrdersTable(customerId) {
     const batchTags = (o.default_batches || []).map(b => {
       const qty = Number(b.into_sewing || b.batch_plan) || 0;
       const sz = Array.isArray(b.sizes) && b.sizes.length ? ` · ${sizeBriefText(b.sizes.map(String))}` : "";
-      return `<span class="mg-lot-tag"><b>${escHtml(b.batch_name)}</b> ${qty.toLocaleString("vi-VN")}${escHtml(sz)}</span>`;
+      return `<span class="mg-lot-tag"><b>${escHtml(b.batch_name)}</b>${b.color ? ` <i class="mg-lot-color">${escHtml(b.color)}</i>` : ""} ${qty.toLocaleString("vi-VN")}${escHtml(sz)}</span>`;
     }).join("");
 
     return waveRow + `<tr${o.id === editingId ? ' class="is-editing"' : ""}>
@@ -3055,7 +3063,8 @@ const ORDER_CRD_LABEL = /^(crd|ngày giao|ngay giao|delivery|ngày xuất|ngay x
 const ORDER_WAVE_LABEL = /^(đợt|dot|đợt giao|wave)$/i;
 const ORDER_TOTAL_LABEL = /^(tổng|tong|total|cộng|cong|sum)/i;
 const ORDER_WAVE_LINE = /^(đợt|dot|lần|lan|wave)(\s|\d|$)/i;
-const isOrderLabel = c => [ORDER_PO_LABEL, ORDER_ART_LABEL, ORDER_LOT_LABEL, ORDER_COLOR_LABEL, ORDER_CRD_LABEL, ORDER_WAVE_LABEL, ORDER_TOTAL_LABEL].some(re => re.test(c));
+const ORDER_STT_LABEL = /^(stt|tt|số tt|so tt|số thứ tự|so thu tu)$/i;
+const isOrderLabel = c => [ORDER_PO_LABEL, ORDER_ART_LABEL, ORDER_LOT_LABEL, ORDER_COLOR_LABEL, ORDER_CRD_LABEL, ORDER_WAVE_LABEL, ORDER_TOTAL_LABEL, ORDER_STT_LABEL].some(re => re.test(c));
 
 function getOrderSizes(o) {
   let v = o ? o.size_qty : null;
@@ -3142,7 +3151,8 @@ function orderWaveName(line) {
 // Đọc bảng đơn hàng dán từ Excel. Hai dạng:
 //  - mỗi dòng 1 PO: PO | ART | size... | Tổng (đợt theo dòng "Đợt ..." phía trên)
 //  - mỗi dòng 1 lô: STT | CLSX (lô) | RY (PO) | ART | Mã màu | CRD | Tổng | size... (đợt theo dòng tiêu đề)
-// Cùng RY khác màu -> mỗi màu 1 PO "RY · MÀU".
+// Cùng RY là 1 PO (không tách theo màu, màu ghi ở từng lô). CLSX lặp lại theo màu (Lô 1-5, Lô 1-3)
+// thì đánh số lô liên tục Lô 1..N theo thứ tự dòng.
 function parseOrderPaste(text, custId) {
   const cust = appState.customers.find(c => c.id === custId);
   const known = new Set(getCustomerSizes(cust).map(x => x.toLowerCase()));
@@ -3169,7 +3179,7 @@ function parseOrderPaste(text, custId) {
       if (total < 0) total = prevRow.findIndex(c => ORDER_TOTAL_LABEL.test(c));
       head = {
         po: at(ORDER_PO_LABEL), art: at(ORDER_ART_LABEL), lot: at(ORDER_LOT_LABEL), color: at(ORDER_COLOR_LABEL),
-        crd: at(ORDER_CRD_LABEL), wave: at(ORDER_WAVE_LABEL), total, sizes: []
+        crd: at(ORDER_CRD_LABEL), wave: at(ORDER_WAVE_LABEL), stt: at(ORDER_STT_LABEL), total, sizes: []
       };
       head.sizes = cells.map((c, i) => ({ size: c, i })).filter(x => x.i !== total && x.size && !isOrderLabel(x.size) && isOrderSizeLike(x.size, known));
       head.sizes.forEach(x => { if (!sizeCols.some(c => c.toLowerCase() === x.size.toLowerCase())) sizeCols.push(x.size); });
@@ -3184,8 +3194,8 @@ function parseOrderPaste(text, custId) {
     if (ORDER_TOTAL_LABEL.test(filled[0])) return;
     const get = i => (i >= 0 ? String(cells[i] || "").trim() : "");
     const ry = get(head.po);
-    const color = get(head.color);
-    const name = (color ? `${ry} · ${color}` : ry).slice(0, 60);
+    const color = get(head.color).slice(0, 30);
+    const name = ry.slice(0, 60);
     const key = name.toLowerCase();
     const sizes = {};
     head.sizes.forEach(x => {
@@ -3196,7 +3206,7 @@ function parseOrderPaste(text, custId) {
     let po = pos.get(key);
     if (!po || head.lot < 0) {
       if (po) po.dupRows = (po.dupRows || 0) + 1;   // dạng mỗi dòng 1 PO: dán trùng PO thì lấy dòng sau
-      po = { key, name, ry, color, art: get(head.art), crd: parseCrdDate(get(head.crd)), lots: [], sizes: {}, dupRows: po ? po.dupRows : 0 };
+      po = { key, name, ry, colors: [], art: get(head.art), crd: parseCrdDate(get(head.crd)), lots: [], sizes: {}, dupRows: po ? po.dupRows : 0 };
       if (!pos.has(key)) ensureWave(waveName).pos.push(po);
       else {
         const w = waves.find(x => x.pos.some(p => p.key === key));
@@ -3206,11 +3216,13 @@ function parseOrderPaste(text, custId) {
     }
     if (!po.art) po.art = get(head.art);
     if (!po.crd) po.crd = parseCrdDate(get(head.crd));
+    if (color && !po.colors.includes(color)) po.colors.push(color);
     if (head.lot >= 0) {
       const lotName = normalizeLotName(get(head.lot));
-      const dup = po.lots.find(l => l.name === lotName && !l.error);
+      // Cùng lô, cùng màu dán 2 lần thì lấy dòng sau; cùng tên lô khác màu là lô khác (đánh số lại bên dưới)
+      const dup = po.lots.find(l => l.name === lotName && l.color === color && !l.error);
       if (dup) dup.error = "Lô trùng, lấy dòng sau";
-      po.lots.push({ name: lotName, sizes, total: Object.values(sizes).reduce((a, b) => a + b, 0), sheetTotal: orderQty(get(head.total)), crd: parseCrdDate(get(head.crd)), error: lotName ? "" : "Thiếu tên lô" });
+      po.lots.push({ name: lotName, color, stt: orderQty(get(head.stt)), sizes, total: Object.values(sizes).reduce((a, b) => a + b, 0), sheetTotal: orderQty(get(head.total)), crd: parseCrdDate(get(head.crd)), error: lotName ? "" : "Thiếu tên lô" });
     } else {
       po.sizes = sizes;
       po.sheetTotal = orderQty(get(head.total));
@@ -3244,44 +3256,39 @@ function parseOrderPaste(text, custId) {
   const newer = (a, b) => String(b.created_at || "").localeCompare(String(a.created_at || ""));
   const used = new Set();
   all.forEach(po => {
+    po.preNotes = [];
     if (po.lots.length) {
+      const okLots = po.lots.filter(l => !l.error);
+      // Tên lô lặp lại (CLSX đánh lại từ 1 cho mỗi màu): đánh số liên tục Lô 1..N theo thứ tự dòng
+      if (new Set(okLots.map(l => l.name)).size < okLots.length) {
+        okLots.forEach((l, i) => {
+          l.sheetName = l.name;
+          l.name = `Lô ${i + 1}`;
+        });
+        po.preNotes.push(["up", `Đánh số lô liên tục Lô 1 → Lô ${okLots.length}`]);
+      }
+      const stt = okLots.map(l => l.stt);
+      if (stt.every(Boolean) && stt.some((s, i) => i && s !== stt[i - 1] + 1)) po.preNotes.push(["warn", "STT không liên tục, kiểm tra có đúng cùng 1 đơn"]);
       po.sizes = {};
-      po.lots.filter(l => !l.error).forEach(l => Object.entries(l.sizes).forEach(([k, q]) => { po.sizes[k] = (po.sizes[k] || 0) + q; }));
+      okLots.forEach(l => Object.entries(l.sizes).forEach(([k, q]) => { po.sizes[k] = (po.sizes[k] || 0) + q; }));
     }
     po.total = Object.values(po.sizes).reduce((a, b) => a + b, 0);
     po.target = null;
-    po.preNotes = [];
   });
-  // 1. Cùng tên PO: nhiều PO trùng tên thì chọn PO có lô khớp nhất, rồi PO mới nhất
+  // Cùng số PO: PO có chia lô thì chỉ cập nhật PO cũ có lô khớp (ít nhất 60% số lô) hoặc PO cũ chưa chia lô.
+  // PO cùng tên mà lô không khớp (đơn đợt trước) thì giữ nguyên và tạo PO mới, không ghi đè.
   all.forEach(po => {
     const cands = (byName.get(po.key) || []).filter(o => !used.has(o.id));
     if (!cands.length) return;
-    const best = cands.slice().sort((a, b) => lotScore(po, b) - lotScore(po, a) || newer(a, b))[0];
-    po.target = best;
-    used.add(best.id);
-    if (cands.length > 1) po.preNotes.push(["warn", `Có ${cands.length} PO tên ${best.po_number}: cập nhật PO ${relNum(best.po_plan)} đôi`]);
-  });
-  // 2. PO cũ chỉ ghi RY (chưa ghi màu): giao cho màu có lô khớp (ít nhất 60% số lô của màu đó), đổi tên "RY · MÀU".
-  //    PO cùng RY mà lô không khớp (đơn đợt trước) thì giữ nguyên.
-  const pending = all.filter(p => p.color && !p.target);
-  const pairs = [];
-  pending.forEach(p => (byName.get(p.ry.toLowerCase()) || []).forEach(o => {
-    const sc = lotScore(p, o);
-    if (sc && sc >= Math.ceil(p.lots.filter(l => !l.error).length * 0.6)) pairs.push({ p, o, sc });
-  }));
-  pairs.sort((a, b) => b.sc - a.sc || all.indexOf(a.p) - all.indexOf(b.p));
-  pairs.forEach(({ p, o }) => {
-    if (p.target || used.has(o.id)) return;
-    p.target = o;
-    p.rename = o.po_number;
-    used.add(o.id);
-    const oldN = regularLots(o).length;
-    if (oldN > p.lots.length) p.preNotes.push(["warn", `PO ${o.po_number} cũ có ${oldN} lô (${relNum(o.po_plan)} đôi): giữ ${p.lots.length} lô ${p.color}`]);
-  });
-  pending.filter(p => !p.target).forEach(p => {
-    const same = byName.get(p.ry.toLowerCase()) || [];
-    const untouched = same.filter(o => !used.has(o.id));
-    if (untouched.length) p.preNotes.push(["keep", `Giữ nguyên PO ${p.ry} cũ (${untouched.map(o => relNum(o.po_plan) + " đôi").join(", ")}) vì lô không khớp`]);
+    const nLots = po.lots.filter(l => !l.error).length;
+    const fits = nLots ? cands.filter(o => lotScore(po, o) >= Math.ceil(nLots * 0.6) || regularLots(o).length <= 1) : cands;
+    const best = fits.slice().sort((a, b) => lotScore(po, b) - lotScore(po, a) || newer(a, b))[0];
+    if (best) {
+      po.target = best;
+      used.add(best.id);
+    }
+    const kept = cands.filter(o => o !== best);
+    if (kept.length) po.preNotes.push(["keep", `Giữ nguyên PO ${po.name} cũ (${kept.map(o => relNum(o.po_plan) + " đôi").join(", ")})${nLots ? " vì lô không khớp" : ""}`]);
   });
   all.forEach(po => {
     po.notes = [...po.preNotes];
@@ -3290,8 +3297,8 @@ function parseOrderPaste(text, custId) {
       : (!po.art && !po.target) ? "Thiếu ART" : "";
     if (po.error) return;
     if (po.dupRows) po.notes.push(["warn", "PO dán trùng, lấy dòng sau"]);
+    if (po.colors.length > 1) po.notes.push(["keep", `${po.colors.length} màu: ${po.colors.join(", ")}`]);
     if (po.target) {
-      if (po.rename) po.notes.push(["up", `Đổi tên ${po.rename} → ${po.name}`]);
       po.notes.push(Number(po.target.po_plan) !== po.total ? ["up", `Kế hoạch ${relNum(po.target.po_plan)} → ${relNum(po.total)}`] : ["keep", "Cập nhật số theo size"]);
       if (po.target.wave && po.target.wave !== (waves.find(w => w.pos.includes(po)) || {}).name) po.notes.push(["keep", `Trước: ${po.target.wave}`]);
     } else {
@@ -3360,7 +3367,7 @@ function readOrderPaste() {
       if (!po.lots.length) {
         return `<tr class="${po.error ? "is-bad" : ""}">${head}<td class="mg-muted">·</td><td class="mg-art">${escHtml(po.art)}</td><td class="mg-crd">${po.crd ? escHtml(relFmtDate(po.crd)) : ""}</td>${sizeCells(po.sizes, "mg-num")}<td class="mg-num">${relNum(po.total)}</td><td class="mg-paste-notes">${notesHtml(po.notes, po.error)}</td></tr>`;
       }
-      return po.lots.map((l, i) => `<tr class="mg-lot-line${po.error || l.error ? " is-bad" : ""}">${i ? "<td></td>" : head}<td><span class="lot-badge">${escHtml(l.name || "?")}</span></td><td class="mg-art">${i ? "" : escHtml(po.art)}</td><td class="mg-crd">${l.crd ? escHtml(relFmtDate(l.crd)) : ""}</td>${sizeCells(l.sizes, "mg-num")}<td class="mg-num">${relNum(l.total)}</td><td class="mg-paste-notes">${l.error ? `<span class="mg-note is-bad">${escHtml(l.error)}</span>` : (l.warn ? `<span class="mg-note is-warn">${escHtml(l.warn)}</span>` : "")}</td></tr>`).join("")
+      return po.lots.map((l, i) => `<tr class="mg-lot-line${po.error || l.error ? " is-bad" : ""}">${i ? "<td></td>" : head}<td class="mg-lot-cell"><span class="lot-badge"${l.sheetName ? ` title="CLSX ${escHtml(l.sheetName)}"` : ""}>${escHtml(l.name || "?")}</span>${l.color ? `<span class="mg-lot-color">${escHtml(l.color)}</span>` : ""}</td><td class="mg-art">${i ? "" : escHtml(po.art)}</td><td class="mg-crd">${l.crd ? escHtml(relFmtDate(l.crd)) : ""}</td>${sizeCells(l.sizes, "mg-num")}<td class="mg-num">${relNum(l.total)}</td><td class="mg-paste-notes">${l.error ? `<span class="mg-note is-bad">${escHtml(l.error)}</span>` : (l.warn ? `<span class="mg-note is-warn">${escHtml(l.warn)}</span>` : "")}</td></tr>`).join("")
         + `<tr class="mg-po-total${po.error ? " is-bad" : ""}"><td colspan="4">Cộng ${escHtml(po.name)}</td>${sizeCells(po.sizes, "mg-num")}<td class="mg-num">${relNum(po.total)}</td><td class="mg-paste-notes">${notesHtml(po.notes, po.error)}</td></tr>`;
     }).join("") : "").join("");
   pv.innerHTML = `<div class="mg-paste-sum">
@@ -3387,11 +3394,12 @@ async function saveOrderPaste() {
       name: w.name,
       rows: w.pos.filter(p => !p.error).map(p => ({
         id: p.target ? p.target.id : undefined,
+        new: !p.target,   // PO cùng tên đã có nhưng lô không khớp: tạo PO mới, không ghi đè
         po_number: p.name,
         art: p.art,
         crd: p.crd,
         sizes: p.sizes,
-        lots: p.lots.filter(l => !l.error).map(l => ({ name: l.name, sizes: l.sizes, crd: l.crd }))
+        lots: p.lots.filter(l => !l.error).map(l => ({ name: l.name, sizes: l.sizes, crd: l.crd, color: l.color }))
       }))
     }))
     .filter(w => w.rows.length);
@@ -3414,7 +3422,6 @@ async function saveOrderPaste() {
     if ((data.newSizes || []).length) fillCustomerForm(custId);
     loadArtParts(custId);
     const extra = [
-      data.renamed ? `${data.renamed} PO đổi tên theo màu` : "",
       (data.newArts || []).length ? `ART mới: ${data.newArts.join(", ")}` : "",
       (data.newSizes || []).length ? `size mới: ${data.newSizes.join(", ")}` : ""
     ].filter(Boolean).join("; ");
@@ -3517,14 +3524,14 @@ function renderBatchInputBoxes(count, initialBatches = null) {
   if (!initialBatches) {
     container.querySelectorAll(".lot-row").forEach(row => {
       const input = row.querySelector(".batch-card-input");
-      existing[row.dataset.batchName] = { val: input ? input.value : "", sizes: lotRowSizes(row) };
+      existing[row.dataset.batchName] = { val: input ? input.value : "", sizes: lotRowSizes(row), color: row.dataset.color || "" };
     });
   }
   const fromInitial = (match) => {
     if (!initialBatches || !Array.isArray(initialBatches) || initialBatches.length === 0) return null;
     const found = initialBatches.find(match);
     if (!found) return null;
-    return { val: found.into_sewing || found.batch_plan || "", sizes: Array.isArray(found.sizes) ? found.sizes.map(String) : [] };
+    return { val: found.into_sewing || found.batch_plan || "", sizes: Array.isArray(found.sizes) ? found.sizes.map(String) : [], color: found.color || "" };
   };
 
   const rows = [];
@@ -3533,15 +3540,20 @@ function renderBatchInputBoxes(count, initialBatches = null) {
     const v = fromInitial(b => b.batch_name === bName) || existing[bName] || { val: "", sizes: [] };
     rows.push({ name: bName, tail: false, ...v });
   }
-  const tailName = "Số đuôi";
-  const tv = fromInitial(b => b.batch_name.toLowerCase().includes("đuôi") || b.batch_name === `Lô ${count + 1}`) || existing[tailName] || { val: "", sizes: [] };
+  // Lô đuôi giữ đúng tên đang lưu (ví dụ "Lô Số Đuôi") để số NXT / thả chuyền theo tên lô không bị lạc
+  const tailMatch = b => b.batch_name.toLowerCase().includes("đuôi") || b.batch_name === `Lô ${count + 1}`;
+  const tailSaved = Array.isArray(initialBatches) ? initialBatches.find(tailMatch) : null;
+  const tailRow = container.querySelector(".lot-row.is-tail");
+  const tailName = (tailSaved && /đuôi/i.test(tailSaved.batch_name) ? tailSaved.batch_name : "")
+    || (!initialBatches && tailRow ? tailRow.dataset.batchName : "") || "Số đuôi";
+  const tv = fromInitial(tailMatch) || existing[tailName] || { val: "", sizes: [] };
   rows.push({ name: tailName, tail: true, ...tv });
 
   container.innerHTML = `<table class="lot-table">
     <colgroup><col class="lot-col-name"><col class="lot-col-total"><col></colgroup>
     <thead><tr><th>Lô</th><th>Số tổng (đôi)</th><th class="lot-th-sizes">Size của lô <span>· bấm để chọn, không chọn = tất cả size</span></th></tr></thead>
-    <tbody>${rows.map(r => `<tr class="lot-row${r.tail ? " is-tail" : ""}" data-batch-name="${escHtml(r.name)}" data-sizes="${escHtml(JSON.stringify(r.sizes))}">
-      <td><span class="lot-badge">${escHtml(r.name)}</span></td>
+    <tbody>${rows.map(r => `<tr class="lot-row${r.tail ? " is-tail" : ""}" data-batch-name="${escHtml(r.name)}" data-color="${escHtml(r.color || "")}" data-sizes="${escHtml(JSON.stringify(r.sizes))}">
+      <td><span class="lot-badge">${escHtml(r.name)}</span>${r.color ? `<span class="mg-lot-color">${escHtml(r.color)}</span>` : ""}</td>
       <td><input type="number" class="batch-card-input lot-total-input" placeholder="0" value="${escHtml(r.val)}" min="0"></td>
       <td class="lot-size-cell"></td>
     </tr>`).join("")}</tbody>
@@ -3830,6 +3842,9 @@ async function handleAddPO(e) {
   // 4. Collect batches from dynamic grid
   const container = document.getElementById("dynamicBatchInputsContainer") || document.getElementById("batchInputGrid");
   const batchCards = container ? container.querySelectorAll(".lot-row") : [];
+  // Sửa PO: lô cùng tên giữ thông tin riêng đã có (đơn theo size đã dán, CRD, lô vét đuôi)
+  const prevOrder = id ? appState.orders.find(o => o.id === id) : null;
+  const prevLots = new Map(((prevOrder && prevOrder.default_batches) || []).map(b => [String(b.batch_name || ""), b]));
   const batches = [];
   let sumBatches = 0;
   batchCards.forEach((card, i) => {
@@ -3838,15 +3853,27 @@ async function handleAddPO(e) {
     const qty = Number(input ? input.value : 0) || 0;
     sumBatches += qty;
     if (qty > 0 || !card.classList.contains("is-tail") || batches.length === 0) {
-      batches.push({
-        id: "b-" + (i + 1),
-        batch_name: bName,
-        batch_plan: qty,
-        into_sewing: 0,
-        sizes: lotSizesForSave(card)
-      });
+      const sizes = lotSizesForSave(card);
+      const lot = { ...(prevLots.get(bName) || {}), id: "b-" + (i + 1), batch_name: bName, batch_plan: qty, into_sewing: 0, sizes };
+      if (lot.size_qty && typeof lot.size_qty === "object") {
+        const keep = Object.fromEntries(Object.entries(lot.size_qty).filter(([sz]) => !sizes.length || sizes.includes(sz)));
+        if (Object.keys(keep).length) lot.size_qty = keep;
+        else delete lot.size_qty;
+      }
+      batches.push(lot);
     }
   });
+
+  // Lô đang có số tổng mà để trống, hoặc bị bỏ khỏi PO: hỏi lại trước khi lưu
+  if (prevOrder) {
+    const prevPlan = n => Number((prevLots.get(n) || {}).batch_plan) || 0;
+    const zeroed = batches.filter(b => !b.batch_plan && prevPlan(b.batch_name) > 0).map(b => b.batch_name);
+    const removed = [...prevLots.keys()].filter(n => !batches.some(b => b.batch_name === n) && prevPlan(n) > 0);
+    const msgs = [];
+    if (zeroed.length) msgs.push(`• ${zeroed.join(", ")} đang có số tổng, nay để trống (= 0).`);
+    if (removed.length) msgs.push(`• Bỏ ${removed.join(", ")} khỏi PO. Số NXT và thả chuyền đã nhập của lô này vẫn còn trong dữ liệu nhưng lô không còn trong danh sách chọn lô.`);
+    if (msgs.length && !confirm(`Kiểm tra lại chia lô của PO ${po_number}:\n${msgs.join("\n")}\n\nVẫn lưu?`)) return;
+  }
 
   // 5. Validate / Auto-sync PO Plan
   if (po_plan <= 0 && sumBatches > 0) {
@@ -6776,6 +6803,12 @@ function relVisibleLots() {
   return vis.length ? vis : lots;
 }
 
+// Lô đã có số ở màn đang mở: đóng gói có số giao; thả chuyền có số của công đoạn đang chọn (đồng bộ hoặc chi tiết)
+function relLotHasData(l) {
+  if (relState.kind === "dong_goi") return l.dg_total > 0 || (relState.seg === "sum" && l.tc_last > 0);
+  return l.tc_stage > 0 || l.ct_stage > 0;
+}
+
 function renderReleaseLots() {
   const box = document.getElementById("relLots");
   const showSum = relState.kind === "dong_goi" && relState.seg === "sum";
@@ -6783,9 +6816,15 @@ function renderReleaseLots() {
   box.innerHTML = lots.map(l => {
     const on = l.name === relState.batch;
     const bad = showSum && l.bad ? `<span class="rel-lot-bad">${l.bad} lệch</span>` : "";
-    return `<button type="button" class="rel-lot-tab${on ? " on" : ""}" data-rel-lot="${escHtml(l.name)}">${escHtml(relLotLabel(l.name))}${l.total ? ` · ${relNum(l.total)}` : ""}${bad}</button>`;
+    return `<button type="button" class="rel-lot-tab${on ? " on" : ""}${relLotHasData(l) ? " has-data" : " is-empty"}" data-rel-lot="${escHtml(l.name)}">${escHtml(relLotLabel(l.name))}${l.color ? ` <span class="rel-lot-color">${escHtml(l.color)}</span>` : ""}${l.total ? ` · ${relNum(l.total)}` : ""}${bad}</button>`;
   }).join("");
   box.hidden = lots.length <= 1 && !(lots[0] && lots[0].legacy);
+  // Hàng nút lô cuộn ngang: đưa lô đang chọn ra giữa cho dễ thấy
+  const sel = box.querySelector(".rel-lot-tab.on");
+  if (sel && !box.hidden) {
+    const d = sel.getBoundingClientRect().left - box.getBoundingClientRect().left;
+    box.scrollLeft += d - (box.clientWidth - sel.offsetWidth) / 2;
+  }
 }
 
 function relCurrentLot() {
@@ -6940,7 +6979,9 @@ function renderReleaseGrid() {
   document.getElementById("relGridCols").innerHTML = showOrd
     ? '<col style="width:12%"><col><col><col><col><col style="width:16%"><col style="width:18%">'
     : '<col class="rel-col-size"><col><col><col><col><col class="rel-col-cum">';
-  document.getElementById("relGridHead").innerHTML = `<th>Size</th><th>Nhận 1</th><th>Nhận 2</th><th>Nhận 3</th><th>Nhận 4</th><th class="rel-th-cum" id="relThCum">${isCt ? "Tích lũy<br>theo chi tiết" : "Tích lũy"}</th>`
+  // Thả chuyền: các lần nhận hàng; Chỉ lệnh đóng gói: các lần giao cho đóng gói
+  const turn = relState.kind === "dong_goi" ? "Giao" : "Nhận";
+  document.getElementById("relGridHead").innerHTML = `<th>Size</th>${[1, 2, 3, 4].map(i => `<th>${turn} ${i}</th>`).join("")}<th class="rel-th-cum" id="relThCum">${isCt ? "Tích lũy<br>theo chi tiết" : "Tích lũy"}</th>`
     + (showOrd ? `<th class="rel-th-ord">Đơn hàng<small>${relOrderSource() === "lot" ? "lô này" : "cả PO"}</small></th>` : "");
   document.getElementById("relTbody").innerHTML = relState.data.sizes.map(size => {
     const cells = [0, 1, 2, 3].map(i => {

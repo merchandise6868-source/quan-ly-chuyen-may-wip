@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wip-flow-cache-v52';
+const CACHE_NAME = 'wip-flow-cache-v56';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
