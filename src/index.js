@@ -497,9 +497,10 @@ function buildReleasePayload({ po, cust, rows, confs, parts }, date, batchReq, s
     color: String(b.color || '')
   })).filter(l => l.name);
 
-  // Tích lũy cả PO (mọi lô) của công đoạn đang chọn: so với đơn hàng theo size (cột Đơn hàng)
+  // Tích lũy cả PO (mọi lô) của công đoạn đang chọn / của đóng gói: so với đơn hàng theo size (cột Đơn hàng)
   const order = parseSizeQty(po ? po.size_qty : {});
   const poCum = {};
+  const poDgCum = {};
 
   // Tích lũy theo lô cho thanh Tổng hợp: đóng gói so với số đồng bộ của công đoạn cuối
   const agg = {};
@@ -510,6 +511,7 @@ function buildReleasePayload({ po, cust, rows, confs, parts }, date, batchReq, s
     const qty = [r.n1, r.n2, r.n3, r.n4].reduce((a, x) => a + (Number(x) || 0), 0);
     if (r.kind === 'dong_goi') {
       ensure(b).dg[r.size] = (ensure(b).dg[r.size] || 0) + qty;
+      poDgCum[r.size] = (poDgCum[r.size] || 0) + qty;
       continue;
     }
     const st = rowStage(r);
@@ -605,6 +607,7 @@ function buildReleasePayload({ po, cust, rows, confs, parts }, date, batchReq, s
     order,
     lotOrder: lot && Object.keys(lot.size_qty || {}).length ? lot.size_qty : {},
     poCum,
+    poDgCum,
     parts: cleanPartList(parseSizeList(parts)),
     tc: day.tha_chuyen,
     ct: day.tha_chuyen_ct,

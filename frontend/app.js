@@ -207,6 +207,7 @@ document.addEventListener("DOMContentLoaded", () => {
   bindStageEditorEvents();
   bindOrderPasteEvents();
   bindPackLogEvents();
+  bindPackLogMobileEvents();
   bindRoleSwitchEvents();
   bindRolePasswordEvents();
   checkLoginPortalState();
@@ -6941,7 +6942,8 @@ function relCtCumHtml(size) {
   return names.map(p => `<div class="rel-ct-line"><span>${escHtml(p)}</span><b>${relNum(cum[p])}</b></div>`).join("");
 }
 
-// Cột Đơn hàng (thả chuyền Đồng bộ, PO đã dán đơn theo size): so tích lũy cả PO của công đoạn đang chọn với số đơn
+// Cột Đơn hàng (thả chuyền Đồng bộ / chỉ lệnh đóng gói, PO đã dán đơn theo size):
+// so tích lũy (công đoạn đang chọn hoặc đóng gói) với số đơn
 function relOrderSource() {
   const d = relState.data;
   if (!d) return "";
@@ -6950,16 +6952,19 @@ function relOrderSource() {
 }
 
 function relShowOrder() {
-  return relState.kind === "tha_chuyen" && relGridKey() === "tc" && !!relOrderSource();
+  const k = relGridKey();
+  return (k === "tc" || k === "dg") && !!relOrderSource();
 }
 
 const relOrderQty = size => Number(((relOrderSource() === "lot" ? relState.data.lotOrder : relState.data.order) || {})[size]) || 0;
-const relOrderCum = size => (relOrderSource() === "lot" ? relCum("tc", size) : relPoCum(size));
+const relOrderCum = size => (relOrderSource() === "lot" ? relCum(relGridKey(), size) : relPoCum(size));
 
 // Tích lũy cả PO (mọi lô) của size, cộng cả số đang gõ chưa lưu của lô đang xem
 function relPoCum(size) {
   const d = relState.data;
-  return (Number((d.poCum || {})[size]) || 0) - (Number((d.tcCum || {})[size]) || 0) + relCum("tc", size);
+  const k = relGridKey();
+  const [poKey, lotKey] = k === "dg" ? ["poDgCum", "dgCum"] : ["poCum", "tcCum"];
+  return (Number((d[poKey] || {})[size]) || 0) - (Number((d[lotKey] || {})[size]) || 0) + relCum(k, size);
 }
 
 function relOrderCellHtml(size) {
@@ -7517,8 +7522,8 @@ function plSizesOf(o, custSizes) {
   return [...set].sort((a, b) => rank(a) - rank(b) || String(a).localeCompare(String(b), "vi", { numeric: true }));
 }
 
-function plCardHtml(o, custSizes, from, to) {
-  const sizes = plSizesOf(o, custSizes);
+// Tổng đơn / đã đóng gói của 1 PO; packedCapped: mỗi size tính tối đa bằng số đơn (vượt không bù cho size thiếu)
+function plTotals(o) {
   const order = o.order || {};
   const orderSizes = Object.keys(order);
   const cum = o.cum || {};
@@ -7526,6 +7531,12 @@ function plCardHtml(o, custSizes, from, to) {
   const packedCapped = orderSizes.reduce((a, x) => a + Math.min(cum[x] || 0, order[x]), 0);
   const packedAll = Object.values(cum).reduce((a, b) => a + b, 0);
   const pct = orderTotal ? Math.round(packedCapped * 100 / orderTotal) : 0;
+  return { order, cum, orderTotal, packedCapped, packedAll, pct };
+}
+
+function plCardHtml(o, custSizes, from, to) {
+  const sizes = plSizesOf(o, custSizes);
+  const { order, cum, orderTotal, packedCapped, packedAll, pct } = plTotals(o);
   const dates = Object.keys(o.days || {}).filter(d => (!from || d >= from) && (!to || d <= to)).sort().reverse();
   const rows = dates.map(d => {
     const day = o.days[d];
@@ -7609,6 +7620,147 @@ function bindPackLogEvents() {
   });
   ["plPo", "plFrom", "plTo"].forEach(id => document.getElementById(id).addEventListener("change", renderPackLog));
   document.getElementById("btnPlReload").addEventListener("click", loadPackLog);
+}
+
+// ==========================================================
+// NHẬT KÝ ĐÓNG GÓI TRÊN ĐIỆN THOẠI (tổ trưởng): cùng số liệu tab 05, xếp dọc cho vừa màn hình
+// ==========================================================
+const PLM_DAYS = 7;   // số ngày hiện trước, còn lại bấm "Xem thêm"
+const plmState = { orders: [], poId: "", allDays: false, seq: 0 };
+
+async function openPackLogMobile() {
+  const custId = appState.currentCustomer;
+  if (!custId) {
+    showToast("⚠️ Chưa chọn khách hàng. Chọn khách hàng ở phía trên trước.");
+    return;
+  }
+  const modal = document.getElementById("modalPackLogM");
+  const cust = appState.customers.find(c => c.id === custId);
+  Object.assign(plmState, { orders: [], poId: appState.currentPO ? appState.currentPO.id : "", allDays: false });
+  document.getElementById("plmDate").textContent = relFmtDate(getLocalDateString());
+  document.getElementById("plmInfo").innerHTML = `${escHtml(cust ? cust.name : "")} · số lấy từ Chỉ lệnh đóng gói`;
+  document.getElementById("plmPo").innerHTML = "";
+  modal.style.display = "flex";
+  modal.classList.add("show");
+  modal.setAttribute("aria-hidden", "false");
+
+  const body = document.getElementById("plmBody");
+  const seq = ++plmState.seq;
+  body.innerHTML = '<div class="rel-loading">Đang tải nhật ký…</div>';
+  try {
+    const res = await fetch(`/api/pack-log?customer_id=${encodeURIComponent(custId)}&t=${Date.now()}`);
+    const data = await res.json();
+    if (seq !== plmState.seq) return;
+    if (!data.success) throw new Error(data.error || "Không tải được");
+    plmState.orders = data.orders || [];
+    renderPackLogMobile();
+  } catch (err) {
+    if (seq !== plmState.seq) return;
+    body.innerHTML = `<div class="rel-empty">Không tải được nhật ký: ${escHtml(err.message)}</div>`;
+  }
+}
+
+function closePackLogMobile() {
+  const modal = document.getElementById("modalPackLogM");
+  plmState.seq++;
+  modal.classList.remove("show");
+  modal.style.display = "none";
+  modal.setAttribute("aria-hidden", "true");
+}
+
+function renderPackLogMobile() {
+  const body = document.getElementById("plmBody");
+  const cust = appState.customers.find(c => c.id === appState.currentCustomer);
+  const custSizes = getCustomerSizes(cust);
+  // Như tab 05: chỉ liệt kê PO đã dán đơn theo size hoặc đã có số đóng gói; PO đang chọn ở trên luôn có trong danh sách
+  const list = plmState.orders.filter(o => o.id === plmState.poId || Object.keys(o.order || {}).length || Object.keys(o.days || {}).length);
+  if (plmState.poId && !list.some(o => o.id === plmState.poId)) plmState.poId = "";
+  const sel = document.getElementById("plmPo");
+  sel.innerHTML = `<option value="">Tất cả PO (${list.length})</option>`
+    + list.map(o => `<option value="${escHtml(o.id)}">${escHtml(o.po_number)} · ${escHtml(o.style_code)}${o.done_date ? " · đủ đơn" : ""}</option>`).join("");
+  sel.value = plmState.poId;
+  const shown = plmState.poId ? list.filter(o => o.id === plmState.poId) : list;
+  body.innerHTML = shown.length
+    ? shown.map(o => plmCardHtml(o, custSizes)).join("")
+    : '<div class="rel-empty">Khách này chưa có PO nào dán đơn theo size hoặc có số đóng gói.</div>';
+}
+
+function plmCardHtml(o, custSizes) {
+  const sizes = plSizesOf(o, custSizes);
+  const { order, cum, orderTotal, packedCapped, packedAll, pct } = plTotals(o);
+  const badge = o.done_date
+    ? `<span class="pl-badge is-done">Đủ đơn ${escHtml(relFmtDate(o.done_date))}</span>`
+    : (orderTotal ? '<span class="pl-badge">Chưa đủ đơn</span>' : '<span class="pl-badge is-none">Chưa dán đơn</span>');
+  const stats = orderTotal
+    ? `Đơn <b class="pl-v">${relNum(orderTotal)}</b> · Đã ĐG <b class="pl-v">${relNum(packedAll)}</b> (${pct}%) · Còn <b class="${orderTotal - packedCapped ? "pl-remain" : "pl-ok-txt"}">${relNum(orderTotal - packedCapped)}</b>`
+    : `Đã đóng gói <b class="pl-v">${relNum(packedAll)}</b>`;
+  const remain = x => {
+    if (!order[x]) return '<span class="pl-zero">·</span>';
+    const r = order[x] - (cum[x] || 0);
+    if (r === 0) return '<span class="pl-ok">OK</span>';
+    return `<span class="pl-remain">${r > 0 ? relNum(r) : `vượt ${relNum(-r)}`}</span>`;
+  };
+  const sizeRows = sizes.map(x => `<tr><td class="rel-size">${escHtml(x)}</td><td>${order[x] ? relNum(order[x]) : '<span class="pl-zero">·</span>'}</td><td class="pl-v">${relNum(cum[x] || 0)}</td><td>${remain(x)}</td></tr>`).join("");
+  const lots = (o.lot_info || []).map(l => {
+    const lt = Object.values(l.order).reduce((a, b) => a + b, 0);
+    const got = Object.keys(l.order).reduce((a, x) => a + Math.min(l.cum[x] || 0, l.order[x]), 0);
+    return `<span class="pl-lot${l.done_date ? " is-done" : ""}"><b>${escHtml(relLotLabel(l.name))}</b>${l.done_date ? `đủ ${escHtml(relFmtDate(l.done_date))}` : `${relNum(got)}/${relNum(lt)}`}</span>`;
+  }).join("");
+
+  const dates = Object.keys(o.days || {}).sort().reverse();
+  const showDates = plmState.allDays ? dates : dates.slice(0, PLM_DAYS);
+  const days = showDates.map(d => {
+    const day = o.days[d];
+    const lotNames = o.lots.filter(l => day[l]);
+    const total = lotNames.reduce((a, l) => a + Object.values(day[l]).reduce((s, q) => s + q, 0), 0);
+    return `<div class="plm-day">
+      <div class="plm-day-head"><span class="plm-date">${escHtml(relFmtDate(d))}</span><span>Cộng <b class="pl-v">${relNum(total)}</b> đôi</span></div>
+      ${lotNames.map(l => `<div class="plm-lot"><span class="lot-badge">${escHtml(relLotLabel(l))}</span><span class="plm-chips">${sizes.filter(x => day[l][x]).map(x => `<span class="plm-chip"><small>${escHtml(x)}</small><b>${relNum(day[l][x])}</b></span>`).join("")}</span></div>`).join("")}
+    </div>`;
+  }).join("");
+  const more = dates.length > showDates.length
+    ? `<button type="button" class="plm-more" data-plm-more>Xem thêm ${dates.length - showDates.length} ngày trước</button>`
+    : "";
+
+  return `<div class="plm-card">
+    <div class="plm-head">
+      <span class="pl-po-num">${escHtml(o.po_number)}</span>
+      <span class="plm-art">ART <b class="mg-art">${escHtml(o.style_code)}</b></span>
+      ${badge}
+    </div>
+    <div class="plm-stats">${stats}</div>
+    ${orderTotal ? `<span class="pl-prog plm-prog"><i class="${o.done_date ? "is-done" : ""}" style="width:${pct}%"></i></span>` : ""}
+    ${lots ? `<div class="pl-lots plm-lots">${lots}</div>` : ""}
+    ${sizes.length ? `<table class="rel-table plm-table">
+      <thead><tr><th>Size</th><th>Đơn</th><th>Đã ĐG</th><th>Còn</th></tr></thead>
+      <tbody>${sizeRows}</tbody>
+      <tfoot><tr><td class="rel-foot-lbl">Tổng</td><td>${orderTotal ? relNum(orderTotal) : "·"}</td><td class="pl-v">${relNum(packedAll)}</td><td>${!orderTotal ? "·" : (o.done_date ? '<span class="pl-ok">OK</span>' : `<span class="pl-remain">${relNum(orderTotal - packedCapped)}</span>`)}</td></tr></tfoot>
+    </table>` : ""}
+    <div class="plm-sec">Đóng gói theo ngày <small>mới nhất trên cùng</small></div>
+    ${days || '<div class="plm-none">Chưa có số đóng gói.</div>'}
+    ${more}
+  </div>`;
+}
+
+function bindPackLogMobileEvents() {
+  const modal = document.getElementById("modalPackLogM");
+  if (!modal) return;
+  document.getElementById("btnPackLogMobile").addEventListener("click", openPackLogMobile);
+  document.getElementById("btnPlmBack").addEventListener("click", closePackLogMobile);
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) closePackLogMobile();
+    else if (e.target.closest("[data-plm-more]")) {
+      plmState.allDays = true;
+      renderPackLogMobile();
+    }
+  });
+  document.getElementById("plmPo").addEventListener("change", (e) => {
+    plmState.poId = e.target.value;
+    renderPackLogMobile();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && modal.classList.contains("show")) closePackLogMobile();
+  });
 }
 
 // ==========================================================

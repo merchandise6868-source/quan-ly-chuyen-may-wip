@@ -7511,6 +7511,7 @@ input.h1-pink-note-input:focus {
   .rel-big .rel-ico { width: 17px; height: 17px; }
   .rel-big-tc { background: #0f766e; }
   .rel-big-dg { background: #7c3aed; }
+  .rel-big-log { background: #1e3a5f; }
   .rel-big:active,
   .rel-sumbar:active { transform: scale(0.98); }
 
@@ -7566,7 +7567,8 @@ body.role-feeder .rel-sumbar,
 body.role-packer .rel-btn-tc,
 body.role-packer .rel-big-tc,
 body.role-packer .rel-btn-sum,
-body.role-packer .rel-sumbar {
+body.role-packer .rel-sumbar,
+body:not(.role-leader) .rel-big-log {
   display: none !important;
 }
 
@@ -7593,7 +7595,6 @@ body.role-packer #reportStatusTag {
 }
 
 @media (max-width: 768px) {
-  body.role-leader .rel-row { grid-template-columns: 1fr; }
   body.role-worker .rel-row,
   body.role-feeder .rel-row,
   body.role-packer .rel-row {
@@ -7609,8 +7610,10 @@ body.role-packer #reportStatusTag {
 }
 
 /* Popup */
-#modalRelease.modal-overlay { z-index: 100000 !important; }
-#modalRelease.show {
+#modalRelease.modal-overlay,
+#modalPackLogM.modal-overlay { z-index: 100000 !important; }
+#modalRelease.show,
+#modalPackLogM.show {
   display: flex !important;
   opacity: 1 !important;
   pointer-events: auto !important;
@@ -7900,7 +7903,8 @@ body.role-packer #reportStatusTag {
 }
 
 @media (max-width: 768px) {
-  #modalRelease.modal-overlay {
+  #modalRelease.modal-overlay,
+  #modalPackLogM.modal-overlay {
     align-items: stretch !important;
     justify-content: stretch !important;
   }
@@ -9646,6 +9650,32 @@ body.role-packer #reportStatusTag {
   font-weight: 800;
 }
 .pl-ok-txt { color: #15803d; }
+
+/* Nhật ký đóng gói trên điện thoại (tổ trưởng): mỗi PO 1 thẻ, bảng size xếp dọc, số từng ngày dạng ô nhỏ */
+.plm-card { margin: 10px 10px 4px; padding: 12px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; }
+.plm-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.plm-head .pl-badge { margin-left: auto; }
+.plm-art { font-size: 12.5px; font-weight: 600; color: #475569; }
+.plm-stats { margin-top: 6px; font-size: 13px; font-weight: 600; color: #475569; }
+.plm-prog { display: block; max-width: none; margin-top: 7px; }
+.plm-lots { margin-top: 8px; }
+.plm-table { margin-top: 10px; }
+.plm-table th, .plm-table td { text-align: center; }
+.plm-table td { font-family: var(--font-mono); font-size: 14px; font-weight: 700; }
+.plm-table .pl-ok { font-size: 13px; }
+.plm-sec { margin: 14px 0 6px; font-size: 13.5px; font-weight: 800; color: #1e3a5f; }
+.plm-sec small { font-size: 11.5px; font-weight: 600; color: #94a3b8; }
+.plm-day { padding: 8px 0; border-top: 1px dashed #e2e8f0; }
+.plm-day-head { display: flex; align-items: center; justify-content: space-between; font-size: 12.5px; font-weight: 600; color: #475569; }
+.plm-date { font-family: var(--font-mono); font-size: 14px; font-weight: 800; color: #1e3a5f; }
+.plm-lot { display: flex; align-items: flex-start; gap: 8px; margin-top: 6px; }
+.plm-lot .lot-badge { flex-shrink: 0; }
+.plm-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.plm-chip { display: inline-flex; flex-direction: column; align-items: center; min-width: 42px; padding: 2px 6px; border: 1px solid #e2e8f0; border-radius: 6px; background: #f8fafc; line-height: 1.15; }
+.plm-chip small { font-family: var(--font-mono); font-size: 10.5px; font-weight: 800; color: #1e3a5f; }
+.plm-chip b { font-family: var(--font-mono); font-size: 13px; color: #1d4ed8; }
+.plm-none { padding: 6px 0; font-size: 12.5px; color: #94a3b8; }
+.plm-more { display: block; width: 100%; margin-top: 6px; padding: 9px; border: 1px solid #cbd5e1; border-radius: 8px; background: #f1f5f9; color: #1e3a5f; font-family: inherit; font-size: 13px; font-weight: 800; cursor: pointer; }
 
 .po-order-hint .mg-link-btn { margin: 0 0 0 6px; }
 .pl-table th.mg-th-num { text-align: center; }

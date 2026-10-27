@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@500;600;700;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="styles.css?v=20261027_1200">
+  <link rel="stylesheet" href="styles.css?v=20261027_2200">
   
   <!-- cdn for sheetjs (xlsx) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -304,6 +304,11 @@
           <button type="button" class="rel-big rel-big-dg" data-rel-open="dong_goi">
             <svg class="rel-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5M16 5.25l-8 4.5"/></svg>
             Chỉ lệnh đóng gói
+          </button>
+          <!-- Tổ trưởng: chỗ của nút Thả chuyền (bị ẩn) dùng cho Nhật ký đóng gói -->
+          <button type="button" class="rel-big rel-big-log" id="btnPackLogMobile">
+            <svg class="rel-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5v-15z"/><path d="M5 19.5A1.5 1.5 0 0 0 6.5 21H19v-3M9 7.5h6M9 11h4"/></svg>
+            Nhật ký đóng gói
           </button>
         </div>
         <button type="button" class="rel-sumbar is-empty" data-rel-open="sum" id="relSumBar">
@@ -1272,6 +1277,27 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261027_1200"></script>
+  <!-- ĐIỆN THOẠI (tổ trưởng): NHẬT KÝ ĐÓNG GÓI — theo dõi đủ đơn theo size, số đóng gói từng ngày -->
+  <div id="modalPackLogM" class="modal-overlay rel-overlay" style="display: none;" aria-hidden="true">
+    <div class="rel-card" role="dialog" aria-modal="true" aria-labelledby="plmTitle">
+      <div class="rel-head">
+        <div class="rel-head-row">
+          <button type="button" class="rel-back" id="btnPlmBack" aria-label="Quay lại">
+            <svg class="rel-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M5 12l6 6M5 12l6-6"/></svg>
+          </button>
+          <div class="rel-title" id="plmTitle">Nhật ký đóng gói</div>
+          <span class="rel-date" id="plmDate"></span>
+        </div>
+        <div class="rel-info" id="plmInfo"></div>
+        <div class="rel-stage">
+          <label for="plmPo">PO</label>
+          <select id="plmPo" class="rel-stage-sel"></select>
+        </div>
+      </div>
+      <div class="rel-body" id="plmBody"></div>
+    </div>
+  </div>
+
+  <script src="app.js?v=20261027_2200"></script>
 </body>
 </html>
