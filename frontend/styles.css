@@ -8077,64 +8077,25 @@ body.role-packer #reportStatusTag {
 .rel-num-pink { color: #db2777; }
 .rel-num-navy { color: #1e3a5f; }
 
-#modalRelease[data-mode="ct"] .rel-col-size { width: 12%; }
-#modalRelease[data-mode="ct"] .rel-col-cum { width: 25%; }
-.rel-table td.rel-ct-cell { vertical-align: top; padding: 3px 2px; }
-.rel-part-wrap {
-  position: relative;
-  height: 24px;
+/* Chi tiết: mỗi chi tiết 1 cột; ART nhiều chi tiết thì kéo ngang, cột Size đứng yên */
+#modalRelease[data-mode="ct"] .rel-table-card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+#modalRelease[data-mode="ct"] .rel-ct-sticky { position: sticky; left: 0; z-index: 1; background: #ffffff; }
+#modalRelease[data-mode="ct"] th.rel-ct-sticky { background: #f1f5f9; }
+#modalRelease[data-mode="ct"] tfoot td.rel-ct-sticky { background: #f8fafc; }
+.rel-table th.rel-th-part { color: #1e3a5f; font-weight: 800; padding: 8px 3px; word-break: break-word; }
+.rel-table td.rel-ct-cell { vertical-align: top; padding: 4px 3px; }
+.rel-ct-tl {
   margin-top: 3px;
-  border: 1px solid #e2e8f0;
   border-radius: 5px;
-  background: #ffffff;
-  color: #1e3a5f;
-  overflow: hidden;
-}
-.rel-part-text {
-  display: block;
-  padding: 0 2px;
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 22px;
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-/* Ô chọn thật nằm trong suốt phía trên, chữ 16px để iPhone không tự phóng to màn hình */
-.rel-part {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0;
-  font-size: 16px;
-  cursor: pointer;
-}
-.rel-part-wrap.is-empty { color: #94a3b8; }
-.rel-part-wrap.is-need { border-color: #db2777; background: #fdf2f8; color: #db2777; }
-.rel-table td.rel-ct-cum {
   background: #f0f4f8;
-  text-align: left;
-  padding: 3px 5px;
+  color: #1d4ed8;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 22px;
 }
-.rel-ct-line {
-  display: flex;
-  justify-content: space-between;
-  gap: 4px;
-  font-size: 11px;
-  line-height: 1.4;
-}
-.rel-ct-line span {
-  min-width: 0;
-  color: #1e3a5f;
-  font-weight: 700;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.rel-ct-line b { font-family: var(--font-mono); color: #1d4ed8; }
-.rel-table tfoot td.rel-foot-note { font-family: inherit; font-size: 11px; font-weight: 600; color: #64748b; }
+.rel-ct-ft-day { display: block; font-size: 10.5px; font-weight: 600; color: #64748b; }
+.rel-ct-ft-cum { display: block; font-size: 13px; font-weight: 800; color: #1d4ed8; }
 
 /* Tab 03: bảng chia lô (số tổng + size của lô) */
 .po-grid { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr) !important; }

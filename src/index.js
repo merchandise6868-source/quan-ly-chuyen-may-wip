@@ -370,9 +370,11 @@ function normalizePhone(p) {
 const RELEASE_KINDS = ['tha_chuyen', 'tha_chuyen_ct', 'dong_goi'];
 
 // Lô rỗng ('') = số nhập trước khi chia lô, giữ dạng id cũ để không trùng dòng.
+// Thả chuyền chi tiết: mỗi chi tiết 1 dòng, thêm |pt:<tên chi tiết> (số ở n1, tên ở p1).
 // Thả chuyền theo công đoạn thêm đuôi |st:<id công đoạn>; không có công đoạn thì giữ id cũ.
-const releaseEntryId = (poId, batch, kind, date, size, stage) =>
-  (batch ? `${poId}|${batch}|${kind}|${date}|${size}` : `${poId}|${kind}|${date}|${size}`) + (stage ? `|st:${stage}` : '');
+const releaseEntryId = (poId, batch, kind, date, size, stage, part) =>
+  (batch ? `${poId}|${batch}|${kind}|${date}|${size}` : `${poId}|${kind}|${date}|${size}`)
+  + (part ? `|pt:${part}` : '') + (stage ? `|st:${stage}` : '');
 const isStageKind = kind => kind === 'tha_chuyen' || kind === 'tha_chuyen_ct';
 const MAX_STAGES = 10;
 const releaseConfirmId = (poId, batch, date) =>
@@ -466,6 +468,36 @@ const toReleaseQty = (v) => {
 };
 
 const sumValues = (obj) => Object.values(obj || {}).reduce((a, b) => a + (Number(b) || 0), 0);
+
+// Số chi tiết gửi lên của 1 size: {tên chi tiết: số}, bỏ tên trống / số 0
+function cleanPartQty(raw) {
+  const out = {};
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+  for (const [k, v] of Object.entries(raw)) {
+    const part = String(k ?? '').trim().slice(0, 40);
+    const q = toReleaseQty(v);
+    if (part && q && (out[part] || Object.keys(out).length < 30)) out[part] = (out[part] || 0) + q;
+  }
+  return out;
+}
+
+// Cộng số chi tiết của 1 dòng vào map {tên chi tiết: số}.
+// Đọc được cả dòng cũ (4 ô [số, tên]) lẫn dòng mới (1 chi tiết / dòng ở n1, p1).
+function addPartRow(map, r) {
+  const n = [r.n1, r.n2, r.n3, r.n4];
+  const p = [r.p1, r.p2, r.p3, r.p4];
+  n.forEach((x, i) => {
+    const q = Number(x) || 0;
+    const part = String(p[i] || '');
+    if (q > 0 && part) map[part] = (map[part] || 0) + q;
+  });
+  return map;
+}
+
+const samePartQty = (a, b) => {
+  const ka = Object.keys(a || {});
+  return ka.length === Object.keys(b || {}).length && ka.every(k => (a[k] || 0) === (b[k] || 0));
+};
 
 // Gom dữ liệu thả chuyền / đóng gói của 1 PO tới ngày `date`, theo lô `batchReq`
 // rows: mọi dòng của PO có entry_date <= date (mọi lô); confs: các xác nhận của PO trong ngày
@@ -567,14 +599,8 @@ function buildReleasePayload({ po, cust, rows, confs, parts }, date, batchReq, s
     if (r.kind === 'tha_chuyen') stageCum[st][r.size] = (stageCum[st][r.size] || 0) + n[0] + n[1] + n[2] + n[3];
     if (isStageKind(r.kind) && st !== stage) continue;
     if (r.kind === 'tha_chuyen_ct') {
-      const p = [r.p1, r.p2, r.p3, r.p4].map(x => String(x || ''));
-      n.forEach((q, i) => {
-        if (q > 0 && p[i]) {
-          ctCum[r.size] = ctCum[r.size] || {};
-          ctCum[r.size][p[i]] = (ctCum[r.size][p[i]] || 0) + q;
-        }
-      });
-      if (r.entry_date === date) day.tha_chuyen_ct[r.size] = n.map((q, i) => [q, p[i]]);
+      ctCum[r.size] = addPartRow(ctCum[r.size] || {}, r);
+      if (r.entry_date === date) day.tha_chuyen_ct[r.size] = addPartRow(day.tha_chuyen_ct[r.size] || {}, r);
     } else {
       cum[r.kind][r.size] = (cum[r.kind][r.size] || 0) + n[0] + n[1] + n[2] + n[3];
       if (r.entry_date === date) day[r.kind][r.size] = n;
@@ -610,7 +636,8 @@ function buildReleasePayload({ po, cust, rows, confs, parts }, date, batchReq, s
     poDgCum,
     parts: cleanPartList(parseSizeList(parts)),
     tc: day.tha_chuyen,
-    ct: day.tha_chuyen_ct,
+    // Chi tiết trong ngày: {size: {tên chi tiết: số}}. Tên mới (không dùng `ct`) để app cũ còn mở trên máy không đọc nhầm.
+    ctDay: day.tha_chuyen_ct,
     dg: day.dong_goi,
     tcCum: cum.tha_chuyen,
     dgCum: cum.dong_goi,
@@ -2783,7 +2810,7 @@ export default {
         }
       }
 
-      // Lưu 4 lần nhận theo size của 1 ngày, 1 lô (thả chuyền đồng bộ / chi tiết hoặc đóng gói)
+      // Lưu số của 1 ngày, 1 lô: đồng bộ / đóng gói = 4 lần nhận theo size; chi tiết = {tên chi tiết: số} theo size
       if (url.pathname === '/api/release' && request.method === 'POST') {
         try {
           const body = await request.json();
@@ -2794,42 +2821,57 @@ export default {
             return Response.json({ success: false, error: "Thiếu PO, ngày hoặc loại phiếu" }, { status: 400, headers });
           }
           const isCt = kind === 'tha_chuyen_ct';
+          const rawRows = Array.isArray(body.rows) ? body.rows : [];
+          // App cũ còn mở trên máy gửi chi tiết dạng 4 ô [số, tên]: không lưu, tránh ghi đè làm mất số
+          if (isCt && rawRows.some(r => !r || !r.q || typeof r.q !== 'object')) {
+            return Response.json({ success: false, error: "Ứng dụng đã đổi cách nhập chi tiết. Tải lại trang rồi nhập lại." }, { status: 409, headers });
+          }
           const stage = isStageKind(kind) ? await resolveReleaseStage(env, poId, String(body.stage || '').slice(0, 24)) : '';
-          const rows = (Array.isArray(body.rows) ? body.rows : [])
+          const rows = rawRows
             .map(r => {
-              const n = [0, 1, 2, 3].map(i => toReleaseQty(Array.isArray(r.n) ? r.n[i] : 0));
-              const p = [0, 1, 2, 3].map(i => (isCt && Array.isArray(r.p) ? String(r.p[i] ?? '').trim().slice(0, 40) : ''));
-              // Chi tiết: ô có số mà chưa chọn tên chi tiết thì chưa lưu ô đó
-              if (isCt) n.forEach((q, i) => { if (q > 0 && !p[i]) n[i] = 0; if (!n[i]) p[i] = ''; });
-              return { size: String(r.size ?? '').trim().slice(0, 20), n, p };
+              const size = String(r.size ?? '').trim().slice(0, 20);
+              if (isCt) return { size, q: cleanPartQty(r.q) };
+              return { size, n: [0, 1, 2, 3].map(i => toReleaseQty(Array.isArray(r.n) ? r.n[i] : 0)) };
             })
             .filter(r => r.size);
           const confirmId = releaseConfirmId(poId, batch, date);
-          const same = (a, b) => [0, 1, 2, 3].every(i => (a?.n?.[i] || 0) === (b.n[i] || 0) && (a?.p?.[i] || '') === (b.p[i] || ''));
+          const same = (a, b) => (isCt
+            ? samePartQty(a ? a.q : {}, b.q)
+            : [0, 1, 2, 3].every(i => (a?.n?.[i] || 0) === (b.n[i] || 0)));
+          // Dòng sẽ ghi của 1 size: chi tiết mỗi tên 1 dòng; đồng bộ / đóng gói 1 dòng (không ghi nếu toàn 0)
+          const newRecs = r => (isCt
+            ? Object.entries(r.q).map(([part, q]) => ({ id: releaseEntryId(poId, batch, kind, date, r.size, stage, part), n: [q, 0, 0, 0], p: [part, '', '', ''] }))
+            : (r.n.some(x => x > 0) ? [{ id: releaseEntryId(poId, batch, kind, date, r.size, stage), n: r.n, p: ['', '', '', ''] }] : []));
           let changed = false;
 
           if (env && env.DB) {
             const { results: existing } = await env.DB.prepare(
-              "SELECT size, n1, n2, n3, n4, p1, p2, p3, p4 FROM release_entries WHERE po_id = ? AND kind = ? AND entry_date = ? AND COALESCE(batch_name, '') = ? AND COALESCE(stage, '') = ?"
+              "SELECT id, size, n1, n2, n3, n4, p1, p2, p3, p4 FROM release_entries WHERE po_id = ? AND kind = ? AND entry_date = ? AND COALESCE(batch_name, '') = ? AND COALESCE(stage, '') = ?"
             ).bind(poId, kind, date, batch, stage).all();
-            const prev = new Map((existing || []).map(e => [e.size, {
-              n: [e.n1, e.n2, e.n3, e.n4].map(x => Number(x) || 0),
-              p: [e.p1, e.p2, e.p3, e.p4].map(x => String(x || ''))
-            }]));
+            // Mỗi size: id các dòng đang có (chi tiết có thể nhiều dòng) và số hiện tại
+            const prev = new Map();
+            for (const e of (existing || [])) {
+              const cur = prev.get(e.size) || { ids: [], n: [0, 0, 0, 0], q: {} };
+              cur.ids.push(e.id);
+              if (isCt) addPartRow(cur.q, e);
+              else cur.n = [e.n1, e.n2, e.n3, e.n4].map(x => Number(x) || 0);
+              prev.set(e.size, cur);
+            }
             const stmts = [];
             for (const r of rows) {
-              const id = releaseEntryId(poId, batch, kind, date, r.size, stage);
-              if (!same(prev.get(r.size), r)) changed = true;
-              if (r.n.every(x => x === 0)) {
-                if (prev.has(r.size)) stmts.push(env.DB.prepare("DELETE FROM release_entries WHERE id = ?").bind(id));
-              } else {
+              const old = prev.get(r.size);
+              if (same(old, r)) continue;
+              changed = true;
+              // Xóa các dòng đang có của size (kể cả dòng chi tiết dạng 4 ô cũ) rồi ghi lại
+              (old ? old.ids : []).forEach(id => stmts.push(env.DB.prepare("DELETE FROM release_entries WHERE id = ?").bind(id)));
+              for (const x of newRecs(r)) {
                 stmts.push(env.DB.prepare(`
                   INSERT INTO release_entries (id, po_id, batch_name, stage, kind, entry_date, size, n1, n2, n3, n4, p1, p2, p3, p4, updated_by, updated_at)
                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                   ON CONFLICT(id) DO UPDATE SET n1 = excluded.n1, n2 = excluded.n2, n3 = excluded.n3, n4 = excluded.n4,
                     p1 = excluded.p1, p2 = excluded.p2, p3 = excluded.p3, p4 = excluded.p4,
                     updated_by = excluded.updated_by, updated_at = CURRENT_TIMESTAMP
-                `).bind(id, poId, batch, stage, kind, date, r.size, r.n[0], r.n[1], r.n[2], r.n[3], r.p[0], r.p[1], r.p[2], r.p[3], user));
+                `).bind(x.id, poId, batch, stage, kind, date, r.size, x.n[0], x.n[1], x.n[2], x.n[3], x.p[0], x.p[1], x.p[2], x.p[3], user));
               }
             }
             // Tổ trưởng sửa số đóng gói sau khi đã xác nhận -> phải xác nhận lại (chỉ lô đó)
@@ -2839,22 +2881,22 @@ export default {
             if (stmts.length) await env.DB.batch(stmts);
           } else {
             if (!memoryDB.release_entries) memoryDB.release_entries = [];
+            const mine = (e, size) => e.po_id === poId && e.kind === kind && e.entry_date === date && e.size === size
+              && (e.batch_name || '') === batch && (e.stage || '') === stage;
             for (const r of rows) {
-              const id = releaseEntryId(poId, batch, kind, date, r.size, stage);
-              const idx = memoryDB.release_entries.findIndex(e => e.id === id);
-              const cur = idx >= 0 ? memoryDB.release_entries[idx] : null;
-              const before = cur ? { n: [cur.n1, cur.n2, cur.n3, cur.n4], p: [cur.p1, cur.p2, cur.p3, cur.p4] } : null;
-              if (!same(before, r)) changed = true;
-              if (r.n.every(x => x === 0)) {
-                if (idx >= 0) memoryDB.release_entries.splice(idx, 1);
-              } else {
-                const rec = {
-                  id, po_id: poId, batch_name: batch, stage, kind, entry_date: date, size: r.size,
-                  n1: r.n[0], n2: r.n[1], n3: r.n[2], n4: r.n[3],
-                  p1: r.p[0], p2: r.p[1], p3: r.p[2], p4: r.p[3], updated_by: user
-                };
-                if (idx >= 0) memoryDB.release_entries[idx] = rec;
-                else memoryDB.release_entries.push(rec);
+              const cur = memoryDB.release_entries.filter(e => mine(e, r.size));
+              const before = !cur.length ? null : (isCt
+                ? { q: cur.reduce((m, e) => addPartRow(m, e), {}) }
+                : { n: [cur[0].n1, cur[0].n2, cur[0].n3, cur[0].n4] });
+              if (same(before, r)) continue;
+              changed = true;
+              memoryDB.release_entries = memoryDB.release_entries.filter(e => !mine(e, r.size));
+              for (const x of newRecs(r)) {
+                memoryDB.release_entries.push({
+                  id: x.id, po_id: poId, batch_name: batch, stage, kind, entry_date: date, size: r.size,
+                  n1: x.n[0], n2: x.n[1], n3: x.n[2], n4: x.n[3],
+                  p1: x.p[0], p2: x.p[1], p3: x.p[2], p4: x.p[3], updated_by: user
+                });
               }
             }
             if (kind === 'dong_goi' && changed) {

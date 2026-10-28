@@ -6520,7 +6520,7 @@ function bindArtPartsEvents() {
 // ==========================================================
 // THẢ CHUYỀN / CHỈ LỆNH ĐÓNG GÓI / TỔNG HỢP (THEO LÔ)
 // Mỗi ngày 4 lần nhận theo size; tích lũy = cộng dồn cả lô tới ngày đang xem.
-// Thả chuyền có 2 chế độ: Đồng bộ (đôi) và Chi tiết (mỗi ô kèm tên chi tiết theo ART).
+// Thả chuyền có 2 chế độ: Đồng bộ (đôi) và Chi tiết (mỗi chi tiết của ART là 1 cột, 1 ô / size / ngày).
 // Khách có bảng công đoạn: thả chuyền ghi riêng từng công đoạn (ô Công đoạn trên popup);
 // Tổng hợp so số Đồng bộ của công đoạn sau với công đoạn trước, cuối cùng Đóng gói với công đoạn cuối.
 // ==========================================================
@@ -6549,7 +6549,8 @@ const relState = {
   batch: null,          // tên lô đang xem ('' = số nhập trước khi chia lô)
   stage: "",            // id công đoạn đang nhập ('' = khách chưa có bảng công đoạn)
   data: null,           // payload từ /api/release
-  day: { tc: {}, dg: {}, ct: {} },   // ô nhận của ngày đang xem; ct: size -> [[số, chi tiết] x4]
+  day: { tc: {}, dg: {}, ct: {} },   // ô nhận của ngày đang xem; ct: size -> {chi tiết: số}
+  ctCols: [],                        // cột của bảng Chi tiết đang hiển thị
   base: { tc: {}, dg: {} },          // tích lũy các ngày trước
   ctBase: {},                        // chi tiết: size -> {chi tiết: số} các ngày trước
   dirty: false,
@@ -6643,8 +6644,8 @@ function relCum(k, size) {
 // Tích lũy chi tiết của 1 size: {tên chi tiết: số}
 function relCtCum(size) {
   const out = { ...(relState.ctBase[size] || {}) };
-  (relState.day.ct[size] || []).forEach(cell => {
-    if (cell && cell[0] > 0 && cell[1]) out[cell[1]] = (out[cell[1]] || 0) + cell[0];
+  Object.entries(relState.day.ct[size] || {}).forEach(([p, q]) => {
+    if (q > 0) out[p] = (out[p] || 0) + q;
   });
   return out;
 }
@@ -6669,18 +6670,21 @@ function relApplyPayload(data, keepLocalDay) {
   relState.base = base;
 
   const ctBase = {};
-  const ctDay = data.ct || {};
+  const ctDay = data.ctDay || {};
   Object.entries(data.ctCum || {}).forEach(([s, parts]) => {
     ctBase[s] = { ...parts };
-    (ctDay[s] || []).forEach(cell => {
-      if (cell && cell[0] > 0 && cell[1] && ctBase[s][cell[1]] !== undefined) ctBase[s][cell[1]] -= cell[0];
+    Object.entries(ctDay[s] || {}).forEach(([p, q]) => {
+      if (ctBase[s][p] !== undefined) ctBase[s][p] -= Number(q) || 0;
     });
   });
   relState.ctBase = ctBase;
   if (!keepLocalDay) {
     relState.day.ct = {};
     Object.keys(ctDay).forEach(s => {
-      relState.day.ct[s] = [0, 1, 2, 3].map(i => [Number((ctDay[s][i] || [])[0]) || 0, String((ctDay[s][i] || [])[1] || "")]);
+      relState.day.ct[s] = {};
+      Object.entries(ctDay[s] || {}).forEach(([p, q]) => {
+        if (Number(q) > 0) relState.day.ct[s][p] = Number(q);
+      });
     });
   }
 }
@@ -6709,6 +6713,7 @@ async function openReleaseModal(target) {
     stage: "",
     data: null,
     day: { tc: {}, dg: {}, ct: {} },
+    ctCols: [],
     base: { tc: {}, dg: {} },
     ctBase: {},
     dirty: false
@@ -6828,7 +6833,7 @@ function renderReleaseLotInfo() {
     return;
   }
   if (relEditKind() === "tha_chuyen_ct") {
-    el.innerHTML = `${escHtml(label)}: chi tiết theo dõi riêng, không tính vào Tổng hợp với đóng gói`;
+    el.innerHTML = `${escHtml(label)}: ô hồng là số nhận hôm nay, số xanh bên dưới là tích lũy cả lô (chi tiết không tính vào Tổng hợp)`;
     return;
   }
   const k = relGridKey();
@@ -6905,18 +6910,20 @@ function relCanEditCurrent() {
   return relState.kind === "tha_chuyen" ? relCan("tcEdit") : relCan("dgEdit");
 }
 
-function relPartOptions(selected) {
-  const parts = (relState.data && relState.data.parts) || [];
-  const list = selected && !parts.includes(selected) ? [...parts, selected] : parts;
-  return list.map(p => `<option value="${escHtml(p)}"${p === selected ? " selected" : ""}>${escHtml(p)}</option>`).join("");
-}
-
-function relCtCumHtml(size) {
-  const cum = relCtCum(size);
-  const parts = (relState.data && relState.data.parts) || [];
-  const names = [...parts.filter(p => cum[p]), ...Object.keys(cum).filter(p => !parts.includes(p) && cum[p])];
-  if (!names.length) return '<span class="rel-none">—</span>';
-  return names.map(p => `<div class="rel-ct-line"><span>${escHtml(p)}</span><b>${relNum(cum[p])}</b></div>`).join("");
+// Cột bảng Chi tiết: các chi tiết khai báo cho ART theo thứ tự,
+// thêm tên đã có số nhưng không còn trong danh sách (để không bị ẩn số)
+function relCtParts() {
+  const parts = [...((relState.data && relState.data.parts) || [])];
+  const seen = new Set(parts);
+  [relState.ctBase, relState.day.ct].forEach(src => Object.values(src || {}).forEach(m => {
+    Object.entries(m || {}).forEach(([p, q]) => {
+      if (q > 0 && !seen.has(p)) {
+        seen.add(p);
+        parts.push(p);
+      }
+    });
+  }));
+  return parts;
 }
 
 // Cột Đơn hàng (thả chuyền Đồng bộ / chỉ lệnh đóng gói, PO đã dán đơn theo size):
@@ -6953,31 +6960,50 @@ function relOrderCellHtml(size) {
   return `<div class="rel-ord ${cls}"><small>${relNum(order)}</small><b>${text}</b></div>`;
 }
 
+// Bảng Chi tiết: Size | mỗi chi tiết 1 cột. Ô = số nhận hôm nay, bên dưới = tích lũy cả lô.
+// ART nhiều chi tiết thì bảng rộng hơn khung, kéo ngang (cột Size đứng yên).
+function renderReleaseCtGrid() {
+  const editable = relCanEditCurrent();
+  const parts = relCtParts();
+  relState.ctCols = parts;
+  document.querySelector("#relPaneIn .rel-table").style.minWidth = `${52 + parts.length * 66}px`;
+  document.getElementById("relGridCols").innerHTML = '<col style="width:52px">' + parts.map(() => "<col>").join("");
+  document.getElementById("relGridHead").innerHTML = '<th class="rel-ct-sticky">Size</th>'
+    + parts.map(p => `<th class="rel-th-part">${escHtml(p)}</th>`).join("");
+  document.getElementById("relTbody").innerHTML = relState.data.sizes.map(size => {
+    const day = relState.day.ct[size] || {};
+    const cum = relCtCum(size);
+    const cells = parts.map(p => {
+      const v = Number(day[p]) || 0;
+      return `<td class="rel-ct-cell"><input type="text" class="rel-input" inputmode="numeric" autocomplete="off" data-size="${escHtml(size)}" data-part="${escHtml(p)}" value="${v || ""}" placeholder="${editable ? "0" : ""}"${editable ? "" : ' readonly tabindex="-1"'} aria-label="Size ${escHtml(size)}, ${escHtml(p)}"><div class="rel-ct-tl" data-ct-size="${escHtml(size)}" data-part="${escHtml(p)}">${relNum(cum[p])}</div></td>`;
+    }).join("");
+    return `<tr><td class="rel-size rel-ct-sticky">${escHtml(size)}</td>${cells}</tr>`;
+  }).join("");
+  renderReleaseTotals();
+}
+
 function renderReleaseGrid() {
   const k = relGridKey();
+  if (k === "ct") {
+    renderReleaseCtGrid();
+    return;
+  }
+  document.querySelector("#relPaneIn .rel-table").style.minWidth = "";
   const editable = relCanEditCurrent();
-  const isCt = k === "ct";
   const showOrd = relShowOrder();
   document.getElementById("relGridCols").innerHTML = showOrd
     ? '<col style="width:12%"><col><col><col><col><col style="width:16%"><col style="width:18%">'
     : '<col class="rel-col-size"><col><col><col><col><col class="rel-col-cum">';
   // Thả chuyền: các lần nhận hàng; Chỉ lệnh đóng gói: các lần giao cho đóng gói
   const turn = relState.kind === "dong_goi" ? "Giao" : "Nhận";
-  document.getElementById("relGridHead").innerHTML = `<th>Size</th>${[1, 2, 3, 4].map(i => `<th>${turn} ${i}</th>`).join("")}<th class="rel-th-cum" id="relThCum">${isCt ? "Tích lũy<br>theo chi tiết" : "Tích lũy"}</th>`
+  document.getElementById("relGridHead").innerHTML = `<th>Size</th>${[1, 2, 3, 4].map(i => `<th>${turn} ${i}</th>`).join("")}<th class="rel-th-cum" id="relThCum">Tích lũy</th>`
     + (showOrd ? `<th class="rel-th-ord">Đơn hàng<small>${relOrderSource() === "lot" ? "lô này" : "cả PO"}</small></th>` : "");
   document.getElementById("relTbody").innerHTML = relState.data.sizes.map(size => {
     const cells = [0, 1, 2, 3].map(i => {
-      if (isCt) {
-        const cell = (relState.day.ct[size] || [])[i] || [0, ""];
-        const need = cell[0] > 0 && !cell[1];
-        return `<td class="rel-ct-cell"><input type="text" class="rel-input" inputmode="numeric" autocomplete="off" data-size="${escHtml(size)}" data-i="${i}" value="${cell[0] || ""}" placeholder="0" aria-label="Size ${escHtml(size)}, lần nhận ${i + 1}"><div class="rel-part-wrap${cell[1] ? "" : " is-empty"}${need ? " is-need" : ""}"><span class="rel-part-text">${escHtml(cell[1] || (need ? "Chọn chi tiết!" : "Chi tiết"))}</span><select class="rel-part" data-size="${escHtml(size)}" data-i="${i}" aria-label="Chi tiết của size ${escHtml(size)}, lần nhận ${i + 1}"><option value="">Chi tiết</option>${relPartOptions(cell[1])}</select></div></td>`;
-      }
       const v = Number((relState.day[k][size] || [])[i]) || 0;
       return `<td><input type="text" class="rel-input" inputmode="numeric" autocomplete="off" data-size="${escHtml(size)}" data-i="${i}" value="${v || ""}" placeholder="${editable ? "0" : ""}"${editable ? "" : ' readonly tabindex="-1"'} aria-label="Size ${escHtml(size)}, lần nhận ${i + 1}"></td>`;
     }).join("");
-    const cum = isCt
-      ? `<td class="rel-ct-cum" data-cum-size="${escHtml(size)}">${relCtCumHtml(size)}</td>`
-      : `<td><span class="rel-cum" data-cum-size="${escHtml(size)}">${relNum(relCum(k, size))}</span></td>`;
+    const cum = `<td><span class="rel-cum" data-cum-size="${escHtml(size)}">${relNum(relCum(k, size))}</span></td>`;
     const ord = showOrd ? `<td class="rel-ord-td" data-ord-size="${escHtml(size)}">${relOrderCellHtml(size)}</td>` : "";
     return `<tr><td class="rel-size">${escHtml(size)}</td>${cells}${cum}${ord}</tr>`;
   }).join("");
@@ -6988,13 +7014,15 @@ function renderReleaseTotals() {
   const k = relGridKey();
   const foot = document.getElementById("relTfoot");
   if (k === "ct") {
+    // Mỗi chi tiết cộng riêng: hôm nay (+) và tích lũy cả lô
+    const day = {};
     const all = {};
     relState.data.sizes.forEach(size => {
+      Object.entries(relState.day.ct[size] || {}).forEach(([p, q]) => { day[p] = (day[p] || 0) + q; });
       Object.entries(relCtCum(size)).forEach(([p, q]) => { all[p] = (all[p] || 0) + q; });
     });
-    const parts = (relState.data.parts || []);
-    const names = [...parts.filter(p => all[p]), ...Object.keys(all).filter(p => !parts.includes(p) && all[p])];
-    foot.innerHTML = `<td class="rel-foot-lbl">Tổng</td><td colspan="4" class="rel-foot-note">Mỗi chi tiết cộng riêng</td><td class="rel-ct-cum">${names.length ? names.map(p => `<div class="rel-ct-line"><span>${escHtml(p)}</span><b>${relNum(all[p])}</b></div>`).join("") : '<span class="rel-none">—</span>'}</td>`;
+    foot.innerHTML = '<td class="rel-foot-lbl rel-ct-sticky">Tổng</td>'
+      + relState.ctCols.map(p => `<td><span class="rel-ct-ft-day">+${relNum(day[p])}</span><span class="rel-ct-ft-cum">${relNum(all[p])}</span></td>`).join("");
     return;
   }
   const cols = [0, 0, 0, 0];
@@ -7016,8 +7044,10 @@ function renderReleaseTotals() {
 function relUpdateCums() {
   const k = relGridKey();
   document.querySelectorAll("#relTbody [data-cum-size]").forEach(el => {
-    if (k === "ct") el.innerHTML = relCtCumHtml(el.dataset.cumSize);
-    else el.textContent = relNum(relCum(k, el.dataset.cumSize));
+    el.textContent = relNum(relCum(k, el.dataset.cumSize));
+  });
+  document.querySelectorAll("#relTbody [data-ct-size]").forEach(el => {
+    el.textContent = relNum(relCtCum(el.dataset.ctSize)[el.dataset.part]);
   });
   document.querySelectorAll("#relTbody [data-ord-size]").forEach(el => {
     el.innerHTML = relOrderCellHtml(el.dataset.ordSize);
@@ -7153,44 +7183,19 @@ function onReleaseInput(e) {
   if (clean !== el.value) el.value = clean;
   const k = relGridKey();
   const size = el.dataset.size;
-  const i = Number(el.dataset.i);
   const qty = parseInt(clean, 10) || 0;
   if (k === "ct") {
-    const cells = relState.day.ct[size] || [[0, ""], [0, ""], [0, ""], [0, ""]];
-    cells[i] = [qty, (cells[i] || [0, ""])[1]];
-    relState.day.ct[size] = cells;
-    const sel = el.closest("td").querySelector(".rel-part");
-    if (sel) relMarkPart(sel, cells[i]);
+    const m = relState.day.ct[size] || {};
+    if (qty) m[el.dataset.part] = qty;
+    else delete m[el.dataset.part];
+    relState.day.ct[size] = m;
   } else {
     const arr = relState.day[k][size] || [0, 0, 0, 0];
-    arr[i] = qty;
+    arr[Number(el.dataset.i)] = qty;
     relState.day[k][size] = arr;
   }
   relUpdateCums();
   renderReleaseSummary();
-  relScheduleSave();
-}
-
-// Ô chọn chi tiết trong suốt (chữ 16px để iPhone không tự phóng to), nhãn hiển thị nằm phía dưới
-function relMarkPart(sel, cell) {
-  const need = cell[0] > 0 && !cell[1];
-  const wrap = sel.parentElement;
-  wrap.classList.toggle("is-empty", !cell[1]);
-  wrap.classList.toggle("is-need", need);
-  const text = wrap.querySelector(".rel-part-text");
-  if (text) text.textContent = cell[1] || (need ? "Chọn chi tiết!" : "Chi tiết");
-}
-
-function onReleaseChange(e) {
-  const sel = e.target;
-  if (!sel.classList.contains("rel-part") || !relState.data) return;
-  const size = sel.dataset.size;
-  const i = Number(sel.dataset.i);
-  const cells = relState.day.ct[size] || [[0, ""], [0, ""], [0, ""], [0, ""]];
-  cells[i] = [(cells[i] || [0, ""])[0], sel.value];
-  relState.day.ct[size] = cells;
-  relMarkPart(sel, cells[i]);
-  relUpdateCums();
   relScheduleSave();
 }
 
@@ -7222,15 +7227,8 @@ function saveRelease() {
     const batch = relState.batch || "";
     const stage = kind === "dong_goi" ? "" : (relState.stage || "");
     relState.dirty = false;
-    let missingPart = false;
     const rows = relState.data.sizes.map(size => {
-      if (kind === "tha_chuyen_ct") {
-        const cells = relState.day.ct[size] || [];
-        const n = [0, 1, 2, 3].map(i => Number((cells[i] || [])[0]) || 0);
-        const p = [0, 1, 2, 3].map(i => String((cells[i] || [])[1] || ""));
-        if (n.some((q, i) => q > 0 && !p[i])) missingPart = true;
-        return { size, n, p };
-      }
+      if (kind === "tha_chuyen_ct") return { size, q: { ...(relState.day.ct[size] || {}) } };
       const k = kind === "dong_goi" ? "dg" : "tc";
       return { size, n: [0, 1, 2, 3].map(i => Number((relState.day[k][size] || [])[i]) || 0) };
     });
@@ -7250,7 +7248,6 @@ function saveRelease() {
         renderReleaseSummary();
         relRenderFoot();
       }
-      if (missingPart) showToast("⚠️ Có ô chưa chọn tên chi tiết nên chưa lưu ô đó");
       if (data.confirmReset) showToast(`⚠️ Đã sửa số đóng gói ${relLotLabel(batch)}: tổ trưởng và đóng gói cần xác nhận lại`);
       refreshReleaseBar();
       return true;
@@ -7422,7 +7419,6 @@ function bindReleaseEvents() {
 
   const tbody = document.getElementById("relTbody");
   tbody.addEventListener("input", onReleaseInput);
-  tbody.addEventListener("change", onReleaseChange);
   tbody.addEventListener("keydown", onReleaseKeydown);
   tbody.addEventListener("focusin", (e) => {
     if (e.target.classList.contains("rel-input") && !e.target.readOnly) e.target.select();
