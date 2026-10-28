@@ -945,18 +945,17 @@ async function initD1Tables(db) {
       console.warn("Cust/Order sync notice:", seedErr.message);
     }
 
-    // Ensure initial admin accounts exist in D1 SQLite
+    // Tài khoản mẫu chỉ tạo khi bảng users còn trống (lần cài đầu tiên): không ghi đè
+    // email / mật khẩu admin đã đổi, cũng không tạo lại tài khoản đã xóa, mỗi lần server khởi động
     try {
-      for (const u of INITIAL_DB.users) {
-        await db.prepare(`
-          INSERT INTO users (id, email, phone, full_name, role, password, pin_code, is_active)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-          ON CONFLICT(id) DO UPDATE SET
-            email=excluded.email,
-            password=excluded.password,
-            role=excluded.role,
-            full_name=excluded.full_name
-        `).bind(u.id, u.email, u.phone, u.full_name, u.role, u.password, u.pin_code, u.is_active).run();
+      const existingUsers = await db.prepare("SELECT COUNT(*) AS n FROM users").first();
+      if (!existingUsers || existingUsers.n === 0) {
+        for (const u of INITIAL_DB.users) {
+          await db.prepare(`
+            INSERT OR IGNORE INTO users (id, email, phone, full_name, role, password, pin_code, is_active)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          `).bind(u.id, u.email, u.phone, u.full_name, u.role, u.password, u.pin_code, u.is_active).run();
+        }
       }
     } catch (userSeedErr) {
       console.warn("User seed notice:", userSeedErr.message);

@@ -4648,45 +4648,22 @@ function handleLogout() {
 
 // BIND DEDICATED LOGIN PORTAL EVENTS
 function bindPortalEvents() {
-  // 1. Role Choice Cards in Portal (Visual indicator only)
-  const cardAdmin = document.getElementById("cardRoleAdmin");
-  const cardManager = document.getElementById("cardRoleManager");
-  const cardWorker = document.getElementById("cardRoleWorker");
-
-  function selectPortalRole(role) {
-    [cardAdmin, cardManager, cardWorker].forEach(c => {
-      if (c) c.className = "login-role-choice-card " + (c.dataset.role === "admin" ? "is-admin-card" : (c.dataset.role === "manager" ? "is-manager-card" : "is-worker-card"));
-    });
-
-    if (role === "admin" && cardAdmin) {
-      cardAdmin.classList.add("active-admin");
-    } else if (role === "manager" && cardManager) {
-      cardManager.classList.add("active-manager");
-    } else if (role === "worker" && cardWorker) {
-      cardWorker.classList.add("active-worker");
-    }
-  }
-
-  if (cardAdmin) cardAdmin.addEventListener("click", () => selectPortalRole("admin"));
-  if (cardManager) cardManager.addEventListener("click", () => selectPortalRole("manager"));
-  if (cardWorker) cardWorker.addEventListener("click", () => selectPortalRole("worker"));
-
-  // 2. Toggle Show / Hide Password
+  // 1. Toggle Show / Hide Password
   const btnTogglePass = document.getElementById("btnToggleShowPass");
   const passInput = document.getElementById("portalTxtLoginPass");
   if (btnTogglePass && passInput) {
     btnTogglePass.addEventListener("click", () => {
       if (passInput.type === "password") {
         passInput.type = "text";
-        btnTogglePass.innerText = "Ẩn mật khẩu";
+        btnTogglePass.innerText = "Ẩn";
       } else {
         passInput.type = "password";
-        btnTogglePass.innerText = "Hiện mật khẩu";
+        btnTogglePass.innerText = "Hiện";
       }
     });
   }
 
-  // 3. Direct Login Submit (Số điện thoại / Email + Mật Khẩu)
+  // 2. Direct Login Submit (Số điện thoại / Email + Mật Khẩu)
   async function submitDirectLogin(e) {
     if (e && e.preventDefault) e.preventDefault();
     const userOrPhone = document.getElementById("portalTxtLoginUser")?.value.trim();
@@ -4700,7 +4677,7 @@ function bindPortalEvents() {
     const btnSub = document.getElementById("btnPortalSubmitLogin");
     if (btnSub) {
       btnSub.disabled = true;
-      btnSub.innerText = "Đang xác thực tài khoản...";
+      btnSub.innerText = "Đang đăng nhập...";
     }
 
     try {
@@ -4720,7 +4697,7 @@ function bindPortalEvents() {
     } finally {
       if (btnSub) {
         btnSub.disabled = false;
-        btnSub.innerText = "Đăng nhập hệ thống";
+        btnSub.innerText = "Đăng nhập";
       }
     }
   }

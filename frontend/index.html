@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
-  <title>BÁO CÁO ĐỐI CHIẾU NHẬP XUẤT TỒN - WIP FLOW TRACKING</title>
+  <title>Hệ thống kiểm kê chuyền may - D&D Long An</title>
 
   <!-- PWA & Mobile Web App Meta Tags -->
   <link rel="manifest" href="manifest.json">
@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@500;600;700;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="styles.css?v=20261027_2200">
+  <link rel="stylesheet" href="styles.css?v=20261028_1500">
   
   <!-- cdn for sheetjs (xlsx) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -44,73 +44,42 @@
   <!-- ========================================================
        DEDICATED FULL-SCREEN LOGIN PORTAL (CỔNG ĐĂNG NHẬP RIÊNG BIỆT)
        ======================================================== -->
-  <div id="loginPortalScreen" class="login-portal-screen">
-    <div class="login-portal-card">
-      
-      <!-- PORTAL HEADER -->
-      <div class="login-portal-header">
-        <div class="login-portal-brand-mark">D&amp;D LONG AN</div>
-        <h1>Hệ thống kiểm kê dở dang &amp; đối chiếu chuyền may</h1>
-        <p>Theo dõi luân chuyển bán thành phẩm (WIP), cân đối nhập xuất tồn và nhật ký sản lượng theo từng lô</p>
-        <div style="margin-top: 12px;">
-          <button type="button" id="btnPortalInstallApp" class="btn-install-pwa" style="display: none;">
-            Cài đặt ứng dụng vào màn hình chính
-          </button>
+  <div id="loginPortalScreen" class="lp-screen">
+    <div class="lp-wrap">
+      <header class="lp-head">
+        <div class="lp-brand">
+          <img src="favicon.svg" alt="" class="lp-logo" width="36" height="36">
+          <span>D&amp;D Long An</span>
         </div>
-      </div>
+        <h1 class="lp-title">Hệ thống kiểm&nbsp;kê chuyền&nbsp;may</h1>
+      </header>
 
-      <!-- 3 ROLES INFORMATIONAL CARDS -->
-      <div class="login-roles-grid">
-        <div class="login-role-choice-card is-admin-card" id="cardRoleAdmin" data-role="admin">
-          <div class="r-code">01</div>
-          <div class="r-title">Ban giám đốc</div>
-          <div class="r-desc">Toàn quyền báo cáo, đơn hàng &amp; phân quyền</div>
-        </div>
-        <div class="login-role-choice-card is-manager-card" id="cardRoleManager" data-role="manager">
-          <div class="r-code">02</div>
-          <div class="r-title">Quản lý điều hành</div>
-          <div class="r-desc">Theo dõi toàn bộ báo cáo, tiến độ &amp; PO</div>
-        </div>
-        <div class="login-role-choice-card is-worker-card" id="cardRoleWorker" data-role="worker">
-          <div class="r-code">03</div>
-          <div class="r-title">Nhân viên kiểm kê</div>
-          <div class="r-desc">Nhập số liệu kiểm kê tại các trạm</div>
-        </div>
-      </div>
-
-      <!-- SINGLE STREAMLINED LOGIN FORM (SĐT / EMAIL + MẬT KHẨU) -->
-      <div class="login-portal-body">
-        <form id="formPortalLogin" autocomplete="on">
-          <div class="form-group" style="margin-bottom: 16px;">
-            <label for="portalTxtLoginUser" class="portal-field-label">
-              Số điện thoại hoặc email đăng nhập
-            </label>
-            <input type="text" id="portalTxtLoginUser" class="form-control portal-input" placeholder="Nhập số điện thoại (ví dụ: 0818189868) hoặc email" required autocomplete="username" inputmode="text">
+      <div class="lp-sheet">
+        <form id="formPortalLogin" class="lp-form" autocomplete="on">
+          <div class="lp-field">
+            <label for="portalTxtLoginUser" class="lp-label">Số điện thoại hoặc email</label>
+            <input type="text" id="portalTxtLoginUser" class="lp-input" placeholder="VD: 0818189868" required autocomplete="username" inputmode="text">
           </div>
 
-          <div class="form-group" style="margin-bottom: 16px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-              <label for="portalTxtLoginPass" class="portal-field-label" style="margin-bottom: 0;">
-                Mật khẩu
-              </label>
-              <button type="button" id="btnToggleShowPass" class="btn-link-subtle">
-                Hiện mật khẩu
-              </button>
+          <div class="lp-field">
+            <label for="portalTxtLoginPass" class="lp-label">Mật khẩu</label>
+            <div class="lp-pass">
+              <input type="password" id="portalTxtLoginPass" class="lp-input" placeholder="Nhập mật khẩu" required autocomplete="current-password">
+              <button type="button" id="btnToggleShowPass" class="lp-pass-toggle">Hiện</button>
             </div>
-            <input type="password" id="portalTxtLoginPass" class="form-control portal-input" placeholder="Nhập mật khẩu" required autocomplete="current-password">
           </div>
 
-          <div class="form-group portal-remember-row">
+          <label class="lp-remember">
             <input type="checkbox" id="chkRememberMe" checked>
-            <label for="chkRememberMe">
-              Duy trì đăng nhập trên thiết bị này
-            </label>
-          </div>
+            <span>Ghi nhớ đăng nhập</span>
+          </label>
 
-          <button type="submit" class="login-btn-submit" id="btnPortalSubmitLogin">
-            Đăng nhập hệ thống
-          </button>
+          <button type="submit" class="lp-submit" id="btnPortalSubmitLogin">Đăng nhập</button>
         </form>
+
+        <button type="button" id="btnPortalInstallApp" class="lp-install" style="display: none;">
+          Cài ứng dụng vào màn hình chính
+        </button>
       </div>
     </div>
   </div>
@@ -1298,6 +1267,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261027_2200"></script>
+  <script src="app.js?v=20261028_1500"></script>
 </body>
 </html>

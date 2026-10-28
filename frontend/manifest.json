@@ -1,7 +1,7 @@
 {
-  "name": "D&D Long An - Quản Lý Tiến Độ Chuyền May",
+  "name": "D&D Long An - Hệ thống kiểm kê chuyền may",
   "short_name": "WIP May D&D",
-  "description": "Hệ thống kiểm kê dở dang, đối chiếu nhập xuất tồn & theo dõi tiến độ chuyền may D&D Long An",
+  "description": "Hệ thống kiểm kê chuyền may D&D Long An",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
