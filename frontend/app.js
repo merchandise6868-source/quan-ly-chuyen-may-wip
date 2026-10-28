@@ -6198,19 +6198,31 @@ async function saveStages() {
     showToast(`⚠️ Công đoạn "${list[names.indexOf(dup)].name}" bị trùng tên`);
     return;
   }
-  // Gõ lại đúng tên một công đoạn đã lưu thì dùng lại công đoạn đó (không mất số đã nhập)
+  // Ô có tên trùng một công đoạn đã lưu luôn dùng lại công đoạn đó (và số đã nhập), dù nằm ở ô nào:
+  // gõ đè tên để đổi chỗ cũng không lệch số. Tên mới hoàn toàn = đổi tên, giữ công đoạn của ô.
   const saved = getCustomerStages(cust);
-  const used = new Set(list.map(x => x.id).filter(Boolean));
-  list.forEach(x => {
-    if (x.id) return;
-    const old = saved.find(o => !used.has(o.id) && o.name.toLowerCase() === x.name.toLowerCase());
-    if (old) {
-      x.id = old.id;
-      used.add(old.id);
-    }
+  const savedId = new Map(saved.map(o => [o.name.toLowerCase(), o.id]));
+  const used = new Set();
+  const byName = new Set();
+  list.forEach((x, i) => {
+    const id = savedId.get(x.name.toLowerCase());
+    if (!id) return;
+    x.id = id;
+    used.add(id);
+    byName.add(i);
+  });
+  list.forEach((x, i) => {
+    if (byName.has(i)) return;
+    if (x.id && !used.has(x.id)) used.add(x.id);
+    else x.id = "";
   });
   const removed = saved.filter(x => !used.has(x.id));
-  if (removed.length && !confirm(`Bỏ công đoạn ${removed.map(x => `"${x.name}"`).join(", ")} khỏi bảng?\nSố thả chuyền đã nhập của công đoạn này sẽ không còn hiện và không còn tính vào Tổng hợp.`)) return;
+  const keptOld = saved.filter(x => used.has(x.id)).map(x => x.id);
+  const moved = keptOld.join("|") !== list.filter(x => keptOld.includes(x.id)).map(x => x.id).join("|");
+  const notes = [];
+  if (moved) notes.push(`Thứ tự mới: ${[...list.map(x => x.name), "Đóng gói"].join(" → ")}.\nSố đã nhập giữ nguyên theo từng công đoạn, chỉ đổi cặp so sánh trong Tổng hợp.`);
+  if (removed.length) notes.push(`Bỏ công đoạn ${removed.map(x => `"${x.name}"`).join(", ")} khỏi bảng: số thả chuyền đã nhập của công đoạn này sẽ không còn hiện và không còn tính vào Tổng hợp.`);
+  if (notes.length && !confirm(`${notes.join("\n\n")}\n\nLưu công đoạn?`)) return;
   const btn = document.getElementById("btnSaveStages");
   if (btn) btn.disabled = true;
   try {
@@ -6554,6 +6566,7 @@ const relState = {
   base: { tc: {}, dg: {} },          // tích lũy các ngày trước
   ctBase: {},                        // chi tiết: size -> {chi tiết: số} các ngày trước
   dirty: false,
+  ctFullNote: "",                    // "Size … đủ chi tiết → Đồng bộ …" của lần lưu gần nhất (ghép vào thông báo Lưu)
   timer: null,
   saving: Promise.resolve(true),
   seq: 0
@@ -6650,6 +6663,19 @@ function relCtCum(size) {
   return out;
 }
 
+// Đơn hàng để tích đủ chi tiết của 1 size (0 = không có đơn theo size: không hiện ✓ / nút Đủ)
+const relCtOrder = size => Number(((relState.data && relState.data.ctOrder) || {})[size]) || 0;
+
+// Size đủ bộ: mọi chi tiết khai báo của ART có tích lũy >= đơn hàng (máy chủ tự ghi size này sang Đồng bộ)
+function relCtIsFull(data, size, cumMap) {
+  const parts = (data && data.parts) || [];
+  const o = Number(((data && data.ctOrder) || {})[size]) || 0;
+  return o > 0 && parts.length > 0 && parts.every(p => (Number(cumMap[p]) || 0) >= o);
+}
+
+// Các size đủ bộ theo số đã lưu trên máy chủ
+const relCtFullSizes = data => ((data && data.sizes) || []).filter(s => relCtIsFull(data, s, (data.ctCum || {})[s] || {}));
+
 function relApplyPayload(data, keepLocalDay) {
   relState.data = data;
   relState.batch = data.batch;
@@ -6716,6 +6742,7 @@ async function openReleaseModal(target) {
     ctCols: [],
     base: { tc: {}, dg: {} },
     ctBase: {},
+    ctFullNote: "",
     dirty: false
   });
 
@@ -6833,7 +6860,13 @@ function renderReleaseLotInfo() {
     return;
   }
   if (relEditKind() === "tha_chuyen_ct") {
-    el.innerHTML = `${escHtml(label)}: ô hồng là số nhận hôm nay, số xanh bên dưới là tích lũy cả lô (chi tiết không tính vào Tổng hợp)`;
+    const withOrder = relState.data.sizes.filter(s => relCtOrder(s) > 0);
+    if (!withOrder.length) {
+      el.innerHTML = `${escHtml(label)}: ô hồng là số nhận hôm nay, số xanh bên dưới là tích lũy cả lô (chi tiết không tính vào Tổng hợp)`;
+      return;
+    }
+    const full = withOrder.filter(s => relCtIsFull(relState.data, s, relCtCum(s))).length;
+    el.innerHTML = `${escHtml(label)}: đủ bộ <span class="${full === withOrder.length ? "rel-num-green" : "rel-num-blue"}">${full}/${withOrder.length}</span> size · size đủ bộ tự ghi sang Đồng bộ`;
     return;
   }
   const k = relGridKey();
@@ -6960,26 +6993,99 @@ function relOrderCellHtml(size) {
   return `<div class="rel-ord ${cls}"><small>${relNum(order)}</small><b>${text}</b></div>`;
 }
 
-// Bảng Chi tiết: Size | mỗi chi tiết 1 cột. Ô = số nhận hôm nay, bên dưới = tích lũy cả lô.
+// Bảng Chi tiết: Size (+ đơn hàng) | mỗi chi tiết 1 cột. Ô = số nhận hôm nay, bên dưới = tích lũy cả lô / đơn hàng.
+// Có đơn hàng theo size: ô trống còn thiếu hiện ✓ (bấm = điền đủ), tên chi tiết có nút Đủ (điền cả cột).
 // ART nhiều chi tiết thì bảng rộng hơn khung, kéo ngang (cột Size đứng yên).
 function renderReleaseCtGrid() {
   const editable = relCanEditCurrent();
   const parts = relCtParts();
+  const hasOrder = relState.data.sizes.some(s => relCtOrder(s) > 0);
   relState.ctCols = parts;
-  document.querySelector("#relPaneIn .rel-table").style.minWidth = `${52 + parts.length * 66}px`;
-  document.getElementById("relGridCols").innerHTML = '<col style="width:52px">' + parts.map(() => "<col>").join("");
-  document.getElementById("relGridHead").innerHTML = '<th class="rel-ct-sticky">Size</th>'
-    + parts.map(p => `<th class="rel-th-part">${escHtml(p)}</th>`).join("");
+  document.querySelector("#relPaneIn .rel-table").style.minWidth = `${56 + parts.length * 70}px`;
+  document.getElementById("relGridCols").innerHTML = '<col style="width:56px">' + parts.map(() => "<col>").join("");
+  document.getElementById("relGridHead").innerHTML = `<th class="rel-ct-sticky">Size${hasOrder ? "<small>Đơn hàng</small>" : ""}</th>`
+    + parts.map(p => `<th class="rel-th-part"><span class="rel-ct-pn">${escHtml(p)}</span>${editable && hasOrder ? `<button type="button" class="rel-ct-full" data-rel-full="${escHtml(p)}" aria-label="Đủ cả cột ${escHtml(p)}"><span class="rel-ct-box"></span>Đủ</button>` : ""}</th>`).join("");
   document.getElementById("relTbody").innerHTML = relState.data.sizes.map(size => {
     const day = relState.day.ct[size] || {};
-    const cum = relCtCum(size);
     const cells = parts.map(p => {
       const v = Number(day[p]) || 0;
-      return `<td class="rel-ct-cell"><input type="text" class="rel-input" inputmode="numeric" autocomplete="off" data-size="${escHtml(size)}" data-part="${escHtml(p)}" value="${v || ""}" placeholder="${editable ? "0" : ""}"${editable ? "" : ' readonly tabindex="-1"'} aria-label="Size ${escHtml(size)}, ${escHtml(p)}"><div class="rel-ct-tl" data-ct-size="${escHtml(size)}" data-part="${escHtml(p)}">${relNum(cum[p])}</div></td>`;
+      const tick = editable ? `<button type="button" class="rel-ct-tick" data-rel-tick data-size="${escHtml(size)}" data-part="${escHtml(p)}" aria-label="Điền đủ size ${escHtml(size)}, ${escHtml(p)}">✓</button>` : "";
+      return `<td class="rel-ct-cell"><div class="rel-ct-in" data-ct-in data-size="${escHtml(size)}" data-part="${escHtml(p)}"><input type="text" class="rel-input" inputmode="numeric" autocomplete="off" data-size="${escHtml(size)}" data-part="${escHtml(p)}" value="${v || ""}"${editable ? "" : ' readonly tabindex="-1"'} aria-label="Size ${escHtml(size)}, ${escHtml(p)}">${tick}</div><div class="rel-ct-tl" data-ct-size="${escHtml(size)}" data-part="${escHtml(p)}"></div></td>`;
     }).join("");
-    return `<tr><td class="rel-size rel-ct-sticky">${escHtml(size)}</td>${cells}</tr>`;
+    return `<tr><td class="rel-size rel-ct-sticky" data-ct-sz="${escHtml(size)}"></td>${cells}</tr>`;
   }).join("");
+  relCtPaint();
   renderReleaseTotals();
+}
+
+// Tô lại bảng Chi tiết theo số đang có (không vẽ lại ô nhập để không mất con trỏ khi đang gõ):
+// ✓ trong ô, tích lũy / đơn hàng, ô size "Đủ bộ", nút Đủ trên tên chi tiết
+function relCtPaint() {
+  const editable = relCanEditCurrent();
+  const cums = {};
+  relState.data.sizes.forEach(s => { cums[s] = relCtCum(s); });
+  const baseOf = (s, p) => Number((relState.ctBase[s] || {})[p]) || 0;
+  document.querySelectorAll("#relTbody [data-ct-in]").forEach(box => {
+    const { size, part } = box.dataset;
+    const v = Number((relState.day.ct[size] || {})[part]) || 0;
+    const o = relCtOrder(size);
+    const canTick = editable && o > 0 && !v && baseOf(size, part) < o;
+    const inp = box.querySelector(".rel-input");
+    box.classList.toggle("can-tick", canTick);
+    inp.placeholder = editable && !canTick ? "0" : "";
+    if (document.activeElement !== inp) inp.value = v || "";
+  });
+  document.querySelectorAll("#relTbody [data-ct-size]").forEach(el => {
+    const size = el.dataset.ctSize;
+    const c = Number((cums[size] || {})[el.dataset.part]) || 0;
+    const o = relCtOrder(size);
+    el.classList.toggle("is-ok", o > 0 && c === o);
+    el.classList.toggle("is-over", o > 0 && c > o);
+    el.innerHTML = !o ? relNum(c) : (c === o ? `${relNum(c)} ✓` : `${relNum(c)}<small>/${relNum(o)}</small>`);
+  });
+  document.querySelectorAll("#relTbody [data-ct-sz]").forEach(td => {
+    const size = td.dataset.ctSz;
+    const o = relCtOrder(size);
+    const full = relCtIsFull(relState.data, size, cums[size] || {});
+    td.classList.toggle("is-full", full);
+    td.innerHTML = `${escHtml(size)}${o ? `<small class="rel-ct-ord">${relNum(o)}</small>` : ""}${full ? '<em class="rel-ct-badge">Đủ bộ</em>' : ""}`;
+  });
+  const withOrder = relState.data.sizes.filter(s => relCtOrder(s) > 0);
+  document.querySelectorAll("#relGridHead [data-rel-full]").forEach(b => {
+    const p = b.dataset.relFull;
+    const on = withOrder.every(s => (Number(cums[s][p]) || 0) >= relCtOrder(s));
+    b.classList.toggle("on", on);
+    b.setAttribute("aria-pressed", String(on));
+    b.disabled = withOrder.every(s => baseOf(s, p) >= relCtOrder(s));
+    b.querySelector(".rel-ct-box").textContent = on ? "✓" : "";
+  });
+}
+
+// ✓ trong ô Chi tiết: điền số còn thiếu để tích lũy của size đủ đơn hàng
+function relCtTick(size, part) {
+  const o = relCtOrder(size);
+  const base = Number((relState.ctBase[size] || {})[part]) || 0;
+  if (!relCanEditCurrent() || o <= base) return;
+  relState.day.ct[size] = { ...(relState.day.ct[size] || {}), [part]: o - base };
+  relUpdateCums();
+  relScheduleSave();
+}
+
+// Nút Đủ trên tên chi tiết: điền đủ mọi size (có đơn hàng) của chi tiết đó; đang đủ thì xóa số hôm nay của chi tiết đó
+function relCtToggleCol(part) {
+  if (!relCanEditCurrent()) return;
+  const sizes = relState.data.sizes.filter(s => relCtOrder(s) > 0);
+  const on = sizes.every(s => (Number(relCtCum(s)[part]) || 0) >= relCtOrder(s));
+  if (on && !confirm(`Xóa số nhận hôm nay của "${part}" ở mọi size?`)) return;
+  sizes.forEach(s => {
+    const m = { ...(relState.day.ct[s] || {}) };
+    const base = Number((relState.ctBase[s] || {})[part]) || 0;
+    if (on) delete m[part];
+    else if (base + (Number(m[part]) || 0) < relCtOrder(s)) m[part] = relCtOrder(s) - base;
+    relState.day.ct[s] = m;
+  });
+  relUpdateCums();
+  relScheduleSave();
 }
 
 function renderReleaseGrid() {
@@ -7003,7 +7109,9 @@ function renderReleaseGrid() {
       const v = Number((relState.day[k][size] || [])[i]) || 0;
       return `<td><input type="text" class="rel-input" inputmode="numeric" autocomplete="off" data-size="${escHtml(size)}" data-i="${i}" value="${v || ""}" placeholder="${editable ? "0" : ""}"${editable ? "" : ' readonly tabindex="-1"'} aria-label="Size ${escHtml(size)}, lần nhận ${i + 1}"></td>`;
     }).join("");
-    const cum = `<td><span class="rel-cum" data-cum-size="${escHtml(size)}">${relNum(relCum(k, size))}</span></td>`;
+    // Đồng bộ có phần do Chi tiết tự ghi (size đủ mọi chi tiết): ô Tích lũy xanh lá
+    const auto = k === "tc" && Number((relState.data.tcAuto || {})[size]) > 0;
+    const cum = `<td><span class="rel-cum${auto ? " is-auto" : ""}" data-cum-size="${escHtml(size)}">${relNum(relCum(k, size))}</span>${auto ? '<small class="rel-from-ct">từ Chi tiết</small>' : ""}</td>`;
     const ord = showOrd ? `<td class="rel-ord-td" data-ord-size="${escHtml(size)}">${relOrderCellHtml(size)}</td>` : "";
     return `<tr><td class="rel-size">${escHtml(size)}</td>${cells}${cum}${ord}</tr>`;
   }).join("");
@@ -7046,9 +7154,7 @@ function relUpdateCums() {
   document.querySelectorAll("#relTbody [data-cum-size]").forEach(el => {
     el.textContent = relNum(relCum(k, el.dataset.cumSize));
   });
-  document.querySelectorAll("#relTbody [data-ct-size]").forEach(el => {
-    el.textContent = relNum(relCtCum(el.dataset.ctSize)[el.dataset.part]);
-  });
+  if (k === "ct") relCtPaint();
   document.querySelectorAll("#relTbody [data-ord-size]").forEach(el => {
     el.innerHTML = relOrderCellHtml(el.dataset.ordSize);
   });
@@ -7227,6 +7333,7 @@ function saveRelease() {
     const batch = relState.batch || "";
     const stage = kind === "dong_goi" ? "" : (relState.stage || "");
     relState.dirty = false;
+    const fullBefore = kind === "tha_chuyen_ct" ? relCtFullSizes(relState.data) : null;
     const rows = relState.data.sizes.map(size => {
       if (kind === "tha_chuyen_ct") return { size, q: { ...(relState.day.ct[size] || {}) } };
       const k = kind === "dong_goi" ? "dg" : "tc";
@@ -7249,6 +7356,12 @@ function saveRelease() {
         relRenderFoot();
       }
       if (data.confirmReset) showToast(`⚠️ Đã sửa số đóng gói ${relLotLabel(batch)}: tổ trưởng và đóng gói cần xác nhận lại`);
+      // Size vừa đủ mọi chi tiết: máy chủ đã ghi sang Tích lũy của Đồng bộ
+      const fresh = fullBefore ? relCtFullSizes(data).filter(s => !fullBefore.includes(s)) : [];
+      if (fresh.length) {
+        relState.ctFullNote = `Size ${fresh.join(", ")} đủ chi tiết → Đồng bộ ${fresh.map(s => relNum((data.tcCum || {})[s])).join(", ")} đôi`;
+        showToast(`✅ ${relState.ctFullNote}`);
+      }
       refreshReleaseBar();
       return true;
     } catch (err) {
@@ -7263,7 +7376,8 @@ function saveRelease() {
 async function saveAndCloseRelease() {
   const ok = await saveRelease();
   if (ok === false) return;
-  showToast(`💾 Đã lưu thả chuyền${relStageName() ? ` · ${relStageName()}` : ""} ${relLotLabel(relState.batch)} ngày ${relFmtDate(relState.date)}`);
+  showToast(`💾 Đã lưu thả chuyền${relStageName() ? ` · ${relStageName()}` : ""} ${relLotLabel(relState.batch)} ngày ${relFmtDate(relState.date)}${relState.ctFullNote ? `. ${relState.ctFullNote}` : ""}`);
+  relState.ctFullNote = "";
   closeReleaseModal();
 }
 
@@ -7389,6 +7503,16 @@ function bindReleaseEvents() {
   modal.addEventListener("click", (e) => {
     if (e.target === modal) {
       closeReleaseModal();
+      return;
+    }
+    const tick = e.target.closest("[data-rel-tick]");
+    if (tick) {
+      relCtTick(tick.dataset.size, tick.dataset.part);
+      return;
+    }
+    const fullBtn = e.target.closest("[data-rel-full]");
+    if (fullBtn) {
+      if (!fullBtn.disabled) relCtToggleCol(fullBtn.dataset.relFull);
       return;
     }
     const lotBtn = e.target.closest("[data-rel-lot]");

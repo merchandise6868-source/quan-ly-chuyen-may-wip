@@ -376,6 +376,9 @@ const releaseEntryId = (poId, batch, kind, date, size, stage, part) =>
   (batch ? `${poId}|${batch}|${kind}|${date}|${size}` : `${poId}|${kind}|${date}|${size}`)
   + (part ? `|pt:${part}` : '') + (stage ? `|st:${stage}` : '');
 const isStageKind = kind => kind === 'tha_chuyen' || kind === 'tha_chuyen_ct';
+// Dòng đồng bộ do Chi tiết tự ghi (size đủ mọi chi tiết): kind tha_chuyen, p1 = '#ct', id đuôi |pt:#ct
+const CT_AUTO_PART = '#ct';
+const isCtAutoRow = r => r.kind === 'tha_chuyen' && r.p1 === CT_AUTO_PART;
 const MAX_STAGES = 10;
 const releaseConfirmId = (poId, batch, date) =>
   batch ? `${poId}|${batch}|${date}` : `${poId}|${date}`;
@@ -586,6 +589,8 @@ function buildReleasePayload({ po, cust, rows, confs, parts }, date, batchReq, s
   const day = { tha_chuyen: {}, tha_chuyen_ct: {}, dong_goi: {} };
   const cum = { tha_chuyen: {}, dong_goi: {} };
   const ctCum = {};
+  // Số đồng bộ do Chi tiết tự ghi: có trong tích lũy, không hiện ở ô Nhận 1–4 của ngày
+  const tcAuto = {};
   // Tích lũy đồng bộ của từng công đoạn (bảng Tổng hợp công đoạn); khách không có công đoạn dùng khóa ''
   const stageCum = {};
   (stages.length ? stages.map(x => x.id) : ['']).forEach(id => { stageCum[id] = {}; });
@@ -603,7 +608,8 @@ function buildReleasePayload({ po, cust, rows, confs, parts }, date, batchReq, s
       if (r.entry_date === date) day.tha_chuyen_ct[r.size] = addPartRow(day.tha_chuyen_ct[r.size] || {}, r);
     } else {
       cum[r.kind][r.size] = (cum[r.kind][r.size] || 0) + n[0] + n[1] + n[2] + n[3];
-      if (r.entry_date === date) day[r.kind][r.size] = n;
+      if (isCtAutoRow(r)) tcAuto[r.size] = (tcAuto[r.size] || 0) + n[0] + n[1] + n[2] + n[3];
+      else if (r.entry_date === date) day[r.kind][r.size] = n;
     }
   }
 
@@ -618,6 +624,7 @@ function buildReleasePayload({ po, cust, rows, confs, parts }, date, batchReq, s
   }
 
   const conf = (confs || []).find(c => (c.batch_name || '') === batch) || null;
+  const lotOrder = lot && Object.keys(lot.size_qty || {}).length ? lot.size_qty : {};
   return {
     success: true,
     po_id: po ? po.id : null,
@@ -631,7 +638,9 @@ function buildReleasePayload({ po, cust, rows, confs, parts }, date, batchReq, s
     stage,
     stageCum,
     order,
-    lotOrder: lot && Object.keys(lot.size_qty || {}).length ? lot.size_qty : {},
+    lotOrder,
+    // Đơn hàng để tích đủ chi tiết: đơn của lô; PO chỉ 1 lô thì dùng đơn cả PO (nhiều lô mà lô chưa có đơn: không tích đủ)
+    ctOrder: Object.keys(lotOrder).length ? lotOrder : (lots.length <= 1 ? order : {}),
     poCum,
     poDgCum,
     parts: cleanPartList(parseSizeList(parts)),
@@ -640,6 +649,7 @@ function buildReleasePayload({ po, cust, rows, confs, parts }, date, batchReq, s
     ctDay: day.tha_chuyen_ct,
     dg: day.dong_goi,
     tcCum: cum.tha_chuyen,
+    tcAuto,
     dgCum: cum.dong_goi,
     ctCum,
     confirm: {
@@ -720,6 +730,68 @@ async function resolveReleaseStage(env, poId, stageReq) {
   const stages = cleanStageList(parseSizeList(raw));
   if (!stages.length) return '';
   return stages.some(x => x.id === stageReq) ? stageReq : stages[0].id;
+}
+
+// Thả chuyền Chi tiết -> Đồng bộ (cùng lô, cùng công đoạn): size có mọi chi tiết của ART đủ đơn hàng thì
+// tích lũy đồng bộ = số đủ bộ (số nhỏ nhất giữa các chi tiết). Mỗi size 1 dòng tự động, chỉ ghi phần còn thiếu
+// so với số đồng bộ gõ tay; size chưa đủ hết chi tiết thì xóa dòng tự động. Dòng giữ ngày lần đầu đủ bộ.
+async function syncCtAuto(env, poId, batch, stage, date, user) {
+  const p = await loadReleasePayload(env, poId, date, batch, stage);
+  if (!p.po || p.batch !== batch || (p.stage || '') !== stage) return;
+  const want = {};
+  for (const size of p.sizes) {
+    const o = Number(p.ctOrder[size]) || 0;
+    const m = p.ctCum[size] || {};
+    if (!o || !p.parts.length || !p.parts.every(x => (m[x] || 0) >= o)) continue;
+    const manual = (p.tcCum[size] || 0) - (p.tcAuto[size] || 0);
+    const q = Math.min(...p.parts.map(x => m[x] || 0)) - manual;
+    if (q > 0) want[size] = q;
+  }
+
+  const kept = new Set();
+  if (env && env.DB) {
+    const { results } = await env.DB.prepare(
+      "SELECT id, size, n1 FROM release_entries WHERE po_id = ? AND kind = 'tha_chuyen' AND p1 = ? AND COALESCE(batch_name, '') = ? AND COALESCE(stage, '') = ?"
+    ).bind(poId, CT_AUTO_PART, batch, stage).all();
+    const stmts = [];
+    for (const e of (results || [])) {
+      const q = want[e.size] || 0;
+      if (!q || kept.has(e.size)) {
+        stmts.push(env.DB.prepare("DELETE FROM release_entries WHERE id = ?").bind(e.id));
+        continue;
+      }
+      kept.add(e.size);
+      if ((Number(e.n1) || 0) !== q) {
+        stmts.push(env.DB.prepare("UPDATE release_entries SET n1 = ?, n2 = 0, n3 = 0, n4 = 0, updated_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").bind(q, user, e.id));
+      }
+    }
+    for (const [size, q] of Object.entries(want)) {
+      if (kept.has(size)) continue;
+      stmts.push(env.DB.prepare(`
+        INSERT INTO release_entries (id, po_id, batch_name, stage, kind, entry_date, size, n1, n2, n3, n4, p1, p2, p3, p4, updated_by, updated_at)
+        VALUES (?, ?, ?, ?, 'tha_chuyen', ?, ?, ?, 0, 0, 0, ?, '', '', '', ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(id) DO UPDATE SET n1 = excluded.n1, n2 = 0, n3 = 0, n4 = 0, p1 = excluded.p1, updated_by = excluded.updated_by, updated_at = CURRENT_TIMESTAMP
+      `).bind(releaseEntryId(poId, batch, 'tha_chuyen', date, size, stage, CT_AUTO_PART), poId, batch, stage, date, size, q, CT_AUTO_PART, user));
+    }
+    if (stmts.length) await env.DB.batch(stmts);
+    return;
+  }
+
+  memoryDB.release_entries = (memoryDB.release_entries || []).filter(e => {
+    if (e.po_id !== poId || !isCtAutoRow(e) || (e.batch_name || '') !== batch || (e.stage || '') !== stage) return true;
+    const q = want[e.size] || 0;
+    if (!q || kept.has(e.size)) return false;
+    kept.add(e.size);
+    if (e.n1 !== q) Object.assign(e, { n1: q, n2: 0, n3: 0, n4: 0, updated_by: user });
+    return true;
+  });
+  for (const [size, q] of Object.entries(want)) {
+    if (kept.has(size)) continue;
+    memoryDB.release_entries.push({
+      id: releaseEntryId(poId, batch, 'tha_chuyen', date, size, stage, CT_AUTO_PART), po_id: poId, batch_name: batch, stage,
+      kind: 'tha_chuyen', entry_date: date, size, n1: q, n2: 0, n3: 0, n4: 0, p1: CT_AUTO_PART, p2: '', p3: '', p4: '', updated_by: user
+    });
+  }
 }
 
 // Helper: Auto-initialize D1 Database tables and seed initial data
@@ -2845,9 +2917,10 @@ export default {
           let changed = false;
 
           if (env && env.DB) {
+            // Không đụng dòng đồng bộ do Chi tiết tự ghi (syncCtAuto lo phần đó)
             const { results: existing } = await env.DB.prepare(
-              "SELECT id, size, n1, n2, n3, n4, p1, p2, p3, p4 FROM release_entries WHERE po_id = ? AND kind = ? AND entry_date = ? AND COALESCE(batch_name, '') = ? AND COALESCE(stage, '') = ?"
-            ).bind(poId, kind, date, batch, stage).all();
+              "SELECT id, size, n1, n2, n3, n4, p1, p2, p3, p4 FROM release_entries WHERE po_id = ? AND kind = ? AND entry_date = ? AND COALESCE(batch_name, '') = ? AND COALESCE(stage, '') = ? AND NOT (kind = 'tha_chuyen' AND COALESCE(p1, '') = ?)"
+            ).bind(poId, kind, date, batch, stage, CT_AUTO_PART).all();
             // Mỗi size: id các dòng đang có (chi tiết có thể nhiều dòng) và số hiện tại
             const prev = new Map();
             for (const e of (existing || [])) {
@@ -2882,7 +2955,7 @@ export default {
           } else {
             if (!memoryDB.release_entries) memoryDB.release_entries = [];
             const mine = (e, size) => e.po_id === poId && e.kind === kind && e.entry_date === date && e.size === size
-              && (e.batch_name || '') === batch && (e.stage || '') === stage;
+              && (e.batch_name || '') === batch && (e.stage || '') === stage && !isCtAutoRow(e);
             for (const r of rows) {
               const cur = memoryDB.release_entries.filter(e => mine(e, r.size));
               const before = !cur.length ? null : (isCt
@@ -2904,6 +2977,8 @@ export default {
             }
           }
 
+          // Chi tiết đủ bộ / số đồng bộ gõ tay đổi -> tính lại phần đồng bộ do Chi tiết tự ghi
+          if (isStageKind(kind)) await syncCtAuto(env, poId, batch, stage, date, user);
           const payload = await loadReleasePayload(env, poId, date, batch, stage);
           payload.confirmReset = kind === 'dong_goi' && changed;
           return Response.json(payload, { headers });
