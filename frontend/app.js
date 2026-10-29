@@ -2854,9 +2854,8 @@ function renderOrdersTable(customerId) {
       const selCount = document.getElementById("selectBatchCount") || document.getElementById("poBatchCountSelect");
       if (selCount) selCount.value = String(Math.min(batchCount, 10));
 
-      poFormState.order = getOrderSizes(order);
+      poFormState.grid = initOrderGrid(order);
       renderBatchInputBoxes(batchCount, batches);
-      renderPoOrderSizes();
 
       const btnSubmitPO = document.getElementById("btnSubmitPO");
       if (btnSubmitPO) btnSubmitPO.innerText = "Cập nhật PO";
@@ -3054,7 +3053,7 @@ function bindManageLayoutEvents() {
 // ==========================================================
 // ĐƠN HÀNG THEO SIZE: dán từ Excel theo đợt (tab 03), hiện trên biểu mẫu PO
 // ==========================================================
-const poFormState = { order: null };   // đơn theo size của PO đang sửa (dùng để tự cộng số tổng lô)
+const poFormState = { grid: null };   // bảng đơn theo size của PO đang sửa (xem initOrderGrid)
 const orderPaste = { parsed: null };
 
 const ORDER_PO_LABEL = /^(po|ry|ry no\.?|số po|so po|po no\.?|po number|po#|đơn hàng|don hang)$/i;
@@ -3448,8 +3447,36 @@ function bindOrderPasteEvents() {
     setOrderPasteOpen(true);
   });
   document.getElementById("btnPasteCancel")?.addEventListener("click", closeOrderPaste);
-  document.getElementById("poOrderSizes")?.addEventListener("click", (e) => {
+  const ordBox = document.getElementById("poOrderSizes");
+  ordBox?.addEventListener("click", (e) => {
     if (e.target.closest("#btnLotsFromOrder")) fillLotTotalsFromOrder();
+    if (e.target.closest("#btnOrderUndo")) undoOrderGrid();
+    if (e.target.closest("#btnOrderNew")) {
+      // PO chưa có đơn: 1 dòng đơn cả PO; kế hoạch PO chỉ tự theo tổng đơn khi đang để trống
+      const plan = Number(document.getElementById("poPlanTotal")?.value) || 0;
+      poFormState.grid = { mode: "po", rows: { [ORDER_PO_ROW]: {} }, orig: {}, planFollows: !plan };
+      renderPoOrderSizes();
+      ordBox.querySelector(".po-og-in")?.focus();
+    }
+  });
+  ordBox?.addEventListener("input", (e) => {
+    if (e.target.classList.contains("po-og-in")) onOrderCellInput(e.target);
+  });
+  ordBox?.addEventListener("keydown", (e) => {
+    if (e.target.classList.contains("po-og-in")) onOrderCellKey(e);
+  });
+  ordBox?.addEventListener("focusin", (e) => {
+    if (e.target.classList.contains("po-og-in")) e.target.select();
+  });
+  ordBox?.addEventListener("focusout", (e) => {
+    if (e.target.classList.contains("po-og-in")) syncOrderGrid();
+  });
+  // Gõ tay kế hoạch PO thì thôi tự theo tổng đơn
+  document.getElementById("poPlanTotal")?.addEventListener("input", () => {
+    if (poFormState.grid) {
+      poFormState.grid.planFollows = false;
+      syncOrderGrid();
+    }
   });
   document.getElementById("btnPasteRead")?.addEventListener("click", readOrderPaste);
   const box = document.getElementById("poPasteBox");
@@ -3471,39 +3498,315 @@ function bindOrderPasteEvents() {
   });
 }
 
-// Đơn theo size của PO đang sửa, hiện trên bảng chia lô
+// BẢNG ĐƠN THEO SIZE trên biểu mẫu PO (sửa tay được):
+// - mode "lot": lô có đơn riêng (dán có cột CLSX), mỗi dòng 1 lô, dòng Cả PO = cộng các lô
+// - mode "po": 1 dòng đơn cả PO
+// rows / orig: {tên lô hoặc "#po": {size: số}}; orig để tô ô đã đổi và liệt kê khi lưu
+const ORDER_PO_ROW = "#po";
+const orderRowSum = r => Object.values(r || {}).reduce((a, x) => a + (Number(x) || 0), 0);
+const cloneOrderRows = rows => Object.fromEntries(Object.entries(rows || {}).map(([k, v]) => [k, { ...v }]));
+
+function initOrderGrid(o) {
+  const lots = {};
+  ((o && o.default_batches) || []).forEach(b => {
+    const q = getOrderSizes(b);
+    if (Object.keys(q).length) lots[String(b.batch_name || "")] = q;
+  });
+  const po = getOrderSizes(o);
+  let rows;
+  if (Object.keys(lots).length) rows = lots;
+  else if (Object.keys(po).length) rows = { [ORDER_PO_ROW]: po };
+  else return null;
+  const mode = rows[ORDER_PO_ROW] ? "po" : "lot";
+  const t0 = Object.values(rows).reduce((a, r) => a + orderRowSum(r), 0);
+  const plan = Number(o && o.po_plan) || 0;
+  return { mode, rows: cloneOrderRows(rows), orig: cloneOrderRows(rows), planFollows: t0 > 0 && plan === t0 };
+}
+
+// Dòng của bảng: mode lô = các lô đang có trong bảng chia lô (lô Số đuôi chỉ khi đang có đơn)
+function orderGridRows() {
+  const g = poFormState.grid;
+  if (!g) return [];
+  if (g.mode === "po") return [ORDER_PO_ROW];
+  return [...document.querySelectorAll("#dynamicBatchInputsContainer .lot-row")]
+    .filter(row => !row.classList.contains("is-tail") || orderRowSum(g.rows[row.dataset.batchName]) || orderRowSum(g.orig[row.dataset.batchName]))
+    .map(row => row.dataset.batchName);
+}
+
+// Cột: dãy size của khách, thêm size đang có trong đơn mà dãy size chưa có
+function orderGridSizes() {
+  const g = poFormState.grid;
+  const out = [...poFormCustomerSizes()];
+  if (g) [g.rows, g.orig].forEach(set => Object.values(set).forEach(r => Object.keys(r).forEach(s => { if (!out.includes(s)) out.push(s); })));
+  return out;
+}
+
+const orderGridQty = (key, size) => Number(((poFormState.grid || {}).rows || {})[key]?.[size]) || 0;
+const orderGridOrigQty = (key, size) => Number(((poFormState.grid || {}).orig || {})[key]?.[size]) || 0;
+
+function orderGridTotal() {
+  return orderGridRows().reduce((a, k) => a + orderRowSum(poFormState.grid.rows[k]), 0);
+}
+
+function orderGridOrigTotal() {
+  const g = poFormState.grid;
+  return g ? Object.values(g.orig).reduce((a, r) => a + orderRowSum(r), 0) : 0;
+}
+
+// Các ô đã đổi (lô bị bỏ khỏi bảng chia lô: số về 0)
+function orderGridChanges() {
+  const g = poFormState.grid;
+  if (!g) return [];
+  const keys = orderGridRows();
+  const all = [...keys, ...Object.keys(g.orig).filter(k => !keys.includes(k))];
+  const sizes = orderGridSizes();
+  const out = [];
+  all.forEach(k => sizes.forEach(s => {
+    const a = orderGridOrigQty(k, s);
+    const b = keys.includes(k) ? orderGridQty(k, s) : 0;
+    if (a !== b) out.push({ lot: k === ORDER_PO_ROW ? "" : k, size: s, from: a, to: b });
+  }));
+  return out;
+}
+
+// Đơn cả PO để lưu: mode lô = cộng các lô đang có trong bảng
+function orderGridPoQty() {
+  const g = poFormState.grid;
+  const out = {};
+  orderGridRows().forEach(k => Object.entries(g.rows[k] || {}).forEach(([s, q]) => {
+    if (Number(q) > 0) out[s] = (out[s] || 0) + Number(q);
+  }));
+  return out;
+}
+
 function renderPoOrderSizes() {
   const el = document.getElementById("poOrderSizes");
   if (!el) return;
-  const order = poFormState.order || {};
-  const sizes = Object.keys(order);
-  el.hidden = !sizes.length;
-  if (!sizes.length) {
-    el.innerHTML = "";
+  const g = poFormState.grid;
+  const sizes = orderGridSizes();
+  el.hidden = false;
+  if (!g) {
+    el.innerHTML = `<div class="po-order-head"><span class="po-order-title">PO này chưa có đơn hàng theo size</span></div>
+      <button type="button" class="po-order-new" id="btnOrderNew"${sizes.length ? "" : " disabled"}>＋ Nhập đơn theo size</button>
+      <div class="po-order-hint">${sizes.length ? "Hoặc dán từ Excel bằng nút <b>Dán đơn hàng</b>." : "Khách chưa có dãy size. Khai báo ở mục Dãy size."}</div>`;
     return;
   }
-  const total = sizes.reduce((a, x) => a + order[x], 0);
-  el.innerHTML = `<div class="po-order-title">Đơn hàng theo size (đã dán) · tổng <b>${relNum(total)}</b> đôi</div>
-    <div class="po-order-list">${sizes.map(x => `<span class="po-order-chip"><span>${escHtml(x)}</span><b>${relNum(order[x])}</b></span>`).join("")}</div>
-    <div class="po-order-hint">Bấm chọn size của lô thì số tổng của lô tự cộng theo đơn (vẫn sửa tay được). Lô trùng size thì gõ số tổng từng lô.
+  const keys = orderGridRows();
+  const lotMode = g.mode === "lot";
+  const body = keys.map((k, r) => `<tr>
+      <td class="po-og-lc">${k === ORDER_PO_ROW ? "Cả PO" : `<span class="lot-badge">${escHtml(k)}</span>`}</td>
+      ${sizes.map((s, c) => `<td class="po-og-c" data-key="${escHtml(k)}" data-size="${escHtml(s)}"><input type="text" inputmode="numeric" autocomplete="off" class="po-og-in" data-r="${r}" data-c="${c}" data-key="${escHtml(k)}" data-size="${escHtml(s)}" value="${orderGridQty(k, s) || ""}" placeholder="·"></td>`).join("")}
+      <td class="po-og-tc" data-key="${escHtml(k)}"></td></tr>`).join("");
+  const foot = lotMode ? `<tfoot><tr><td class="po-og-lc">Cả PO</td>${sizes.map(s => `<td data-fsize="${escHtml(s)}"></td>`).join("")}<td class="po-og-tc" data-ftotal></td></tr></tfoot>` : "";
+  el.innerHTML = `<div class="po-order-head"><span class="po-order-title" data-og-title></span><span class="po-order-chg" data-og-chg hidden></span>
+      <span class="po-order-sp"></span><button type="button" class="mg-link-btn po-order-undo" id="btnOrderUndo" hidden>Hoàn tác các ô đã đổi</button></div>
+    <div class="po-og-wrap"><table class="po-og" style="--n:${sizes.length}"><colgroup><col class="po-og-col-lc">${sizes.map(() => "<col>").join("")}<col class="po-og-col-tc"></colgroup>
+      <thead><tr><th class="po-og-lc">${lotMode ? "Lô \\ Size" : "Size"}</th>${sizes.map(s => `<th>${escHtml(s)}</th>`).join("")}<th class="po-og-tc">Tổng</th></tr></thead>
+      <tbody>${body}</tbody>${foot}</table></div>
+    <div class="po-order-hint">${lotMode
+      ? "Mỗi lô có đơn riêng theo size. Sửa ô của lô thì <b>Số tổng</b> của lô bên dưới tự cộng lại. Dòng <b>Cả PO</b> là cộng các lô."
+      : "Đơn cả PO theo size. Bấm chọn size của lô thì số tổng của lô tự cộng theo đơn. Lô trùng size thì gõ số tổng từng lô."}
+      Ô trống = size không có trong ${lotMode ? "lô" : "đơn"}. Chỉ lưu khi bấm <b>Cập nhật PO</b>.
       <button type="button" class="mg-link-btn" id="btnLotsFromOrder">Tính lại số tổng các lô theo đơn</button></div>`;
+  syncOrderGrid();
 }
 
-// Mọi lô đã chọn size: số tổng = cộng số đơn của các size đó
-function fillLotTotalsFromOrder() {
-  const order = poFormState.order || {};
-  let n = 0;
-  document.querySelectorAll("#dynamicBatchInputsContainer .lot-row").forEach(row => {
-    const sizes = lotRowSizes(row);
-    if (!sizes.length) return;
-    const inp = row.querySelector(".batch-card-input");
-    if (!inp) return;
-    inp.value = sizes.reduce((a, x) => a + (Number(order[x]) || 0), 0);
-    n++;
+// Tô ô đã đổi, cộng tổng từng lô / cả PO; không đụng số tổng lô bên dưới
+function syncOrderGrid() {
+  const el = document.getElementById("poOrderSizes");
+  const g = poFormState.grid;
+  if (!el || !g) return;
+  let nch = 0;
+  el.querySelectorAll("td.po-og-c").forEach(td => {
+    const k = td.dataset.key, s = td.dataset.size;
+    const was = orderGridOrigQty(k, s), now = orderGridQty(k, s);
+    const inp = td.querySelector("input");
+    const want = now ? String(now) : "";
+    if (inp && inp.value !== want && document.activeElement !== inp) inp.value = want;
+    const ch = was !== now;
+    if (ch) nch++;
+    td.classList.toggle("is-ch", ch);
+    let w = td.querySelector(".po-og-was");
+    if (ch) {
+      if (!w) {
+        w = document.createElement("span");
+        w.className = "po-og-was";
+        td.prepend(w);
+      }
+      w.textContent = was ? relNum(was) : "trống";
+    } else if (w) w.remove();
   });
+  el.querySelectorAll("tbody td.po-og-tc").forEach(td => {
+    const k = td.dataset.key;
+    td.textContent = relNum(orderRowSum(g.rows[k]));
+    td.classList.toggle("is-ch", orderRowSum(g.rows[k]) !== orderRowSum(g.orig[k]));
+  });
+  const keys = orderGridRows();
+  el.querySelectorAll("tfoot td[data-fsize]").forEach(td => {
+    const s = td.dataset.fsize;
+    const now = keys.reduce((a, k) => a + orderGridQty(k, s), 0);
+    const was = Object.keys(g.orig).reduce((a, k) => a + orderGridOrigQty(k, s), 0);
+    td.textContent = now ? relNum(now) : "";
+    td.classList.toggle("is-ch", now !== was);
+  });
+  const total = orderGridTotal(), t0 = orderGridOrigTotal();
+  const ft = el.querySelector("tfoot td[data-ftotal]");
+  if (ft) ft.textContent = relNum(total);
+  const plan = Number(document.getElementById("poPlanTotal")?.value) || 0;
+  const title = el.querySelector("[data-og-title]");
+  if (title) title.innerHTML = `Đơn hàng theo size · tổng ${total !== t0 && t0 ? `<s>${relNum(t0)}</s> ` : ""}<b>${relNum(total)}</b> đôi`
+    + (total && plan && total !== plan ? ` <span class="po-order-warn">· kế hoạch PO ${relNum(plan)}, lệch ${relNum(Math.abs(total - plan))}</span>` : "");
+  const chg = el.querySelector("[data-og-chg]");
+  if (chg) {
+    chg.hidden = !nch;
+    chg.textContent = `Đã đổi ${nch} ô, chưa lưu`;
+  }
+  const undo = document.getElementById("btnOrderUndo");
+  if (undo) undo.hidden = !nch;
+}
+
+const lotRowByName = name => [...document.querySelectorAll("#dynamicBatchInputsContainer .lot-row")].find(row => row.dataset.batchName === name) || null;
+
+// Mode lô: số tổng của lô = cộng đơn của lô; size vừa có / hết số thì bật / tắt trong "Size của lô"
+function applyOrderToLot(name, toggledSize) {
+  const row = lotRowByName(name);
+  if (!row) return;
+  const sum = orderRowSum(poFormState.grid.rows[name]);
+  const inp = row.querySelector(".batch-card-input");
+  if (inp) inp.value = sum || "";
+  if (toggledSize) {
+    let sizes = lotRowSizes(row);
+    const has = orderGridQty(name, toggledSize) > 0;
+    if (has && sizes.length && !sizes.includes(toggledSize)) sizes.push(toggledSize);
+    if (!has) sizes = sizes.filter(x => x !== toggledSize);
+    const custSizes = poFormCustomerSizes();
+    if (custSizes.length) sizes = [...custSizes.filter(x => sizes.includes(x)), ...sizes.filter(x => !custSizes.includes(x))];
+    row.dataset.sizes = JSON.stringify(sizes);
+    renderLotRowChips(row);
+  }
+}
+
+function onOrderCellInput(inp) {
+  const g = poFormState.grid;
+  if (!g) return;
+  const clean = inp.value.replace(/\D/g, "").slice(0, 6);
+  if (clean !== inp.value) inp.value = clean;
+  const k = inp.dataset.key, s = inp.dataset.size;
+  const row = g.rows[k] || (g.rows[k] = {});
+  const had = Number(row[s]) > 0;
+  if (Number(clean) > 0) row[s] = Number(clean);
+  else delete row[s];
+  const has = Number(row[s]) > 0;
+  if (g.mode === "lot") applyOrderToLot(k, had !== has ? s : null);
+  else {
+    // PO 1 lô mà kế hoạch đang theo tổng đơn: số tổng của lô cũng theo tổng đơn
+    const lots = [...document.querySelectorAll("#dynamicBatchInputsContainer .lot-row:not(.is-tail)")];
+    const lotInp = g.planFollows && lots.length === 1 ? lots[0].querySelector(".batch-card-input") : null;
+    if (lotInp) lotInp.value = orderRowSum(row) || "";
+  }
+  if (g.planFollows) {
+    const planInp = document.getElementById("poPlanTotal");
+    if (planInp) planInp.value = orderGridTotal() || "";
+  }
+  updateBatchSummaryCheck();
+  renderLotPreview();
+  syncOrderGrid();
+}
+
+// Enter / mũi tên: sang ô kế bên (Enter đi ngang như dòng Excel)
+function onOrderCellKey(e) {
+  const inp = e.target;
+  const r = Number(inp.dataset.r), c = Number(inp.dataset.c);
+  // Ô đang chọn cả số (vừa nhảy vào) thì mũi tên sang ô kế luôn; đang sửa giữa số thì di con trỏ
+  const whole = inp.selectionStart === 0 && inp.selectionEnd === inp.value.length;
+  let t = null;
+  if (e.key === "Enter" || (e.key === "ArrowRight" && (whole || inp.selectionStart === inp.value.length))) t = [r, c + 1];
+  else if (e.key === "ArrowLeft" && (whole || (inp.selectionStart === 0 && inp.selectionEnd === 0))) t = [r, c - 1];
+  else if (e.key === "ArrowDown") t = [r + 1, c];
+  else if (e.key === "ArrowUp") t = [r - 1, c];
+  if (!t) return;
+  e.preventDefault();   // Enter không gửi biểu mẫu
+  const next = document.querySelector(`#poOrderSizes .po-og-in[data-r="${t[0]}"][data-c="${t[1]}"]`);
+  if (next) next.focus();
+}
+
+function undoOrderGrid() {
+  const g = poFormState.grid;
+  if (!g) return;
+  g.rows = cloneOrderRows(g.orig);
+  if (g.mode === "lot") {
+    orderGridRows().forEach(k => {
+      const row = lotRowByName(k);
+      if (!row) return;
+      const prev = (appState.orders.find(o => o.id === document.getElementById("editOrderId")?.value)?.default_batches || []).find(b => String(b.batch_name) === k);
+      if (prev && Array.isArray(prev.sizes)) {
+        row.dataset.sizes = JSON.stringify(prev.sizes.map(String));
+        renderLotRowChips(row);
+      }
+      applyOrderToLot(k, null);
+    });
+  }
+  if (g.planFollows) {
+    const planInp = document.getElementById("poPlanTotal");
+    if (planInp) planInp.value = orderGridOrigTotal() || "";
+  }
+  updateBatchSummaryCheck();
+  renderPoOrderSizes();
+  renderLotPreview();
+  showToast("Đã trả lại số đơn cũ");
+}
+
+// Mọi lô: số tổng = đơn của lô (mode lô), hoặc cộng đơn cả PO theo size đã chọn của lô
+function fillLotTotalsFromOrder() {
+  const g = poFormState.grid;
+  let n = 0;
+  if (g && g.mode === "lot") {
+    orderGridRows().filter(k => orderRowSum(g.rows[k])).forEach(k => {
+      applyOrderToLot(k, null);
+      n++;
+    });
+  } else {
+    const order = (g && g.rows[ORDER_PO_ROW]) || {};
+    document.querySelectorAll("#dynamicBatchInputsContainer .lot-row").forEach(row => {
+      const sizes = lotRowSizes(row);
+      if (!sizes.length) return;
+      const inp = row.querySelector(".batch-card-input");
+      if (!inp) return;
+      inp.value = sizes.reduce((a, x) => a + (Number(order[x]) || 0), 0);
+      n++;
+    });
+  }
   updateBatchSummaryCheck();
   renderLotPreview();
   showToast(n ? `Đã tính số tổng ${n} lô theo đơn hàng` : "⚠️ Chưa lô nào chọn size. Bấm chọn size của lô trước.");
+}
+
+// Hỏi lại trước khi lưu số đơn đã đổi; trả về true khi bấm Lưu
+function confirmOrderChanges(poNumber) {
+  const list = orderGridChanges();
+  const modal = document.getElementById("modalOrderChanges");
+  if (!list.length || !modal) return Promise.resolve(true);
+  const g = poFormState.grid;
+  const t0 = orderGridOrigTotal(), t1 = orderGridTotal();
+  document.getElementById("ocTitle").textContent = t0 ? `Lưu số đơn mới của PO ${poNumber}?` : `Lưu đơn theo size cho PO ${poNumber}?`;
+  const items = list.slice(0, 40).map(x => {
+    const d = x.to - x.from;
+    return `<li>${x.lot ? `${escHtml(x.lot)} · size` : "Size"} <b>${escHtml(x.size)}</b>: ${x.from ? relNum(x.from) : "trống"} → <b>${x.to ? relNum(x.to) : "bỏ"}</b> <span class="${d > 0 ? "oc-up" : "oc-dn"}">(${d > 0 ? "+" : "−"}${relNum(Math.abs(d))})</span></li>`;
+  });
+  if (list.length > 40) items.push(`<li>… và ${list.length - 40} ô khác</li>`);
+  items.push(`<li>Tổng đơn${g.planFollows ? " và kế hoạch PO" : ""}: ${t0 ? `${relNum(t0)} → ` : ""}<b>${relNum(t1)}</b> đôi</li>`);
+  document.getElementById("ocList").innerHTML = items.join("");
+  modal.classList.add("show");
+  return new Promise(resolve => {
+    const done = ok => {
+      modal.classList.remove("show");
+      ["btnOcSave", "btnOcBack", "btnOcClose"].forEach(id => { const b = document.getElementById(id); if (b) b.onclick = null; });
+      resolve(ok);
+    };
+    document.getElementById("btnOcSave").onclick = () => done(true);
+    document.getElementById("btnOcBack").onclick = () => done(false);
+    document.getElementById("btnOcClose").onclick = () => done(false);
+  });
 }
 
 // INITIALIZE BATCH INPUTS IF EMPTY
@@ -3536,12 +3839,26 @@ function renderBatchInputBoxes(count, initialBatches = null) {
     return { val: found.into_sewing || found.batch_plan || "", sizes: Array.isArray(found.sizes) ? found.sizes.map(String) : [], color: found.color || "" };
   };
 
-  const rows = [];
+  // Tên lô giữ đúng tên đang lưu / đang hiện (PO dán đơn có cột CLSX: Lô 31, Lô 32...); lô thêm mới đánh số tiếp theo lô trước
+  const curNames = initialBatches
+    ? (Array.isArray(initialBatches) ? initialBatches : []).map(b => String(b.batch_name || "")).filter(n => n && !/đuôi/i.test(n))
+    : [...container.querySelectorAll(".lot-row:not(.is-tail)")].map(row => row.dataset.batchName);
+  const names = [];
   for (let i = 1; i <= count; i++) {
-    const bName = `Lô ${i}`;
+    let nm = curNames[i - 1];
+    if (!nm || names.includes(nm)) {
+      const m = /^(.*?)(\d+)$/.exec(names[names.length - 1] || "");
+      nm = m ? `${m[1]}${Number(m[2]) + 1}` : `Lô ${i}`;
+      while (names.includes(nm) || curNames.includes(nm)) nm += "'";
+    }
+    names.push(nm);
+  }
+
+  const rows = [];
+  names.forEach(bName => {
     const v = fromInitial(b => b.batch_name === bName) || existing[bName] || { val: "", sizes: [] };
     rows.push({ name: bName, tail: false, ...v });
-  }
+  });
   // Lô đuôi giữ đúng tên đang lưu (ví dụ "Lô Số Đuôi") để số NXT / thả chuyền theo tên lô không bị lạc
   const tailMatch = b => b.batch_name.toLowerCase().includes("đuôi") || b.batch_name === `Lô ${count + 1}`;
   const tailSaved = Array.isArray(initialBatches) ? initialBatches.find(tailMatch) : null;
@@ -3580,13 +3897,25 @@ function renderBatchInputBoxes(count, initialBatches = null) {
       else sizes = sizes.includes(chip.dataset.size) ? sizes.filter(x => x !== chip.dataset.size) : [...sizes, chip.dataset.size];
       row.dataset.sizes = JSON.stringify(sizes);
       renderLotRowChips(row);
-      const order = poFormState.order || {};
-      if (!all && sizes.length && Object.keys(order).length) {
-        const sum = sizes.reduce((a, x) => a + (Number(order[x]) || 0), 0);
-        const inp = row.querySelector(".batch-card-input");
-        if (inp && sum) {
-          inp.value = sum;
+      const g = poFormState.grid;
+      if (g && g.mode === "lot") {
+        // Lô có đơn riêng: tắt size thì bỏ số đơn của size đó trong lô, số tổng = cộng đơn của lô
+        const name = row.dataset.batchName;
+        if (chip && !sizes.includes(chip.dataset.size) && g.rows[name]) delete g.rows[name][chip.dataset.size];
+        if (orderGridRows().includes(name) && (orderRowSum(g.rows[name]) || orderRowSum(g.orig[name]))) {
+          applyOrderToLot(name, null);
           updateBatchSummaryCheck();
+          syncOrderGrid();
+        }
+      } else {
+        const order = (g && g.rows[ORDER_PO_ROW]) || {};
+        if (!all && sizes.length && Object.keys(order).length) {
+          const sum = sizes.reduce((a, x) => a + (Number(order[x]) || 0), 0);
+          const inp = row.querySelector(".batch-card-input");
+          if (inp && sum) {
+            inp.value = sum;
+            updateBatchSummaryCheck();
+          }
         }
       }
       renderLotPreview();
@@ -3594,6 +3923,7 @@ function renderBatchInputBoxes(count, initialBatches = null) {
   }
 
   updateBatchSummaryCheck();
+  renderPoOrderSizes();
 }
 
 function lotRowSizes(row) {
@@ -3727,9 +4057,8 @@ function resetPOForm() {
   const selCount = document.getElementById("selectBatchCount") || document.getElementById("poBatchCountSelect");
   if (selCount) selCount.value = "2";
 
-  poFormState.order = null;
+  poFormState.grid = null;
   renderBatchInputBoxes(2, []);
-  renderPoOrderSizes();
 
   const btnSub = document.getElementById("btnSubmitPO");
   if (btnSub) btnSub.innerText = "Lưu đơn hàng";
@@ -3849,6 +4178,10 @@ async function handleAddPO(e) {
   const prevLots = new Map(((prevOrder && prevOrder.default_batches) || []).map(b => [String(b.batch_name || ""), b]));
   const batches = [];
   let sumBatches = 0;
+  // Bảng đơn theo size có ô đổi: lưu đơn mới của lô và của cả PO
+  const grid = poFormState.grid;
+  const orderChanges = orderGridChanges();
+  const gridKeys = orderGridRows();
   batchCards.forEach((card, i) => {
     const bName = card.dataset.batchName;
     const input = card.querySelector(".batch-card-input");
@@ -3860,6 +4193,11 @@ async function handleAddPO(e) {
       if (lot.size_qty && typeof lot.size_qty === "object") {
         const keep = Object.fromEntries(Object.entries(lot.size_qty).filter(([sz]) => !sizes.length || sizes.includes(sz)));
         if (Object.keys(keep).length) lot.size_qty = keep;
+        else delete lot.size_qty;
+      }
+      if (orderChanges.length && grid.mode === "lot" && gridKeys.includes(bName)) {
+        const q = Object.fromEntries(Object.entries(grid.rows[bName] || {}).filter(([, v]) => Number(v) > 0));
+        if (Object.keys(q).length) lot.size_qty = q;
         else delete lot.size_qty;
       }
       batches.push(lot);
@@ -3876,6 +4214,7 @@ async function handleAddPO(e) {
     if (removed.length) msgs.push(`• Bỏ ${removed.join(", ")} khỏi PO. Số NXT và thả chuyền đã nhập của lô này vẫn còn trong dữ liệu nhưng lô không còn trong danh sách chọn lô.`);
     if (msgs.length && !confirm(`Kiểm tra lại chia lô của PO ${po_number}:\n${msgs.join("\n")}\n\nVẫn lưu?`)) return;
   }
+  if (orderChanges.length && !(await confirmOrderChanges(po_number))) return;
 
   // 5. Validate / Auto-sync PO Plan
   if (po_plan <= 0 && sumBatches > 0) {
@@ -3920,7 +4259,8 @@ async function handleAddPO(e) {
         style_code,
         line_name,
         po_plan,
-        default_batches: batches
+        default_batches: batches,
+        ...(orderChanges.length ? { size_qty: orderGridPoQty() } : {})
       })
     });
     const data = await res.json();

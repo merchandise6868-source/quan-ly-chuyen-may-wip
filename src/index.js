@@ -1845,7 +1845,9 @@ export default {
         try {
           const body = await request.json();
           const { id, customer_id, style_code, po_number, line_name, po_plan, default_batches, tail_sweep_date, tail_batch_name } = body;
-          
+          // Đơn hàng theo size sửa tay trên biểu mẫu PO: chỉ gửi khi có đổi, không gửi thì giữ đơn đã dán
+          const sizeQtyJson = body.size_qty !== undefined ? JSON.stringify(parseSizeQty(body.size_qty)) : null;
+
           let parsedBatches = default_batches || [];
           if (typeof parsedBatches === 'string') {
             try {
@@ -1873,6 +1875,9 @@ export default {
                 default_batches = excluded.default_batches
             `).bind(orderId, customer_id, style_code || 'Mã Style', po_number || 'PO-001', line_name || 'Chuyền 1', Number(po_plan) || 0, tail_sweep_date || null, tail_batch_name || null, JSON.stringify(parsedBatches))
               .run();
+            if (sizeQtyJson !== null) {
+              await env.DB.prepare("UPDATE po_orders SET size_qty = ? WHERE id = ?").bind(sizeQtyJson, orderId).run();
+            }
             const { results: ordersRaw } = await env.DB.prepare("SELECT * FROM po_orders ORDER BY created_at DESC").all();
             const orders = (ordersRaw || []).map(o => ({
               ...o,
@@ -1894,7 +1899,8 @@ export default {
                 po_plan: Number(po_plan) || 0,
                 tail_sweep_date: tail_sweep_date !== undefined ? tail_sweep_date : (memoryDB.orders[idx].tail_sweep_date || null),
                 tail_batch_name: tail_batch_name !== undefined ? tail_batch_name : (memoryDB.orders[idx].tail_batch_name || null),
-                default_batches: parsedBatches
+                default_batches: parsedBatches,
+                ...(sizeQtyJson !== null ? { size_qty: sizeQtyJson } : {})
               };
             }
           } else {
@@ -1909,7 +1915,8 @@ export default {
               tail_batch_name: tail_batch_name || null,
               default_batches: parsedBatches.length > 0 ? parsedBatches : [
                 { id: 'b-1', batch_name: "Lô 1", batch_plan: Number(po_plan) || 1000, into_sewing: 0 }
-              ]
+              ],
+              ...(sizeQtyJson !== null ? { size_qty: sizeQtyJson } : {})
             };
             memoryDB.orders.push(newOrder);
           }
