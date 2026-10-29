@@ -7226,38 +7226,67 @@ input.h1-pink-note-input:focus {
   .rel-big:active,
   .rel-sumbar:active { transform: scale(0.98); }
 
+  /* Hàng dưới: Tổng hợp (trái) + Datalog (phải). Quyền không có Datalog: Tổng hợp dài hết hàng */
+  .rel-row2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-top: 6px;
+  }
+  body:not(.role-admin):not(.role-manager) .rel-row2 { grid-template-columns: 1fr; }
+  body:not(.role-admin):not(.role-manager) .rel-dlbtn { display: none !important; }
+  body.role-admin .rel-sumbar-more,
+  body.role-manager .rel-sumbar-more { display: none; }
+
+  /* Tổng hợp: lúc thường màu cam (khớp / chưa có số), lệch hoặc từ chối thì hồng */
   .rel-sumbar {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    gap: 8px;
     width: 100%;
-    margin-top: 6px;
-    padding: 9px 12px;
+    min-width: 0;
+    padding: 8px 9px;
     border-radius: 8px;
     font-family: inherit;
-    font-size: 13px;
-    font-weight: 800;
+    text-align: left;
     cursor: pointer;
     background: #fdf2f8;
     color: #1e3a5f;
     border: 1px solid #ec4899;
   }
-  .rel-sumbar.is-ok { background: #f0f4f8; color: #1e3a5f; border-color: #e2e8f0; }
-  .rel-sumbar.is-empty { background: #f0f4f8; color: #475569; border-color: #e2e8f0; }
-  .rel-sumbar-lbl,
-  .rel-sumbar-val {
+  .rel-sumbar-ic {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    white-space: nowrap;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+    border-radius: 7px;
+    background: #db2777;
+    color: #ffffff;
   }
-  .rel-sumbar { gap: 8px; }
-  .rel-sumbar-lbl { min-width: 0; }
-  .rel-sumbar-txt { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-  .rel-sumbar-val { flex-shrink: 0; }
-  .rel-sumbar-val { color: #db2777; }
-  .rel-sumbar.is-ok .rel-sumbar-val { color: #1e3a5f; }
-  .rel-sumbar.is-empty .rel-sumbar-val { color: #64748b; font-weight: 700; }
+  .rel-sumbar-ic .rel-ico { width: 15px; height: 15px; }
+  .rel-sumbar-tx { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+  .rel-sumbar-txt,
+  .rel-sumbar-val {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .rel-sumbar-txt { font-size: 13.5px; font-weight: 800; line-height: 1.2; }
+  .rel-sumbar-val { font-size: 11.5px; font-weight: 700; line-height: 1.25; color: #db2777; }
+  .rel-sumbar.is-ok,
+  .rel-sumbar.is-empty { background: #fff7ed; border-color: #fdba74; }
+  .rel-sumbar.is-ok .rel-sumbar-ic,
+  .rel-sumbar.is-empty .rel-sumbar-ic { background: #ea580c; }
+  .rel-sumbar.is-ok .rel-sumbar-val { color: #c2410c; }
+  .rel-sumbar.is-empty .rel-sumbar-val { color: #64748b; }
+  .rel-sumbar.rel-dlbtn { background: #eef4ff; border-color: #93b4e6; }
+  .rel-dlbtn .rel-sumbar-ic { background: #1e3a5f; }
+  .rel-dlbtn .rel-sumbar-val { color: #475569; }
+
+  /* Bỏ thẻ "Tổng hợp đối chiếu nhập xuất tồn" trên điện thoại */
+  .mobile-kpi-card { display: none !important; }
 
   /* Bỏ nút Vét lô trên điện thoại, chữ nút Kiểm tra màu trắng */
   #btnMobileVetLo { display: none !important; }
@@ -7322,9 +7351,11 @@ body.role-packer #reportStatusTag {
 
 /* Popup */
 #modalRelease.modal-overlay,
-#modalPackLogM.modal-overlay { z-index: 100000 !important; }
+#modalPackLogM.modal-overlay,
+#modalDatalog.modal-overlay { z-index: 100000 !important; }
 #modalRelease.show,
-#modalPackLogM.show {
+#modalPackLogM.show,
+#modalDatalog.show {
   display: flex !important;
   opacity: 1 !important;
   pointer-events: auto !important;
@@ -7687,7 +7718,8 @@ body.role-packer #reportStatusTag {
 
 @media (max-width: 768px) {
   #modalRelease.modal-overlay,
-  #modalPackLogM.modal-overlay {
+  #modalPackLogM.modal-overlay,
+  #modalDatalog.modal-overlay {
     align-items: stretch !important;
     justify-content: stretch !important;
   }
@@ -9561,3 +9593,109 @@ body.role-packer #reportStatusTag {
 .rel-lot-tab.is-empty:not(.on) { background: #f8fafc; border-style: dashed; border-color: #cbd5e1; color: #94a3b8; font-weight: 600; }
 .rel-lot-tab.is-empty:not(.on) .rel-lot-color { color: #b6c2d1; }
 .rel-lot-info { font-size: 13.5px; }
+
+/* Datalog (Sếp, Quản lý): bảng PO × công đoạn, cột PO + Tổng SL và dòng tiêu đề / Cộng đứng yên khi cuộn */
+.dlg-drow { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+.dlg-dlabel { flex: 1; font-size: 12.5px; font-weight: 700; color: #475569; }
+.dlg-dn {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 12px;
+  cursor: pointer;
+}
+.dlg-dn:disabled { opacity: 0.35; cursor: default; }
+.dlg-dv {
+  min-width: 108px;
+  text-align: center;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 7px 8px;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #0f172a;
+}
+.dlg-count { margin-top: 8px; font-size: 12px; font-weight: 600; color: #475569; }
+.dlg-count b { color: #0f172a; }
+.dlg-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 10px;
+  margin-top: 6px;
+  padding: 5px 8px;
+  font-size: 11.5px;
+  color: #475569;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 7px;
+}
+.dlg-key span { display: inline-flex; align-items: center; gap: 4px; }
+.dlg-key .kv { font-weight: 800; color: #0f172a; }
+.dlg-key .kd { font-weight: 800; color: #0f766e; }
+.dlg-key .sw { width: 12px; height: 12px; border-radius: 3px; background: #dcfce7; border: 1px solid #86efac; }
+.dlg-body { overflow: auto; background: #ffffff; padding-bottom: 0; }
+.dlg-tbl { border-collapse: separate; border-spacing: 0; font-size: 12px; min-width: 100%; }
+.dlg-tbl th,
+.dlg-tbl td { border-bottom: 1px solid #eef2f7; border-right: 1px solid #f1f5f9; padding: 6px 7px; vertical-align: middle; }
+.dlg-tbl thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #f8fafc;
+  font-size: 11px;
+  font-weight: 800;
+  color: #334155;
+  text-align: right;
+  line-height: 1.25;
+  min-width: 74px;
+  max-width: 90px;
+  white-space: normal;
+  border-bottom: 2px solid #cbd5e1;
+  border-top: 3px solid #0f766e;
+}
+.dlg-tbl thead th .no { display: block; font: 700 9.5px var(--font-mono); color: #94a3b8; }
+.dlg-tbl thead th.tp { border-top-color: #7c3aed; background: #faf5ff; }
+.dlg-tbl .pc {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: #ffffff;
+  text-align: left;
+  width: 94px;
+  min-width: 94px;
+  max-width: 94px;
+}
+.dlg-tbl .sl {
+  position: sticky;
+  left: 94px;
+  z-index: 1;
+  background: #f8fafc;
+  text-align: right;
+  width: 64px;
+  min-width: 64px;
+  max-width: 64px;
+  box-shadow: 2px 0 0 #cbd5e1;
+}
+.dlg-tbl thead th.pc,
+.dlg-tbl thead th.sl { z-index: 3; background: #f1f5f9; border-top-color: #1e3a5f; }
+.dlg-tbl .pc b { display: block; font-size: 12.5px; color: #1e3a5f; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dlg-tbl .pc small { display: block; font-size: 10.5px; font-weight: 600; color: #64748b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dlg-tbl .sl .v { font: 800 12.5px var(--font-mono); color: #1e3a5f; }
+.dlg-tbl td.c { text-align: right; position: relative; padding-bottom: 8px; }
+.dlg-tbl .c .v { font: 800 12.5px var(--font-mono); color: #0f172a; }
+.dlg-tbl .c .d { display: block; min-height: 13px; font: 700 10.5px var(--font-mono); color: #0f766e; }
+.dlg-tbl .c.tp .d { color: #7c3aed; }
+.dlg-tbl .c .bar { position: absolute; left: 6px; right: 6px; bottom: 3px; height: 3px; border-radius: 2px; background: #eef2f7; overflow: hidden; }
+.dlg-tbl .c .bar i { display: block; height: 100%; background: #60a5fa; }
+.dlg-tbl .c.full { background: #f0fdf4; }
+.dlg-tbl .c.full .v { color: #15803d; }
+.dlg-tbl .c.full .bar i { background: #22c55e; }
+.dlg-tbl .c.zero .v { color: #cbd5e1; }
+.dlg-tbl tfoot td { position: sticky; bottom: 0; z-index: 1; background: #eef4ff; border-top: 2px solid #93b4e6; }
+.dlg-tbl tfoot td.pc,
+.dlg-tbl tfoot td.sl { z-index: 2; background: #eef4ff; }
+.dlg-hint { position: sticky; left: 0; padding: 6px 0 10px; font-size: 11px; color: #94a3b8; text-align: center; }

@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@500;600;700;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="styles.css?v=20261029_1500">
+  <link rel="stylesheet" href="styles.css?v=20261029_1700">
   
   <!-- cdn for sheetjs (xlsx) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -280,13 +280,23 @@
             Nhật ký đóng gói
           </button>
         </div>
-        <button type="button" class="rel-sumbar is-empty" data-rel-open="sum" id="relSumBar">
-          <span class="rel-sumbar-lbl">
-            <svg class="rel-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 5.5L5 7l2.5-2.5M3.5 11.5L5 13l2.5-2.5M3.5 17.5L5 19l2.5-2.5M11 6h9M11 12h9M11 18h9"/></svg>
-            <span class="rel-sumbar-txt">Tổng hợp thả chuyền – đóng gói</span>
-          </span>
-          <span class="rel-sumbar-val"><span data-rel-count>Chưa có số</span><svg class="rel-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
-        </button>
+        <!-- Tổng hợp (trái) + Datalog (phải, chỉ Sếp / Quản lý); quyền khác Tổng hợp dài hết hàng -->
+        <div class="rel-row2">
+          <button type="button" class="rel-sumbar is-empty" data-rel-open="sum" id="relSumBar">
+            <span class="rel-sumbar-ic"><svg class="rel-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 5.5L5 7l2.5-2.5M3.5 11.5L5 13l2.5-2.5M3.5 17.5L5 19l2.5-2.5M11 6h9M11 12h9M11 18h9"/></svg></span>
+            <span class="rel-sumbar-tx">
+              <span class="rel-sumbar-txt">Tổng hợp<span class="rel-sumbar-more"> thả chuyền – đóng gói</span></span>
+              <span class="rel-sumbar-val" data-rel-count>Chưa có số</span>
+            </span>
+          </button>
+          <button type="button" class="rel-sumbar rel-dlbtn" id="btnDatalogMobile">
+            <span class="rel-sumbar-ic"><svg class="rel-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v4h4"/><path d="M12 8v4l3 2"/></svg></span>
+            <span class="rel-sumbar-tx">
+              <span class="rel-sumbar-txt">Datalog</span>
+              <span class="rel-sumbar-val">Luỹ kế theo PO</span>
+            </span>
+          </button>
+        </div>
       </div>
 
       <!-- MOBILE KPI CARD -->
@@ -1285,6 +1295,34 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261029_1500"></script>
+  <!-- DATALOG (Sếp, Quản lý): mọi PO của khách × công đoạn, số luỹ kế cả PO tới hết ngày đang chọn -->
+  <div id="modalDatalog" class="modal-overlay rel-overlay" style="display: none;" aria-hidden="true">
+    <div class="rel-card" role="dialog" aria-modal="true" aria-labelledby="dlgTitle">
+      <div class="rel-head">
+        <div class="rel-head-row">
+          <button type="button" class="rel-back" id="btnDlgBack" aria-label="Quay lại">
+            <svg class="rel-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M5 12l6 6M5 12l6-6"/></svg>
+          </button>
+          <div class="rel-title" id="dlgTitle">Datalog</div>
+          <span class="rel-date">Luỹ kế theo PO × công đoạn</span>
+        </div>
+        <div class="rel-stage">
+          <label for="dlgCust">Khách hàng</label>
+          <select id="dlgCust" class="rel-stage-sel"></select>
+        </div>
+        <div class="dlg-drow">
+          <span class="dlg-dlabel">Luỹ kế đến hết ngày</span>
+          <button type="button" class="dlg-dn" id="btnDlgPrev" aria-label="Hôm trước">◀</button>
+          <span class="dlg-dv" id="dlgDate"></span>
+          <button type="button" class="dlg-dn" id="btnDlgNext" aria-label="Hôm sau">▶</button>
+        </div>
+        <div class="dlg-count" id="dlgCount"></div>
+        <div class="dlg-key" id="dlgKey"></div>
+      </div>
+      <div class="rel-body dlg-body" id="dlgBody"></div>
+    </div>
+  </div>
+
+  <script src="app.js?v=20261029_1700"></script>
 </body>
 </html>

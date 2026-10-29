@@ -3323,6 +3323,63 @@ export default {
         }
       }
 
+      // Datalog (Sếp, Quản lý): mọi PO của 1 khách × công đoạn thả chuyền + Thành phẩm (số đóng gói).
+      // Trả số theo ngày để app tự cộng luỹ kế tới ngày đang chọn: days[ngày][id công đoạn] = số đôi, '#tp' = thành phẩm.
+      // Thả chuyền lấy số Đồng bộ (gồm số Chi tiết tự ghi); số nhập trước khi có công đoạn tính vào công đoạn 1.
+      if (url.pathname === '/api/datalog' && request.method === 'GET') {
+        try {
+          const customerId = url.searchParams.get('customer_id') || '';
+          let cust;
+          let orders;
+          let rows;
+          if (env && env.DB) {
+            cust = await env.DB.prepare("SELECT id, name, stages FROM customers WHERE id = ?").bind(customerId).first();
+            orders = (await env.DB.prepare(
+              "SELECT id, po_number, style_code, po_plan, size_qty FROM po_orders WHERE customer_id = ? ORDER BY created_at DESC"
+            ).bind(customerId).all()).results || [];
+            rows = (await env.DB.prepare(`
+              SELECT r.po_id, r.kind, COALESCE(r.stage, '') AS stage, r.entry_date,
+                     SUM(COALESCE(r.n1, 0) + COALESCE(r.n2, 0) + COALESCE(r.n3, 0) + COALESCE(r.n4, 0)) AS qty
+              FROM release_entries r JOIN po_orders o ON o.id = r.po_id
+              WHERE o.customer_id = ? AND r.kind IN ('tha_chuyen', 'dong_goi')
+              GROUP BY r.po_id, r.kind, COALESCE(r.stage, ''), r.entry_date
+            `).bind(customerId).all()).results || [];
+          } else {
+            cust = (memoryDB.customers || []).find(c => c.id === customerId) || null;
+            orders = (memoryDB.orders || []).filter(o => o.customer_id === customerId);
+            const ids = new Set(orders.map(o => o.id));
+            rows = (memoryDB.release_entries || [])
+              .filter(r => (r.kind === 'tha_chuyen' || r.kind === 'dong_goi') && ids.has(r.po_id))
+              .map(r => ({ po_id: r.po_id, kind: r.kind, stage: r.stage || '', entry_date: r.entry_date, qty: [r.n1, r.n2, r.n3, r.n4].reduce((a, x) => a + (Number(x) || 0), 0) }));
+          }
+          if (!cust) return Response.json({ success: false, error: 'Không tìm thấy khách hàng' }, { status: 404, headers });
+          const stages = cleanStageList(parseSizeList(cust.stages));
+          const stageIds = new Set(stages.map(x => x.id));
+          const firstStage = stages.length ? stages[0].id : '';
+          const byPo = {};
+          for (const r of rows) {
+            const qty = Number(r.qty) || 0;
+            if (!qty) continue;
+            let key = '#tp';
+            if (r.kind === 'tha_chuyen') {
+              key = stages.length ? (r.stage || firstStage) : '';
+              if (stages.length && !stageIds.has(key)) continue;   // công đoạn đã bị xóa khỏi bảng -> không tính
+            }
+            const days = byPo[r.po_id] || (byPo[r.po_id] = {});
+            const day = days[r.entry_date] || (days[r.entry_date] = {});
+            day[key] = (day[key] || 0) + qty;
+          }
+          const out = orders.map(o => ({
+            id: o.id, po_number: o.po_number, style_code: o.style_code,
+            plan: Number(o.po_plan) || sumValues(parseSizeQty(o.size_qty)),
+            days: byPo[o.id] || {}
+          }));
+          return Response.json({ success: true, customer: { id: cust.id, name: cust.name }, stages, orders: out }, { headers });
+        } catch (err) {
+          return Response.json({ success: false, error: err.message }, { status: 500, headers });
+        }
+      }
+
       // Bảng công đoạn thả chuyền của 1 khách (admin khai báo ở tab Khách hàng & PO, tối đa 10 công đoạn).
       // Lần đầu có công đoạn: số thả chuyền đã nhập trước đó (chưa có công đoạn) chuyển sang công đoạn 1.
       if (url.pathname === '/api/customer-stages' && request.method === 'POST') {

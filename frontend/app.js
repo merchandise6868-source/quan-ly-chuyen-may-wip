@@ -208,6 +208,7 @@ document.addEventListener("DOMContentLoaded", () => {
   bindOrderPasteEvents();
   bindPackLogEvents();
   bindPackLogMobileEvents();
+  bindDatalogEvents();
   bindRoleSwitchEvents();
   bindRolePasswordEvents();
   checkLoginPortalState();
@@ -7990,6 +7991,150 @@ function bindPackLogMobileEvents() {
   });
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && modal.classList.contains("show")) closePackLogMobile();
+  });
+}
+
+// ==========================================================
+// DATALOG (Sếp, Quản lý, điện thoại): mọi PO của 1 khách × công đoạn thả chuyền + Thành phẩm (số đóng gói).
+// Ô = luỹ kế cả PO (mọi lô) tới hết ngày đang chọn; số nhỏ "+" = số nhập riêng ngày đó.
+// ==========================================================
+const dlgState = { custId: "", date: "", data: null, seq: 0 };
+
+const dlgShiftDate = (iso, n) => {
+  const d = new Date(`${iso}T00:00:00`);
+  d.setDate(d.getDate() + n);
+  return getLocalDateString(d);
+};
+
+function openDatalog() {
+  const modal = document.getElementById("modalDatalog");
+  const customers = appState.customers || [];
+  const sel = document.getElementById("dlgCust");
+  sel.innerHTML = customers.map(c => `<option value="${escHtml(c.id)}">${escHtml(c.name)}</option>`).join("");
+  dlgState.custId = customers.some(c => c.id === appState.currentCustomer) ? appState.currentCustomer : ((customers[0] || {}).id || "");
+  sel.value = dlgState.custId;
+  dlgState.date = appState.currentDate || getLocalDateString();
+  modal.style.display = "flex";
+  modal.classList.add("show");
+  modal.setAttribute("aria-hidden", "false");
+  loadDatalog();
+}
+
+function closeDatalog() {
+  const modal = document.getElementById("modalDatalog");
+  dlgState.seq++;
+  modal.classList.remove("show");
+  modal.style.display = "none";
+  modal.setAttribute("aria-hidden", "true");
+}
+
+async function loadDatalog() {
+  const body = document.getElementById("dlgBody");
+  const seq = ++dlgState.seq;
+  dlgState.data = null;
+  document.getElementById("dlgCount").textContent = "";
+  renderDatalogHead();
+  if (!dlgState.custId) {
+    body.innerHTML = '<div class="rel-empty">Chưa có khách hàng.</div>';
+    return;
+  }
+  body.innerHTML = '<div class="rel-loading">Đang tải số liệu…</div>';
+  try {
+    const res = await fetch(`/api/datalog?customer_id=${encodeURIComponent(dlgState.custId)}&t=${Date.now()}`);
+    const data = await res.json();
+    if (seq !== dlgState.seq) return;
+    if (!data.success) throw new Error(data.error || "Không tải được");
+    dlgState.data = data;
+    renderDatalog();
+  } catch (err) {
+    if (seq !== dlgState.seq) return;
+    body.innerHTML = `<div class="rel-empty">Không tải được Datalog: ${escHtml(err.message)}</div>`;
+  }
+}
+
+function renderDatalogHead() {
+  const dd = relFmtDate(dlgState.date);
+  const short = escHtml(dd.slice(0, 5));
+  document.getElementById("dlgDate").textContent = dd;
+  document.getElementById("btnDlgNext").disabled = dlgState.date >= getLocalDateString();
+  document.getElementById("dlgKey").innerHTML = `<span><b class="kv">Số lớn</b> luỹ kế tới hết ${short}</span>`
+    + `<span><b class="kd">+ số nhỏ</b> nhập riêng ngày ${short}</span><span><i class="sw"></i>đủ Tổng SL</span>`;
+}
+
+function renderDatalog() {
+  renderDatalogHead();
+  const data = dlgState.data;
+  if (!data) return;
+  const body = document.getElementById("dlgBody");
+  const date = dlgState.date;
+  // Khách chưa có công đoạn: số thả chuyền nằm ở khóa "" -> 1 cột "Thả chuyền"
+  const stages = (data.stages || []).length ? data.stages : [{ id: "", name: "Thả chuyền" }];
+  const cols = [...stages, { id: "#tp", name: "Thành phẩm" }];
+  const orders = data.orders || [];
+  const planSum = orders.reduce((a, o) => a + (Number(o.plan) || 0), 0);
+  document.getElementById("dlgCount").innerHTML = `<b>${orders.length}</b> PO · Tổng SL <b>${relNum(planSum)}</b> đôi · <b>${stages.length}</b> công đoạn + Thành phẩm`;
+  if (!orders.length) {
+    body.innerHTML = '<div class="rel-empty">Khách này chưa có PO.</div>';
+    return;
+  }
+
+  const cell = (v, d, plan, tp) => {
+    const pct = plan ? Math.min(100, Math.round(v / plan * 100)) : 0;
+    const cls = !v ? " zero" : (plan && v >= plan ? " full" : "");
+    return `<td class="c${cls}${tp ? " tp" : ""}"><span class="v">${v ? relNum(v) : "·"}</span>`
+      + `<span class="d">${d ? `+${relNum(d)}` : ""}</span><span class="bar"><i style="width:${pct}%"></i></span></td>`;
+  };
+  const tot = {};
+  const totDay = {};
+  const rows = orders.map(o => {
+    const cum = {};
+    const day = {};
+    for (const [d, m] of Object.entries(o.days || {})) {
+      if (d > date) continue;
+      for (const [k, q] of Object.entries(m)) {
+        cum[k] = (cum[k] || 0) + q;
+        if (d === date) day[k] = (day[k] || 0) + q;
+      }
+    }
+    cols.forEach(c => {
+      tot[c.id] = (tot[c.id] || 0) + (cum[c.id] || 0);
+      totDay[c.id] = (totDay[c.id] || 0) + (day[c.id] || 0);
+    });
+    return `<tr><th class="pc" scope="row"><b>${escHtml(o.po_number)}</b><small>${escHtml(o.style_code || "")}</small></th>`
+      + `<td class="sl"><span class="v">${relNum(o.plan)}</span></td>`
+      + cols.map(c => cell(cum[c.id] || 0, day[c.id] || 0, Number(o.plan) || 0, c.id === "#tp")).join("") + "</tr>";
+  }).join("");
+
+  body.innerHTML = `<table class="dlg-tbl">
+    <thead><tr><th class="pc">PO</th><th class="sl"><span class="no">đôi</span>Tổng SL</th>${cols.map((c, i) => `<th class="${c.id === "#tp" ? "tp" : ""}"><span class="no">${c.id === "#tp" ? "TP" : i + 1}</span>${escHtml(c.name)}</th>`).join("")}</tr></thead>
+    <tbody>${rows}</tbody>
+    <tfoot><tr><td class="pc"><b>Cộng</b><small>${orders.length} PO</small></td><td class="sl"><span class="v">${relNum(planSum)}</span></td>${cols.map(c => cell(tot[c.id], totDay[c.id], planSum, c.id === "#tp")).join("")}</tr></tfoot>
+  </table>
+  <div class="dlg-hint">← vuốt ngang để xem hết công đoạn →</div>`;
+}
+
+function bindDatalogEvents() {
+  const modal = document.getElementById("modalDatalog");
+  if (!modal) return;
+  document.getElementById("btnDatalogMobile").addEventListener("click", openDatalog);
+  document.getElementById("btnDlgBack").addEventListener("click", closeDatalog);
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) closeDatalog();
+  });
+  document.getElementById("dlgCust").addEventListener("change", (e) => {
+    dlgState.custId = e.target.value;
+    loadDatalog();
+  });
+  document.getElementById("btnDlgPrev").addEventListener("click", () => {
+    dlgState.date = dlgShiftDate(dlgState.date, -1);
+    renderDatalog();
+  });
+  document.getElementById("btnDlgNext").addEventListener("click", () => {
+    dlgState.date = dlgShiftDate(dlgState.date, 1);
+    renderDatalog();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && modal.classList.contains("show")) closeDatalog();
   });
 }
 
