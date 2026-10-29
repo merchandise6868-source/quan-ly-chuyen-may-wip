@@ -7606,6 +7606,78 @@ body.role-packer #reportStatusTag {
 .rel-fbtn-tc { background: #0f766e; }
 .rel-fbtn-dg { background: #7c3aed; }
 .rel-fbtn-leader { background: #1e3a5f; }
+.rel-fbtn-reject { background: #ffffff; color: #be123c; border: 1.5px solid #f43f5e; }
+.rel-fbtn-rejsend { background: #e11d48; }
+
+/* Đóng gói từ chối: ô trạng thái đỏ, dòng ghi size sai + lý do, size bị đánh dấu tô hồng */
+.rel-chip.bad { background: #fff1f2; color: #be123c; border-color: #fda4af; }
+.rel-reject {
+  margin: 6px 8px 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #fff1f2;
+  border: 1px solid #fda4af;
+  color: #9f1239;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+.rel-reject[hidden] { display: none; }
+.rel-reject b { font-weight: 800; }
+.rel-reject span { display: block; }
+.rel-table tr.is-rejected td.rel-size { background: #ffe4e6; color: #be123c; box-shadow: inset 3px 0 0 #e11d48; }
+.rel-lot-rej { margin-left: 6px; padding: 1px 6px; border-radius: 999px; background: #e11d48; color: #ffffff; font-size: 11px; font-weight: 800; }
+
+/* Khung từ chối: nằm trên popup, chọn size sai + lý do */
+#modalRelease .rel-card { position: relative; }
+.rel-rej-sheet {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(15, 23, 42, 0.45);
+}
+.rel-rej-sheet[hidden] { display: none; }
+.rel-rej-card {
+  width: 100%;
+  max-height: 85%;
+  overflow-y: auto;
+  background: #ffffff;
+  border-radius: 16px 16px 0 0;
+  padding: 14px 14px calc(12px + env(safe-area-inset-bottom));
+}
+.rel-rej-title { font-size: 16px; font-weight: 800; color: #9f1239; margin-bottom: 8px; }
+.rel-rej-label { margin: 10px 0 6px; font-size: 12.5px; font-weight: 800; color: #1e3a5f; }
+.rel-rej-label small { font-weight: 600; color: #64748b; }
+.rel-rej-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.rel-rej-chip {
+  min-width: 52px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1.5px solid #cbd5e1;
+  background: #ffffff;
+  color: #1e3a5f;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.rel-rej-chip.on { background: #e11d48; border-color: #e11d48; color: #ffffff; }
+.rel-rej-note {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 10px;
+  height: 42px;
+  padding: 0 10px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 16px;
+}
+.rel-rej-err { margin-top: 8px; font-size: 12.5px; font-weight: 700; color: #e11d48; }
+.rel-rej-err[hidden] { display: none; }
+.rel-rej-btns { display: grid; grid-template-columns: 1fr 2fr; gap: 6px; margin-top: 12px; }
 .rel-hint {
   grid-column: 1 / -1;
   font-size: 11.5px;

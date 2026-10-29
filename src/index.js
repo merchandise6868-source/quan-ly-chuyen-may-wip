@@ -579,6 +579,7 @@ function buildReleasePayload({ po, cust, rows, confs, parts }, date, batchReq, s
     l.ct_stage = a.ctCur;
     l.tc_last = sumValues(a.tc);
     l.bad = bad;
+    l.rejected = (confs || []).some(c => (c.batch_name || '') === l.name && c.reject_at);
   }
 
   const visible = lots.filter(l => l.total > 0 || l.tc_total || l.dg_total || l.ct_total);
@@ -656,7 +657,11 @@ function buildReleasePayload({ po, cust, rows, confs, parts }, date, batchReq, s
       leader_by: conf?.leader_by || null,
       leader_at: conf?.leader_at || null,
       packing_by: conf?.packing_by || null,
-      packing_at: conf?.packing_at || null
+      packing_at: conf?.packing_at || null,
+      reject_by: conf?.reject_by || null,
+      reject_at: conf?.reject_at || null,
+      reject_note: conf?.reject_note || '',
+      reject_sizes: conf?.reject_at ? parseSizeList(conf.reject_sizes).map(String) : []
     }
   };
 }
@@ -699,7 +704,7 @@ async function loadReleasePayload(env, poId, date, batch, stage) {
       "SELECT kind, batch_name, stage, entry_date, size, n1, n2, n3, n4, p1, p2, p3, p4 FROM release_entries WHERE po_id = ? AND entry_date <= ?"
     ).bind(poId, date).all();
     const { results: confs } = await env.DB.prepare(
-      "SELECT batch_name, leader_by, leader_at, packing_by, packing_at FROM release_confirms WHERE po_id = ? AND confirm_date = ?"
+      "SELECT batch_name, leader_by, leader_at, packing_by, packing_at, reject_by, reject_at, reject_note, reject_sizes FROM release_confirms WHERE po_id = ? AND confirm_date = ?"
     ).bind(poId, date).all();
     const partRow = po ? await env.DB.prepare("SELECT parts FROM art_parts WHERE id = ?").bind(`${po.customer_id}|${po.style_code}`).first() : null;
     return buildReleasePayload({ po, cust, rows, confs, parts: partRow ? partRow.parts : [] }, date, batch, stage);
@@ -1032,9 +1037,12 @@ async function initD1Tables(db) {
         await db.prepare(`ALTER TABLE release_entries ADD COLUMN ${col}`).run();
       } catch (e) {}
     }
-    try {
-      await db.prepare("ALTER TABLE release_confirms ADD COLUMN batch_name TEXT DEFAULT ''").run();
-    } catch (e) {}
+    // Đóng gói từ chối số của lô: người, giờ, lý do, các size sai (JSON); xóa khi tổ trưởng xác nhận lại
+    for (const col of ["batch_name TEXT DEFAULT ''", "reject_by TEXT", "reject_at TEXT", "reject_note TEXT", "reject_sizes TEXT"]) {
+      try {
+        await db.prepare(`ALTER TABLE release_confirms ADD COLUMN ${col}`).run();
+      } catch (e) {}
+    }
 
     // Ensure customers CASUM, Liên Thái, MẠNH PHÁT exist and match exactly
     try {
@@ -2966,9 +2974,10 @@ export default {
                 `).bind(x.id, poId, batch, stage, kind, date, r.size, x.n[0], x.n[1], x.n[2], x.n[3], x.p[0], x.p[1], x.p[2], x.p[3], user));
               }
             }
-            // Tổ trưởng sửa số đóng gói sau khi đã xác nhận -> phải xác nhận lại (chỉ lô đó)
+            // Tổ trưởng sửa số đóng gói sau khi đã xác nhận -> phải xác nhận lại (chỉ lô đó).
+            // Giữ ghi chú đóng gói từ chối tới khi tổ trưởng xác nhận lại.
             if (kind === 'dong_goi' && changed) {
-              stmts.push(env.DB.prepare("DELETE FROM release_confirms WHERE id = ?").bind(confirmId));
+              stmts.push(env.DB.prepare("UPDATE release_confirms SET leader_by = NULL, leader_at = NULL, packing_by = NULL, packing_at = NULL WHERE id = ?").bind(confirmId));
             }
             if (stmts.length) await env.DB.batch(stmts);
           } else {
@@ -2993,7 +3002,8 @@ export default {
               }
             }
             if (kind === 'dong_goi' && changed) {
-              memoryDB.release_confirms = (memoryDB.release_confirms || []).filter(c => c.id !== confirmId);
+              const c = (memoryDB.release_confirms || []).find(x => x.id === confirmId);
+              if (c) Object.assign(c, { leader_by: null, leader_at: null, packing_by: null, packing_at: null });
             }
           }
 
@@ -3007,50 +3017,74 @@ export default {
         }
       }
 
-      // Xác nhận chỉ lệnh đóng gói theo lô: tổ trưởng trước, đóng gói sau
+      // Xác nhận chỉ lệnh đóng gói theo lô: tổ trưởng trước, đóng gói sau.
+      // Đóng gói từ chối (reject): bỏ xác nhận của tổ trưởng nhưng giữ số, ghi các size sai + lý do
+      // để tổ trưởng sửa rồi xác nhận lại (tổ trưởng xác nhận lại thì xóa ghi chú từ chối).
       if (url.pathname === '/api/release/confirm' && request.method === 'POST') {
         try {
           const body = await request.json();
           const { po_id: poId, date, step } = body;
           const batch = String(body.batch ?? '').slice(0, 60);
           const user = String(body.user || '').slice(0, 80);
-          if (!poId || !isIsoDate(date) || !['leader', 'packing'].includes(step)) {
+          if (!poId || !isIsoDate(date) || !['leader', 'packing', 'reject'].includes(step)) {
             return Response.json({ success: false, error: "Thiếu PO, ngày hoặc bước xác nhận" }, { status: 400, headers });
           }
           const confirmId = releaseConfirmId(poId, batch, date);
           const nowIso = new Date().toISOString();
           const notYet = `Tổ trưởng chưa xác nhận chỉ lệnh đóng gói${batch ? ` ${batch}` : ''} ngày này`;
+          const rejectSizes = step === 'reject' ? cleanSizeList(Array.isArray(body.sizes) ? body.sizes.map(String) : []).slice(0, 60) : [];
+          const rejectNote = String(body.note || '').trim().slice(0, 200);
+          if (step === 'reject' && !rejectSizes.length) {
+            return Response.json({ success: false, error: "Chọn ít nhất 1 size sai" }, { status: 400, headers });
+          }
+          const packedAlready = `Đóng gói đã xác nhận${batch ? ` ${batch}` : ''} ngày này, không từ chối được nữa`;
 
           if (env && env.DB) {
-            const cur = await env.DB.prepare("SELECT leader_at FROM release_confirms WHERE id = ?").bind(confirmId).first();
-            if (step === 'packing' && !cur?.leader_at) {
+            const cur = await env.DB.prepare("SELECT leader_at, packing_at FROM release_confirms WHERE id = ?").bind(confirmId).first();
+            if (step !== 'leader' && !cur?.leader_at) {
               return Response.json({ success: false, error: notYet }, { status: 400, headers });
+            }
+            if (step === 'reject' && cur.packing_at) {
+              return Response.json({ success: false, error: packedAlready }, { status: 400, headers });
             }
             if (step === 'leader') {
               await env.DB.prepare(`
                 INSERT INTO release_confirms (id, po_id, batch_name, confirm_date, leader_by, leader_at) VALUES (?, ?, ?, ?, ?, ?)
-                ON CONFLICT(id) DO UPDATE SET leader_by = excluded.leader_by, leader_at = excluded.leader_at
+                ON CONFLICT(id) DO UPDATE SET leader_by = excluded.leader_by, leader_at = excluded.leader_at,
+                  reject_by = NULL, reject_at = NULL, reject_note = NULL, reject_sizes = NULL
               `).bind(confirmId, poId, batch, date, user, nowIso).run();
-            } else {
+            } else if (step === 'packing') {
               await env.DB.prepare("UPDATE release_confirms SET packing_by = ?, packing_at = ? WHERE id = ?")
                 .bind(user, nowIso, confirmId).run();
+            } else {
+              await env.DB.prepare(`
+                UPDATE release_confirms SET leader_by = NULL, leader_at = NULL, packing_by = NULL, packing_at = NULL,
+                  reject_by = ?, reject_at = ?, reject_note = ?, reject_sizes = ? WHERE id = ?
+              `).bind(user, nowIso, rejectNote, JSON.stringify(rejectSizes), confirmId).run();
             }
           } else {
             if (!memoryDB.release_confirms) memoryDB.release_confirms = [];
             let cur = memoryDB.release_confirms.find(c => c.id === confirmId);
-            if (step === 'packing' && !cur?.leader_at) {
+            if (step !== 'leader' && !cur?.leader_at) {
               return Response.json({ success: false, error: notYet }, { status: 400, headers });
+            }
+            if (step === 'reject' && cur.packing_at) {
+              return Response.json({ success: false, error: packedAlready }, { status: 400, headers });
             }
             if (!cur) {
               cur = { id: confirmId, po_id: poId, batch_name: batch, confirm_date: date };
               memoryDB.release_confirms.push(cur);
             }
             if (step === 'leader') {
-              cur.leader_by = user;
-              cur.leader_at = nowIso;
-            } else {
+              Object.assign(cur, { leader_by: user, leader_at: nowIso, reject_by: null, reject_at: null, reject_note: null, reject_sizes: null });
+            } else if (step === 'packing') {
               cur.packing_by = user;
               cur.packing_at = nowIso;
+            } else {
+              Object.assign(cur, {
+                leader_by: null, leader_at: null, packing_by: null, packing_at: null,
+                reject_by: user, reject_at: nowIso, reject_note: rejectNote, reject_sizes: JSON.stringify(rejectSizes)
+              });
             }
           }
 

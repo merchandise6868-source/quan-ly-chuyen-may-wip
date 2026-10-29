@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@500;600;700;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="styles.css?v=20261029_1000">
+  <link rel="stylesheet" href="styles.css?v=20261029_1500">
   
   <!-- cdn for sheetjs (xlsx) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -1217,6 +1217,7 @@
             <div class="rel-chip" id="relChipLeader">Tổ trưởng: chưa xác nhận</div>
             <div class="rel-chip" id="relChipPack">Đóng gói: chưa xác nhận</div>
           </div>
+          <div class="rel-reject" id="relReject" role="status" hidden></div>
           <div class="rel-table-card">
             <table class="rel-table">
               <colgroup id="relGridCols"><col class="rel-col-size"><col><col><col><col><col class="rel-col-cum"></colgroup>
@@ -1243,6 +1244,23 @@
       </div>
 
       <div class="rel-foot" id="relFoot"></div>
+
+      <!-- Đóng gói từ chối số của lô: chọn size sai (bắt buộc) + lý do -->
+      <div class="rel-rej-sheet" id="relRejSheet" hidden>
+        <div class="rel-rej-card" role="dialog" aria-modal="true" aria-labelledby="relRejTitle">
+          <div class="rel-rej-title" id="relRejTitle">Từ chối số</div>
+          <div class="rel-rej-label">Size sai <small>(bấm chọn ít nhất 1 size)</small></div>
+          <div class="rel-rej-chips" id="relRejSizes"></div>
+          <div class="rel-rej-label">Lý do</div>
+          <div class="rel-rej-chips" id="relRejReasons"></div>
+          <input type="text" class="rel-rej-note" id="relRejNote" maxlength="120" placeholder="Ghi thêm (không bắt buộc)" autocomplete="off">
+          <div class="rel-rej-err" id="relRejErr" hidden></div>
+          <div class="rel-rej-btns">
+            <button type="button" class="rel-fbtn rel-fbtn-gray" data-rej-act="cancel">Hủy</button>
+            <button type="button" class="rel-fbtn rel-fbtn-rejsend" data-rej-act="send">Gửi từ chối</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1267,6 +1285,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261029_1000"></script>
+  <script src="app.js?v=20261029_1500"></script>
 </body>
 </html>

@@ -6850,7 +6850,8 @@ function renderReleaseLots() {
   box.innerHTML = lots.map(l => {
     const on = l.name === relState.batch;
     const bad = showSum && l.bad ? `<span class="rel-lot-bad">${l.bad} lệch</span>` : "";
-    return `<button type="button" class="rel-lot-tab${on ? " on" : ""}${relLotHasData(l) ? " has-data" : " is-empty"}" data-rel-lot="${escHtml(l.name)}">${escHtml(relLotLabel(l.name))}${l.color ? ` <span class="rel-lot-color">${escHtml(l.color)}</span>` : ""}${l.total ? ` · ${relNum(l.total)}` : ""}${bad}</button>`;
+    const rej = relState.kind === "dong_goi" && l.rejected ? '<span class="rel-lot-rej">Từ chối</span>' : "";
+    return `<button type="button" class="rel-lot-tab${on ? " on" : ""}${relLotHasData(l) ? " has-data" : " is-empty"}" data-rel-lot="${escHtml(l.name)}">${escHtml(relLotLabel(l.name))}${l.color ? ` <span class="rel-lot-color">${escHtml(l.color)}</span>` : ""}${l.total ? ` · ${relNum(l.total)}` : ""}${bad}${rej}</button>`;
   }).join("");
   box.hidden = lots.length <= 1 && !(lots[0] && lots[0].legacy);
   // Hàng nút lô cuộn ngang: đưa lô đang chọn ra giữa cho dễ thấy
@@ -6961,6 +6962,7 @@ function renderRelease() {
   document.getElementById("relPaneIn").hidden = showSum;
   document.getElementById("relPaneSum").hidden = !showSum;
   document.getElementById("relChips").hidden = relState.kind !== "dong_goi";
+  document.getElementById("relReject").hidden = true;
   document.getElementById("modalRelease").dataset.mode = relEditKind() === "tha_chuyen_ct" ? "ct" : "dong";
   renderReleaseGrid();
   renderReleaseChips();
@@ -7133,6 +7135,9 @@ function renderReleaseGrid() {
   const turn = relState.kind === "dong_goi" ? "Giao" : "Nhận";
   document.getElementById("relGridHead").innerHTML = `<th>Size</th>${[1, 2, 3, 4].map(i => `<th>${turn} ${i}</th>`).join("")}<th class="rel-th-cum" id="relThCum">Tích lũy</th>`
     + (showOrd ? `<th class="rel-th-ord">Đơn hàng<small>${relOrderSource() === "lot" ? "lô này" : "cả PO"}</small></th>` : "");
+  // Đóng gói đã từ chối: tô hồng các size đóng gói báo sai (tới khi tổ trưởng xác nhận lại)
+  const c = relState.data.confirm || {};
+  const rejSizes = new Set(k === "dg" && c.reject_at ? (c.reject_sizes || []).map(String) : []);
   document.getElementById("relTbody").innerHTML = relState.data.sizes.map(size => {
     const cells = [0, 1, 2, 3].map(i => {
       const v = Number((relState.day[k][size] || [])[i]) || 0;
@@ -7142,7 +7147,7 @@ function renderReleaseGrid() {
     const auto = k === "tc" && Number((relState.data.tcAuto || {})[size]) > 0;
     const cum = `<td><span class="rel-cum${auto ? " is-auto" : ""}" data-cum-size="${escHtml(size)}">${relNum(relCum(k, size))}</span>${auto ? '<small class="rel-from-ct">từ Chi tiết</small>' : ""}</td>`;
     const ord = showOrd ? `<td class="rel-ord-td" data-ord-size="${escHtml(size)}">${relOrderCellHtml(size)}</td>` : "";
-    return `<tr><td class="rel-size">${escHtml(size)}</td>${cells}${cum}${ord}</tr>`;
+    return `<tr${rejSizes.has(String(size)) ? ' class="is-rejected"' : ""}><td class="rel-size">${escHtml(size)}</td>${cells}${cum}${ord}</tr>`;
   }).join("");
   renderReleaseTotals();
 }
@@ -7202,6 +7207,24 @@ function renderReleaseChips() {
   pack.classList.toggle("ok", !!c.packing_at);
   pack.textContent = c.packing_at ? `Đóng gói: đã xác nhận ${relFmtTime(c.packing_at)}` : "Đóng gói: chưa xác nhận";
   pack.title = c.packing_by ? `Người xác nhận: ${c.packing_by}` : "";
+
+  // Đóng gói đã từ chối: dòng đỏ ghi size sai + lý do, tới khi tổ trưởng xác nhận lại
+  const rejected = !!c.reject_at && !c.leader_at;
+  leader.classList.toggle("bad", rejected);
+  pack.classList.toggle("bad", rejected);
+  if (rejected) {
+    leader.textContent = "Tổ trưởng: cần xác nhận lại";
+    pack.textContent = `Đóng gói: đã từ chối ${relFmtTime(c.reject_at)}`;
+    pack.title = c.reject_by ? `Người từ chối: ${c.reject_by}` : "";
+  }
+  const box = document.getElementById("relReject");
+  box.hidden = !rejected;
+  if (rejected) {
+    const sizes = (c.reject_sizes || []).map(escHtml).join(", ");
+    const todo = relCan("leaderConfirm") ? "Sửa số các size này rồi bấm Tổ trưởng xác nhận lại." : "Chờ tổ trưởng sửa số và xác nhận lại.";
+    box.innerHTML = `<b>Đóng gói từ chối lúc ${relFmtTime(c.reject_at)}${c.reject_by ? ` (${escHtml(c.reject_by)})` : ""}</b>`
+      + `<span>Size sai: <b>${sizes}</b>${c.reject_note ? ` · ${escHtml(c.reject_note)}` : ""}</span><span>${todo}</span>`;
+  }
 }
 
 // Cột của bảng Tổng hợp: từng công đoạn theo trình tự (khách chưa có công đoạn: 1 cột Thả chuyền), cuối cùng Đóng gói.
@@ -7295,13 +7318,17 @@ function relRenderFoot() {
     btns.push(`<button type="button" class="rel-fbtn rel-fbtn-leader" data-rel-act="leader"${c.leader_at ? " disabled" : ""}>${REL_ICON.user}${c.leader_at ? "Tổ trưởng đã xác nhận" : "Tổ trưởng xác nhận"}</button>`);
   }
   if (relCan("packConfirm")) {
+    // Tổ trưởng đã xác nhận, đóng gói chưa: đóng gói được từ chối (số sai) hoặc xác nhận
+    if (c.leader_at && !c.packing_at) btns.push('<button type="button" class="rel-fbtn rel-fbtn-reject" data-rel-act="reject">Từ chối</button>');
     btns.push(`<button type="button" class="rel-fbtn rel-fbtn-dg" data-rel-act="packing"${(!c.leader_at || c.packing_at) ? " disabled" : ""}>${REL_ICON.pack}${c.packing_at ? "Đóng gói đã xác nhận" : "Đóng gói xác nhận"}</button>`);
   }
   if (!btns.length) btns.push(closeBtn);
-  foot.style.gridTemplateColumns = btns.length > 1 ? "1fr 1fr" : "1fr";
-  const hint = relCan("packConfirm") && !c.leader_at
-    ? `<div class="rel-hint">Chờ tổ trưởng xác nhận ${escHtml(relLotLabel(relState.batch))} rồi mới bấm Đóng gói xác nhận.</div>`
-    : "";
+  foot.style.gridTemplateColumns = btns.map(b => (b.includes('data-rel-act="reject"') ? "0.7fr" : "1fr")).join(" ");
+  const lot = escHtml(relLotLabel(relState.batch));
+  const hint = !relCan("packConfirm") || c.leader_at ? ""
+    : c.reject_at
+      ? `<div class="rel-hint">Đã từ chối ${lot} lúc ${relFmtTime(c.reject_at)}. Chờ tổ trưởng sửa số và xác nhận lại.</div>`
+      : `<div class="rel-hint">Chờ tổ trưởng xác nhận ${lot} rồi mới bấm Đóng gói xác nhận.</div>`;
   foot.innerHTML = btns.join("") + hint;
 }
 
@@ -7465,11 +7492,66 @@ async function confirmRelease(step) {
   }
 }
 
+// Đóng gói từ chối số của lô: chọn size sai (bắt buộc) + lý do nhanh / ghi thêm.
+// Số giữ nguyên, chỉ bỏ xác nhận của tổ trưởng để tổ trưởng sửa rồi xác nhận lại.
+const REL_REJECT_REASONS = ["Thiếu hàng", "Dư hàng", "Sai size"];
+
+function relOpenReject() {
+  const d = relState.data;
+  if (!d || !relCan("packConfirm")) return;
+  document.getElementById("relRejTitle").textContent = `Từ chối số ${relLotLabel(relState.batch)}`;
+  document.getElementById("relRejSizes").innerHTML = d.sizes.map(s =>
+    `<button type="button" class="rel-rej-chip" data-rej-size="${escHtml(s)}" aria-pressed="false">${escHtml(s)}</button>`).join("");
+  document.getElementById("relRejReasons").innerHTML = REL_REJECT_REASONS.map(r =>
+    `<button type="button" class="rel-rej-chip" data-rej-reason="${escHtml(r)}" aria-pressed="false">${escHtml(r)}</button>`).join("");
+  document.getElementById("relRejNote").value = "";
+  document.getElementById("relRejErr").hidden = true;
+  document.querySelector('#relRejSheet [data-rej-act="send"]').disabled = false;
+  document.getElementById("relRejSheet").hidden = false;
+}
+
+function relCloseReject() {
+  document.getElementById("relRejSheet").hidden = true;
+}
+
+async function relSendReject() {
+  const sheet = document.getElementById("relRejSheet");
+  const sizes = [...sheet.querySelectorAll("[data-rej-size].on")].map(b => b.dataset.rejSize);
+  if (!sizes.length) {
+    const err = document.getElementById("relRejErr");
+    err.textContent = "Bấm chọn ít nhất 1 size bị sai";
+    err.hidden = false;
+    return;
+  }
+  const typed = document.getElementById("relRejNote").value.trim();
+  const note = [...[...sheet.querySelectorAll("[data-rej-reason].on")].map(b => b.dataset.rejReason), typed].filter(Boolean).join(" · ");
+  const sendBtn = sheet.querySelector('[data-rej-act="send"]');
+  sendBtn.disabled = true;
+  try {
+    const res = await fetch("/api/release/confirm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ po_id: relState.poId, date: relState.date, batch: relState.batch || "", step: "reject", sizes, note, user: relUserName() })
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || "Không gửi được");
+    relCloseReject();
+    relApplyPayload(data, true);
+    showToast(`Đã từ chối ${relLotLabel(relState.batch)}: tổ trưởng sẽ sửa số và xác nhận lại`);
+    renderRelease();
+    refreshReleaseBar();
+  } catch (err) {
+    sendBtn.disabled = false;
+    showToast("⚠️ " + err.message);
+  }
+}
+
 async function closeReleaseModal() {
   const modal = document.getElementById("modalRelease");
   if (!modal) return;
   const ok = await saveRelease();
   if (ok === false && !confirm("Chưa lưu được số vừa nhập. Vẫn đóng?")) return;
+  relCloseReject();
   relState.seq++;
   modal.classList.remove("show");
   modal.style.display = "none";
@@ -7508,7 +7590,10 @@ async function refreshReleaseBar() {
     const bad = lots.reduce((a, l) => a + (l.bad || 0), 0);
     const badLots = lots.filter(l => l.bad > 0).length;
     const hasData = lots.some(l => l.tc_total || l.dg_total);
-    if (bad) setState("", `${bad} size lệch · ${badLots} lô`, `(${bad} lệch)`);
+    // Lô bị đóng gói từ chối: báo trước tiên để tổ trưởng vào sửa
+    const rejected = lots.filter(l => l.rejected).map(l => relLotLabel(l.name));
+    if (rejected.length) setState("", `${rejected.join(", ")}: đóng gói từ chối${bad ? ` · ${bad} size lệch` : ""}`, "(từ chối)");
+    else if (bad) setState("", `${bad} size lệch · ${badLots} lô`, `(${bad} lệch)`);
     else if (hasData) setState("is-ok", "Đủ, tất cả OK", "(đủ)");
     else if (!data.sizes || !data.sizes.length) setState("is-empty", "Chưa có size", "");
     else setState("is-empty", "Chưa có số", "");
@@ -7566,6 +7651,25 @@ function bindReleaseEvents() {
     if (a === "close") closeReleaseModal();
     else if (a === "save") saveAndCloseRelease();
     else if (a === "leader" || a === "packing") confirmRelease(a);
+    else if (a === "reject") relOpenReject();
+  });
+
+  document.getElementById("relRejSheet").addEventListener("click", (e) => {
+    if (e.target.id === "relRejSheet") {
+      relCloseReject();
+      return;
+    }
+    const chip = e.target.closest("[data-rej-size], [data-rej-reason]");
+    if (chip) {
+      chip.classList.toggle("on");
+      chip.setAttribute("aria-pressed", String(chip.classList.contains("on")));
+      document.getElementById("relRejErr").hidden = true;
+      return;
+    }
+    const btn = e.target.closest("[data-rej-act]");
+    if (!btn || btn.disabled) return;
+    if (btn.dataset.rejAct === "cancel") relCloseReject();
+    else relSendReject();
   });
 
   document.getElementById("relStage").addEventListener("change", (e) => switchReleaseStage(e.target.value));
