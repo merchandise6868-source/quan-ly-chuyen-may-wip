@@ -732,9 +732,10 @@ async function resolveReleaseStage(env, poId, stageReq) {
   return stages.some(x => x.id === stageReq) ? stageReq : stages[0].id;
 }
 
-// Thả chuyền Chi tiết -> Đồng bộ (cùng lô, cùng công đoạn): size có mọi chi tiết của ART đủ đơn hàng thì
-// tích lũy đồng bộ = số đủ bộ (số nhỏ nhất giữa các chi tiết). Mỗi size 1 dòng tự động, chỉ ghi phần còn thiếu
-// so với số đồng bộ gõ tay; size chưa đủ hết chi tiết thì xóa dòng tự động. Dòng giữ ngày lần đầu đủ bộ.
+// Thả chuyền Chi tiết -> Đồng bộ (cùng lô, cùng công đoạn). Số đồng bộ gõ tay = bộ đã đủ mọi chi tiết,
+// nên mỗi chi tiết có = gõ tay + chi tiết. Size có mọi chi tiết đủ đơn hàng thì ghi thêm số đủ bộ của Chi tiết
+// (số nhỏ nhất giữa các chi tiết) vào 1 dòng tự động; size chưa đủ hết chi tiết thì xóa dòng tự động.
+// Dòng giữ ngày lần đầu đủ bộ.
 async function syncCtAuto(env, poId, batch, stage, date, user) {
   const p = await loadReleasePayload(env, poId, date, batch, stage);
   if (!p.po || p.batch !== batch || (p.stage || '') !== stage) return;
@@ -742,9 +743,9 @@ async function syncCtAuto(env, poId, batch, stage, date, user) {
   for (const size of p.sizes) {
     const o = Number(p.ctOrder[size]) || 0;
     const m = p.ctCum[size] || {};
-    if (!o || !p.parts.length || !p.parts.every(x => (m[x] || 0) >= o)) continue;
     const manual = (p.tcCum[size] || 0) - (p.tcAuto[size] || 0);
-    const q = Math.min(...p.parts.map(x => m[x] || 0)) - manual;
+    if (!o || !p.parts.length || !p.parts.every(x => manual + (m[x] || 0) >= o)) continue;
+    const q = Math.min(...p.parts.map(x => m[x] || 0));
     if (q > 0) want[size] = q;
   }
 
@@ -792,6 +793,18 @@ async function syncCtAuto(env, poId, batch, stage, date, user) {
       kind: 'tha_chuyen', entry_date: date, size, n1: q, n2: 0, n3: 0, n4: 0, p1: CT_AUTO_PART, p2: '', p3: '', p4: '', updated_by: user
     });
   }
+}
+
+// Lô + công đoạn đã có số Chi tiết: Đồng bộ chỉ tự tính từ Chi tiết, không nhận số gõ tay
+async function hasCtEntries(env, poId, batch, stage) {
+  if (env && env.DB) {
+    const row = await env.DB.prepare(
+      "SELECT 1 AS x FROM release_entries WHERE po_id = ? AND kind = 'tha_chuyen_ct' AND COALESCE(batch_name, '') = ? AND COALESCE(stage, '') = ? AND COALESCE(n1, 0) + COALESCE(n2, 0) + COALESCE(n3, 0) + COALESCE(n4, 0) > 0 LIMIT 1"
+    ).bind(poId, batch, stage).first();
+    return !!row;
+  }
+  return (memoryDB.release_entries || []).some(e => e.po_id === poId && e.kind === 'tha_chuyen_ct'
+    && (e.batch_name || '') === batch && (e.stage || '') === stage && [e.n1, e.n2, e.n3, e.n4].some(x => Number(x) > 0));
 }
 
 // Helper: Auto-initialize D1 Database tables and seed initial data
@@ -2915,6 +2928,11 @@ export default {
             ? Object.entries(r.q).map(([part, q]) => ({ id: releaseEntryId(poId, batch, kind, date, r.size, stage, part), n: [q, 0, 0, 0], p: [part, '', '', ''] }))
             : (r.n.some(x => x > 0) ? [{ id: releaseEntryId(poId, batch, kind, date, r.size, stage), n: r.n, p: ['', '', '', ''] }] : []));
           let changed = false;
+          const tcLocked = kind === 'tha_chuyen' && await hasCtEntries(env, poId, batch, stage);
+          const lockedRes = () => Response.json({
+            success: false,
+            error: "Lô này của công đoạn này đang nhập theo Chi tiết: Đồng bộ tự cộng khi size đủ mọi chi tiết, không gõ tay được. Tải lại trang để thấy ô đã khóa."
+          }, { status: 409, headers });
 
           if (env && env.DB) {
             // Không đụng dòng đồng bộ do Chi tiết tự ghi (syncCtAuto lo phần đó)
@@ -2934,6 +2952,7 @@ export default {
             for (const r of rows) {
               const old = prev.get(r.size);
               if (same(old, r)) continue;
+              if (tcLocked) return lockedRes();
               changed = true;
               // Xóa các dòng đang có của size (kể cả dòng chi tiết dạng 4 ô cũ) rồi ghi lại
               (old ? old.ids : []).forEach(id => stmts.push(env.DB.prepare("DELETE FROM release_entries WHERE id = ?").bind(id)));
@@ -2962,6 +2981,7 @@ export default {
                 ? { q: cur.reduce((m, e) => addPartRow(m, e), {}) }
                 : { n: [cur[0].n1, cur[0].n2, cur[0].n3, cur[0].n4] });
               if (same(before, r)) continue;
+              if (tcLocked) return lockedRes();
               changed = true;
               memoryDB.release_entries = memoryDB.release_entries.filter(e => !mine(e, r.size));
               for (const x of newRecs(r)) {

@@ -6654,13 +6654,36 @@ function relCum(k, size) {
   return (relState.base[k][size] || 0) + relDaySum(relState.day[k][size]);
 }
 
-// Tích lũy chi tiết của 1 size: {tên chi tiết: số}
+// Đôi gõ tay ở Đồng bộ của 1 size (lô + công đoạn đang xem, không gồm phần Chi tiết tự ghi):
+// là bộ đã đủ mọi chi tiết, nên bên Chi tiết cộng vào mọi chi tiết khai báo của ART
+const relTcManual = (data, size) => Math.max(0, (Number(((data && data.tcCum) || {})[size]) || 0) - (Number(((data && data.tcAuto) || {})[size]) || 0));
+
+function relCtAddManual(data, size, cumMap) {
+  const manual = relTcManual(data, size);
+  if (manual) ((data && data.parts) || []).forEach(p => { cumMap[p] = (Number(cumMap[p]) || 0) + manual; });
+  return cumMap;
+}
+
+// Tích lũy chi tiết của 1 size: {tên chi tiết: số}, gồm cả đôi gõ tay ở Đồng bộ
 function relCtCum(size) {
   const out = { ...(relState.ctBase[size] || {}) };
   Object.entries(relState.day.ct[size] || {}).forEach(([p, q]) => {
     if (q > 0) out[p] = (out[p] || 0) + q;
   });
-  return out;
+  return relCtAddManual(relState.data, size, out);
+}
+
+// Số đã có của 1 chi tiết, chưa tính ô đang nhập hôm nay: chi tiết các ngày trước + đôi gõ tay ở Đồng bộ
+function relCtHave(size, part) {
+  const parts = (relState.data && relState.data.parts) || [];
+  return (Number((relState.ctBase[size] || {})[part]) || 0) + (parts.includes(part) ? relTcManual(relState.data, size) : 0);
+}
+
+// Lô + công đoạn đã có số Chi tiết (đã lưu hoặc đang gõ): Đồng bộ chỉ tự cộng từ Chi tiết, không gõ tay
+function relTcLocked() {
+  if (relState.kind !== "tha_chuyen") return false;
+  const any = src => Object.values(src || {}).some(m => Object.values(m || {}).some(q => Number(q) > 0));
+  return any(relState.ctBase) || any(relState.day.ct);
 }
 
 // Đơn hàng để tích đủ chi tiết của 1 size (0 = không có đơn theo size: không hiện ✓ / nút Đủ)
@@ -6674,7 +6697,8 @@ function relCtIsFull(data, size, cumMap) {
 }
 
 // Các size đủ bộ theo số đã lưu trên máy chủ
-const relCtFullSizes = data => ((data && data.sizes) || []).filter(s => relCtIsFull(data, s, (data.ctCum || {})[s] || {}));
+const relCtFullSizes = data => ((data && data.sizes) || []).filter(s =>
+  relCtIsFull(data, s, relCtAddManual(data, s, { ...((data.ctCum || {})[s] || {}) })));
 
 function relApplyPayload(data, keepLocalDay) {
   relState.data = data;
@@ -6860,24 +6884,29 @@ function renderReleaseLotInfo() {
     return;
   }
   if (relEditKind() === "tha_chuyen_ct") {
+    const manual = relState.data.sizes.reduce((a, s) => a + relTcManual(relState.data, s), 0);
+    const manualNote = manual ? `<span class="rel-lot-sub">Đã có <span class="rel-num-blue">${relNum(manual)}</span> đôi nhập ở Đồng bộ, tính là đủ mọi chi tiết</span>` : "";
     const withOrder = relState.data.sizes.filter(s => relCtOrder(s) > 0);
     if (!withOrder.length) {
-      el.innerHTML = `${escHtml(label)}: ô hồng là số nhận hôm nay, số xanh bên dưới là tích lũy cả lô (chi tiết không tính vào Tổng hợp)`;
+      el.innerHTML = `${escHtml(label)}: ô hồng là số nhận hôm nay, số xanh bên dưới là tích lũy cả lô (chi tiết không tính vào Tổng hợp)${manualNote}`;
       return;
     }
     const full = withOrder.filter(s => relCtIsFull(relState.data, s, relCtCum(s))).length;
-    el.innerHTML = `${escHtml(label)}: đủ bộ <span class="${full === withOrder.length ? "rel-num-green" : "rel-num-blue"}">${full}/${withOrder.length}</span> size · size đủ bộ tự ghi sang Đồng bộ`;
+    el.innerHTML = `${escHtml(label)}: đủ bộ <span class="${full === withOrder.length ? "rel-num-green" : "rel-num-blue"}">${full}/${withOrder.length}</span> size · size đủ bộ tự ghi sang Đồng bộ${manualNote}`;
     return;
   }
   const k = relGridKey();
   const done = relState.data.sizes.reduce((a, s) => a + relCum(k, s), 0);
   const verb = k === "tc" ? (relStageName() ? `đã ${relStageName().toLowerCase()}` : "đã thả") : "đã đóng gói";
+  const lockNote = k === "tc" && relTcLocked()
+    ? '<span class="rel-lot-sub is-lock">Lô này đang nhập theo Chi tiết: Đồng bộ tự cộng khi size đủ mọi chi tiết, không gõ tay</span>'
+    : "";
   if (!total) {
-    el.innerHTML = `${escHtml(label)}: chưa ghi số tổng · ${verb} <span class="rel-num-blue">${relNum(done)}</span>`;
+    el.innerHTML = `${escHtml(label)}: chưa ghi số tổng · ${verb} <span class="rel-num-blue">${relNum(done)}</span>${lockNote}`;
     return;
   }
   const left = total - done;
-  el.innerHTML = `${escHtml(label)}: số tổng <span class="rel-num-blue">${relNum(total)}</span> · ${verb} <span class="rel-num-blue">${relNum(done)}</span> · còn <span class="${left ? "rel-num-pink" : "rel-num-navy"}">${relNum(left)}</span>`;
+  el.innerHTML = `${escHtml(label)}: số tổng <span class="rel-num-blue">${relNum(total)}</span> · ${verb} <span class="rel-num-blue">${relNum(done)}</span> · còn <span class="${left ? "rel-num-pink" : "rel-num-navy"}">${relNum(left)}</span>${lockNote}`;
 }
 
 function renderRelease() {
@@ -7024,7 +7053,7 @@ function relCtPaint() {
   const editable = relCanEditCurrent();
   const cums = {};
   relState.data.sizes.forEach(s => { cums[s] = relCtCum(s); });
-  const baseOf = (s, p) => Number((relState.ctBase[s] || {})[p]) || 0;
+  const baseOf = relCtHave;
   document.querySelectorAll("#relTbody [data-ct-in]").forEach(box => {
     const { size, part } = box.dataset;
     const v = Number((relState.day.ct[size] || {})[part]) || 0;
@@ -7064,7 +7093,7 @@ function relCtPaint() {
 // ✓ trong ô Chi tiết: điền số còn thiếu để tích lũy của size đủ đơn hàng
 function relCtTick(size, part) {
   const o = relCtOrder(size);
-  const base = Number((relState.ctBase[size] || {})[part]) || 0;
+  const base = relCtHave(size, part);
   if (!relCanEditCurrent() || o <= base) return;
   relState.day.ct[size] = { ...(relState.day.ct[size] || {}), [part]: o - base };
   relUpdateCums();
@@ -7079,7 +7108,7 @@ function relCtToggleCol(part) {
   if (on && !confirm(`Xóa số nhận hôm nay của "${part}" ở mọi size?`)) return;
   sizes.forEach(s => {
     const m = { ...(relState.day.ct[s] || {}) };
-    const base = Number((relState.ctBase[s] || {})[part]) || 0;
+    const base = relCtHave(s, part);
     if (on) delete m[part];
     else if (base + (Number(m[part]) || 0) < relCtOrder(s)) m[part] = relCtOrder(s) - base;
     relState.day.ct[s] = m;
@@ -7095,7 +7124,7 @@ function renderReleaseGrid() {
     return;
   }
   document.querySelector("#relPaneIn .rel-table").style.minWidth = "";
-  const editable = relCanEditCurrent();
+  const editable = relCanEditCurrent() && !(k === "tc" && relTcLocked());
   const showOrd = relShowOrder();
   document.getElementById("relGridCols").innerHTML = showOrd
     ? '<col style="width:12%"><col><col><col><col><col style="width:16%"><col style="width:18%">'
