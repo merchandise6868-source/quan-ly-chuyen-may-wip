@@ -5,7 +5,7 @@
  * - /api/hub/*  : CHỈ ĐỌC đơn của 1 khách (để Đơn hàng gốc chạy thử, so sánh trước khi gửi).
  * - Ghi đơn     : Đơn hàng gốc chỉ được gọi POST /api/order-import, và chỉ cho khách đã BẬT nối (customers.dung_goc = 1).
  * - Khách đã bật: không còn thêm / sửa / xoá PO, không xoá khách ở web này (nhập ở Đơn hàng gốc).
- *   Thả chuyền, báo cáo, kiểm kê theo lô vẫn làm bình thường.
+ *   Thả chuyền, báo cáo, kiểm kê theo lô, quét số đuôi vẫn làm bình thường.
  * Mặc định dung_goc = 0 cho mọi khách -> web chạy y như trước khi có file này.
  */
 
@@ -32,6 +32,20 @@ async function dungGoc(db, customerId) {
   const r = await db.prepare('SELECT dung_goc FROM customers WHERE id = ?').bind(String(customerId)).first();
   return !!(r && Number(r.dung_goc) === 1);
 }
+// Sửa PO chỉ để vận hành ở xưởng (quét số đuôi, ngày quét, số vào chuyền, chuyền): không đổi đơn -> luôn cho
+const isTail = b => !!(b && (b.is_tail_batch || /đuôi/i.test(String(b.batch_name || ''))));
+const parseJson = (v, fb) => { if (v && typeof v === 'object') return v; try { return JSON.parse(v || ''); } catch (_) { return fb; } };
+const soCo = v => JSON.stringify(Object.entries(parseJson(v, {}) || {}).map(([k, q]) => [String(k).trim(), parseInt(q, 10) || 0]).filter(([, q]) => q > 0).sort());
+const loChinh = v => { const a = parseJson(v, null); return Array.isArray(a) ? JSON.stringify(a.filter(b => !isTail(b)).map(b => [String(b.batch_name || '').trim(), Number(b.batch_plan) || 0, soCo(b.size_qty)])) : null; };
+function chiVanHanh(prev, b) {
+  const same = (x, y) => String(x ?? '').trim() === String(y ?? '').trim();
+  if (!same(b.customer_id, prev.customer_id) || !same(b.po_number, prev.po_number) || !same(b.style_code, prev.style_code)) return false;
+  if ((Number(b.po_plan) || 0) !== (Number(prev.po_plan) || 0)) return false;
+  if (b.size_qty !== undefined && soCo(b.size_qty) !== soCo(prev.size_qty)) return false;
+  const moi = loChinh(b.default_batches);
+  return moi !== null && moi === loChinh(prev.default_batches);
+}
+
 async function khachCuaPo(db, poId) {
   if (!poId) return null;
   const r = await db.prepare('SELECT customer_id FROM po_orders WHERE id = ?').bind(String(poId)).first();
@@ -45,7 +59,9 @@ async function khachCuaGhiDon(url, request, db) {
   if (p === '/api/order-import' && m === 'POST') return [(await body()).customer_id];
   if (p === '/api/orders' && m === 'POST') {
     const b = await body();
-    return [await khachCuaPo(db, b.id), b.customer_id]; // sửa PO: khách cũ + khách mới (đổi khách)
+    const prev = b.id ? await db.prepare('SELECT customer_id, po_number, style_code, po_plan, size_qty, default_batches FROM po_orders WHERE id = ?').bind(String(b.id)).first() : null;
+    if (prev && chiVanHanh(prev, b)) return [];
+    return [prev && prev.customer_id, b.customer_id]; // sửa PO: khách cũ + khách mới (đổi khách)
   }
   if (p === '/api/orders' && m === 'DELETE') return [await khachCuaPo(db, url.searchParams.get('id'))];
   if (p === '/api/customers' && m === 'DELETE') return [url.searchParams.get('id')]; // xoá khách = xoá hết PO của khách
