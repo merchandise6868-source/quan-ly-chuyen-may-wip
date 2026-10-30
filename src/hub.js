@@ -3,7 +3,7 @@
  * - Đơn hàng gốc gọi vào bằng khoá bí mật HUB_TOKEN (wrangler secret), qua Service Binding.
  *   Chưa cài HUB_TOKEN thì mọi lối của Đơn hàng gốc đều đóng.
  * - /api/hub/*  : CHỈ ĐỌC đơn của 1 khách (để Đơn hàng gốc chạy thử, so sánh trước khi gửi).
- * - Ghi đơn     : Đơn hàng gốc chỉ được gọi POST /api/order-import (+ GET /api/datalog để đọc lũy kế), và chỉ cho khách đã BẬT nối.
+ * - Ghi đơn     : Đơn hàng gốc chỉ được gọi POST /api/order-import (+ GET /api/datalog, /api/release để đọc lũy kế / Tổng hợp lô), và chỉ cho khách đã BẬT nối.
  *   customers.dung_goc: 0 = chưa nối · 1 = chỉ sổ gốc nhập (web khoá PO khách đó) · 2 = hai chiều (web vẫn nhập / sửa, sổ gốc đọc về)
  * - Khách đã bật: không còn thêm / sửa / xoá PO, không xoá khách ở web này (nhập ở Đơn hàng gốc).
  *   Thả chuyền, báo cáo, kiểm kê theo lô, quét số đuôi vẫn làm bình thường.
@@ -75,7 +75,7 @@ async function khachCuaGhiDon(url, request, db) {
  * hub = yêu cầu từ Đơn hàng gốc: chỉ POST /api/order-import, chỉ khách đã bật.
  */
 export async function khoaGhiDon(url, request, env, hub, headers) {
-  if (hub && !((url.pathname === '/api/order-import' && request.method === 'POST') || (url.pathname === '/api/datalog' && request.method === 'GET'))) {
+  if (hub && !((url.pathname === '/api/order-import' && request.method === 'POST') || (url.pathname === '/api/datalog' && request.method === 'GET') || (url.pathname === '/api/release' && request.method === 'GET'))) {
     return reply({ success: false, error: 'Đơn hàng gốc chỉ được gọi /api/order-import' }, 403, headers);
   }
   if (!env || !env.DB) return hub ? reply({ success: false, error: 'Chưa có database' }, 503, headers) : null;
