@@ -6967,7 +6967,8 @@ const REL_PERM = {
 const REL_ICON = {
   save: '<svg class="rel-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h10l4 4v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2"/><path d="M10 14a2 2 0 1 0 4 0a2 2 0 1 0-4 0"/><path d="M14 4v4H8V4"/></svg>',
   user: '<svg class="rel-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0-8 0"/><path d="M6 21v-2a4 4 0 0 1 4-4h4"/><path d="M15 19l2 2l4-4"/></svg>',
-  pack: '<svg class="rel-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5M16 5.25l-8 4.5"/></svg>'
+  pack: '<svg class="rel-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5M16 5.25l-8 4.5"/></svg>',
+  x: '<svg class="rel-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>'
 };
 
 const relState = {
@@ -7312,7 +7313,7 @@ function renderReleaseLotInfo() {
       return;
     }
     const full = withOrder.filter(s => relCtIsFull(relState.data, s, relCtCum(s))).length;
-    el.innerHTML = `${escHtml(label)}: đủ bộ <span class="${full === withOrder.length ? "rel-num-green" : "rel-num-blue"}">${full}/${withOrder.length}</span> size · size đủ bộ tự ghi sang Đồng bộ${manualNote}`;
+    el.innerHTML = `${escHtml(label)}: đủ bộ <span class="${full === withOrder.length ? "rel-num-sky" : "rel-num-blue"}">${full}/${withOrder.length}</span> size · size đủ bộ tự ghi sang Đồng bộ${manualNote}`;
     return;
   }
   const k = relGridKey();
@@ -7448,7 +7449,7 @@ function relOrderCellHtml(size) {
 }
 
 // Bảng Chi tiết: Size (+ đơn hàng) | mỗi chi tiết 1 cột. Ô = số nhận hôm nay, bên dưới = tích lũy cả lô / đơn hàng.
-// Có đơn hàng theo size: ô trống còn thiếu hiện ✓ (bấm = điền đủ), tên chi tiết có nút Đủ (điền cả cột).
+// Có đơn hàng theo size: ô trống còn thiếu hiện X (bấm = điền đủ), tên chi tiết có nút Đủ (điền cả cột).
 // ART nhiều chi tiết thì bảng rộng hơn khung, kéo ngang (cột Size đứng yên).
 function renderReleaseCtGrid() {
   const editable = relCanEditCurrent();
@@ -7463,7 +7464,7 @@ function renderReleaseCtGrid() {
     const day = relState.day.ct[size] || {};
     const cells = parts.map(p => {
       const v = Number(day[p]) || 0;
-      const tick = editable ? `<button type="button" class="rel-ct-tick" data-rel-tick data-size="${escHtml(size)}" data-part="${escHtml(p)}" aria-label="Điền đủ size ${escHtml(size)}, ${escHtml(p)}">✓</button>` : "";
+      const tick = editable ? `<button type="button" class="rel-ct-tick" data-rel-tick data-size="${escHtml(size)}" data-part="${escHtml(p)}" aria-label="Điền đủ size ${escHtml(size)}, ${escHtml(p)}">${REL_ICON.x}</button>` : "";
       return `<td class="rel-ct-cell"><div class="rel-ct-in" data-ct-in data-size="${escHtml(size)}" data-part="${escHtml(p)}"><input type="text" class="rel-input" inputmode="numeric" autocomplete="off" data-size="${escHtml(size)}" data-part="${escHtml(p)}" value="${v || ""}"${editable ? "" : ' readonly tabindex="-1"'} aria-label="Size ${escHtml(size)}, ${escHtml(p)}">${tick}</div><div class="rel-ct-tl" data-ct-size="${escHtml(size)}" data-part="${escHtml(p)}"></div></td>`;
     }).join("");
     return `<tr><td class="rel-size rel-ct-sticky" data-ct-sz="${escHtml(size)}"></td>${cells}</tr>`;
@@ -7473,7 +7474,7 @@ function renderReleaseCtGrid() {
 }
 
 // Tô lại bảng Chi tiết theo số đang có (không vẽ lại ô nhập để không mất con trỏ khi đang gõ):
-// ✓ trong ô, tích lũy / đơn hàng, ô size "Đủ bộ", nút Đủ trên tên chi tiết
+// X trong ô, tích lũy / đơn hàng (đủ thì OK), ô size "Đủ bộ", nút Đủ trên tên chi tiết
 function relCtPaint() {
   const editable = relCanEditCurrent();
   const cums = {};
@@ -7495,7 +7496,7 @@ function relCtPaint() {
     const o = relCtOrder(size);
     el.classList.toggle("is-ok", o > 0 && c === o);
     el.classList.toggle("is-over", o > 0 && c > o);
-    el.innerHTML = !o ? relNum(c) : (c === o ? `${relNum(c)} ✓` : `${relNum(c)}<small>/${relNum(o)}</small>`);
+    el.innerHTML = !o ? relNum(c) : (c === o ? "OK" : `${relNum(c)}<small>/${relNum(o)}</small>`);
   });
   document.querySelectorAll("#relTbody [data-ct-sz]").forEach(td => {
     const size = td.dataset.ctSz;
@@ -7515,7 +7516,7 @@ function relCtPaint() {
   });
 }
 
-// ✓ trong ô Chi tiết: điền số còn thiếu để tích lũy của size đủ đơn hàng
+// X trong ô Chi tiết: điền số còn thiếu để tích lũy của size đủ đơn hàng
 function relCtTick(size, part) {
   const o = relCtOrder(size);
   const base = relCtHave(size, part);
