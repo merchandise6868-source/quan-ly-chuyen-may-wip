@@ -7084,11 +7084,11 @@ function relCtAddManual(data, size, cumMap) {
   return cumMap;
 }
 
-// Tích lũy chi tiết của 1 size: {tên chi tiết: số}, gồm cả đôi gõ tay ở Đồng bộ
+// Tích lũy chi tiết của 1 size: {tên chi tiết: số}, gồm cả đôi gõ tay ở Đồng bộ (số âm hôm nay = sửa giảm)
 function relCtCum(size) {
   const out = { ...(relState.ctBase[size] || {}) };
   Object.entries(relState.day.ct[size] || {}).forEach(([p, q]) => {
-    if (q > 0) out[p] = (out[p] || 0) + q;
+    if (q) out[p] = (out[p] || 0) + q;
   });
   return relCtAddManual(relState.data, size, out);
 }
@@ -7153,7 +7153,7 @@ function relApplyPayload(data, keepLocalDay) {
     Object.keys(ctDay).forEach(s => {
       relState.day.ct[s] = {};
       Object.entries(ctDay[s] || {}).forEach(([p, q]) => {
-        if (Number(q) > 0) relState.day.ct[s][p] = Number(q);
+        if (Number(q)) relState.day.ct[s][p] = Number(q);
       });
     });
   }
@@ -7450,6 +7450,7 @@ function relOrderCellHtml(size) {
 
 // Bảng Chi tiết: Size (+ đơn hàng) | mỗi chi tiết 1 cột. Ô = số nhận hôm nay, bên dưới = tích lũy cả lô / đơn hàng.
 // Có đơn hàng theo size: ô trống còn thiếu hiện X (bấm = điền đủ), tên chi tiết có nút Đủ (điền cả cột).
+// Ô đủ từ các ngày trước hiện số mờ (tổng đang có); gõ vào ô đó là sửa tổng, phần chênh ghi vào hôm nay (có thể âm).
 // ART nhiều chi tiết thì bảng rộng hơn khung, kéo ngang (cột Size đứng yên).
 function renderReleaseCtGrid() {
   const editable = relCanEditCurrent();
@@ -7474,7 +7475,7 @@ function renderReleaseCtGrid() {
 }
 
 // Tô lại bảng Chi tiết theo số đang có (không vẽ lại ô nhập để không mất con trỏ khi đang gõ):
-// X trong ô, tích lũy / đơn hàng (đủ thì OK), ô size "Đủ bộ", nút Đủ trên tên chi tiết
+// X trong ô, số mờ ở ô đủ từ trước, tích lũy / đơn hàng (đủ thì OK), ô size "Đủ bộ", nút Đủ trên tên chi tiết
 function relCtPaint() {
   const editable = relCanEditCurrent();
   const cums = {};
@@ -7484,11 +7485,14 @@ function relCtPaint() {
     const { size, part } = box.dataset;
     const v = Number((relState.day.ct[size] || {})[part]) || 0;
     const o = relCtOrder(size);
-    const canTick = editable && o > 0 && !v && baseOf(size, part) < o;
+    const have = baseOf(size, part);
+    const fix = o > 0 && have >= o;
+    const canTick = editable && o > 0 && !v && have < o;
     const inp = box.querySelector(".rel-input");
     box.classList.toggle("can-tick", canTick);
-    inp.placeholder = editable && !canTick ? "0" : "";
-    if (document.activeElement !== inp) inp.value = v || "";
+    box.classList.toggle("is-fix", fix);
+    inp.placeholder = fix ? String(have) : (editable && !canTick ? "0" : "");
+    if (document.activeElement !== inp) inp.value = fix ? (v ? String(have + v) : "") : (v || "");
   });
   document.querySelectorAll("#relTbody [data-ct-size]").forEach(el => {
     const size = el.dataset.ctSize;
@@ -7511,7 +7515,7 @@ function relCtPaint() {
     const on = withOrder.every(s => (Number(cums[s][p]) || 0) >= relCtOrder(s));
     b.classList.toggle("on", on);
     b.setAttribute("aria-pressed", String(on));
-    b.disabled = withOrder.every(s => baseOf(s, p) >= relCtOrder(s));
+    b.disabled = withOrder.every(s => baseOf(s, p) >= relCtOrder(s) && !Number((relState.day.ct[s] || {})[p]));
     b.querySelector(".rel-ct-box").textContent = on ? "✓" : "";
   });
 }
@@ -7536,7 +7540,11 @@ function relCtToggleCol(part) {
     const m = { ...(relState.day.ct[s] || {}) };
     const base = relCtHave(s, part);
     if (on) delete m[part];
-    else if (base + (Number(m[part]) || 0) < relCtOrder(s)) m[part] = relCtOrder(s) - base;
+    else if (base + (Number(m[part]) || 0) < relCtOrder(s)) {
+      // Ô đã sửa giảm (số hôm nay âm) mà các ngày trước đã đủ: bỏ số sửa là đủ lại
+      if (relCtOrder(s) > base) m[part] = relCtOrder(s) - base;
+      else delete m[part];
+    }
     relState.day.ct[s] = m;
   });
   relUpdateCums();
@@ -7588,7 +7596,7 @@ function renderReleaseTotals() {
       Object.entries(relCtCum(size)).forEach(([p, q]) => { all[p] = (all[p] || 0) + q; });
     });
     foot.innerHTML = '<td class="rel-foot-lbl rel-ct-sticky">Tổng</td>'
-      + relState.ctCols.map(p => `<td><span class="rel-ct-ft-day">+${relNum(day[p])}</span><span class="rel-ct-ft-cum">${relNum(all[p])}</span></td>`).join("");
+      + relState.ctCols.map(p => `<td><span class="rel-ct-ft-day">${day[p] < 0 ? relSigned(day[p]) : `+${relNum(day[p])}`}</span><span class="rel-ct-ft-cum">${relNum(all[p])}</span></td>`).join("");
     return;
   }
   const cols = [0, 0, 0, 0];
@@ -7772,8 +7780,18 @@ function onReleaseInput(e) {
   const qty = parseInt(clean, 10) || 0;
   if (k === "ct") {
     const m = relState.day.ct[size] || {};
-    if (qty) m[el.dataset.part] = qty;
-    else delete m[el.dataset.part];
+    const part = el.dataset.part;
+    const o = relCtOrder(size);
+    const have = relCtHave(size, part);
+    if (o > 0 && have >= o) {
+      // Ô đủ từ các ngày trước: số gõ là tổng đúng, phần chênh ghi vào hôm nay
+      // (sửa giảm được tới hết số Chi tiết các ngày trước, không đụng số gõ tay ở Đồng bộ)
+      const minQ = -(Number((relState.ctBase[size] || {})[part]) || 0);
+      const d = clean === "" ? 0 : Math.max(minQ, qty - have);
+      if (d) m[part] = d;
+      else delete m[part];
+    } else if (qty) m[part] = qty;
+    else delete m[part];
     relState.day.ct[size] = m;
   } else {
     const arr = relState.day[k][size] || [0, 0, 0, 0];

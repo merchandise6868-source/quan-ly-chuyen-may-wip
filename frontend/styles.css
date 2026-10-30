@@ -8242,6 +8242,8 @@ body.role-packer #reportStatusTag {
 .rel-ct-full.on .rel-ct-box { border-color: currentColor; background: transparent; color: currentColor; }
 .rel-ct-full:disabled { cursor: default; opacity: 0.7; }
 .rel-ct-in { position: relative; }
+/* Ô đủ từ các ngày trước: số đang có hiện mờ thay cho 0, gõ vào là sửa */
+.rel-ct-in.is-fix .rel-input::placeholder { color: #9fb0c6; }
 .rel-ct-tick {
   display: none;
   position: absolute;

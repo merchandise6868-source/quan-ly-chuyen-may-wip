@@ -498,6 +498,12 @@ const toReleaseQty = (v) => {
   return Number.isFinite(n) && n > 0 ? n : 0;
 };
 
+// Số chi tiết của 1 ngày: được âm (sửa giảm số các ngày trước, ghi phần chênh vào ngày đang nhập)
+const toPartQty = (v) => {
+  const n = parseInt(v, 10);
+  return Number.isFinite(n) && Math.abs(n) <= 999999 ? n : 0;
+};
+
 const sumValues = (obj) => Object.values(obj || {}).reduce((a, b) => a + (Number(b) || 0), 0);
 
 // Số chi tiết gửi lên của 1 size: {tên chi tiết: số}, bỏ tên trống / số 0
@@ -506,13 +512,13 @@ function cleanPartQty(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
   for (const [k, v] of Object.entries(raw)) {
     const part = String(k ?? '').trim().slice(0, 40);
-    const q = toReleaseQty(v);
+    const q = toPartQty(v);
     if (part && q && (out[part] || Object.keys(out).length < 30)) out[part] = (out[part] || 0) + q;
   }
   return out;
 }
 
-// Cộng số chi tiết của 1 dòng vào map {tên chi tiết: số}.
+// Cộng số chi tiết của 1 dòng vào map {tên chi tiết: số} (số âm = sửa giảm).
 // Đọc được cả dòng cũ (4 ô [số, tên]) lẫn dòng mới (1 chi tiết / dòng ở n1, p1).
 function addPartRow(map, r) {
   const n = [r.n1, r.n2, r.n3, r.n4];
@@ -520,7 +526,7 @@ function addPartRow(map, r) {
   n.forEach((x, i) => {
     const q = Number(x) || 0;
     const part = String(p[i] || '');
-    if (q > 0 && part) map[part] = (map[part] || 0) + q;
+    if (q && part) map[part] = (map[part] || 0) + q;
   });
   return map;
 }
@@ -3039,6 +3045,18 @@ export default {
               return { size, n: [0, 1, 2, 3].map(i => toReleaseQty(Array.isArray(r.n) ? r.n[i] : 0)) };
             })
             .filter(r => r.size);
+          // Chi tiết sửa giảm (số âm): không để tích lũy chi tiết xuống dưới số 0
+          if (isCt && rows.some(r => Object.values(r.q).some(q => q < 0))) {
+            const pre = await loadReleasePayload(env, poId, date, batch, stage);
+            const sameLot = pre.batch === batch;
+            const tooLow = rows.some(r => Object.entries(r.q).some(([part, q]) => {
+              const before = sameLot ?(Number(((pre.ctCum || {})[r.size] || {})[part]) || 0) - (Number(((pre.ctDay || {})[r.size] || {})[part]) || 0) : 0;
+              return before + q < 0;
+            }));
+            if (tooLow) {
+              return Response.json({ success: false, error: "Số sửa nhỏ hơn số Chi tiết đã nhập các ngày trước" }, { status: 400, headers });
+            }
+          }
           const confirmId = releaseConfirmId(poId, batch, date);
           const same = (a, b) => (isCt
             ? samePartQty(a ? a.q : {}, b.q)
