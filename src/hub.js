@@ -3,7 +3,8 @@
  * - Đơn hàng gốc gọi vào bằng khoá bí mật HUB_TOKEN (wrangler secret), qua Service Binding.
  *   Chưa cài HUB_TOKEN thì mọi lối của Đơn hàng gốc đều đóng.
  * - /api/hub/*  : CHỈ ĐỌC đơn của 1 khách (để Đơn hàng gốc chạy thử, so sánh trước khi gửi).
- * - Ghi đơn     : Đơn hàng gốc chỉ được gọi POST /api/order-import, và chỉ cho khách đã BẬT nối (customers.dung_goc = 1).
+ * - Ghi đơn     : Đơn hàng gốc chỉ được gọi POST /api/order-import (+ GET /api/datalog để đọc lũy kế), và chỉ cho khách đã BẬT nối.
+ *   customers.dung_goc: 0 = chưa nối · 1 = chỉ sổ gốc nhập (web khoá PO khách đó) · 2 = hai chiều (web vẫn nhập / sửa, sổ gốc đọc về)
  * - Khách đã bật: không còn thêm / sửa / xoá PO, không xoá khách ở web này (nhập ở Đơn hàng gốc).
  *   Thả chuyền, báo cáo, kiểm kê theo lô, quét số đuôi vẫn làm bình thường.
  * Mặc định dung_goc = 0 cho mọi khách -> web chạy y như trước khi có file này.
@@ -28,9 +29,10 @@ export async function laHub(request, env) {
   return sameSecret(t, k);
 }
 
+/** Mức nối của khách: 0 chưa nối · 1 chỉ sổ gốc nhập · 2 hai chiều */
 async function dungGoc(db, customerId) {
   const r = await db.prepare('SELECT dung_goc FROM customers WHERE id = ?').bind(String(customerId)).first();
-  return !!(r && Number(r.dung_goc) === 1);
+  return r ? Number(r.dung_goc) || 0 : 0;
 }
 // Sửa PO chỉ để vận hành ở xưởng (quét số đuôi, ngày quét, số vào chuyền, chuyền): không đổi đơn -> luôn cho
 const isTail = b => !!(b && (b.is_tail_batch || /đuôi/i.test(String(b.batch_name || ''))));
@@ -73,7 +75,7 @@ async function khachCuaGhiDon(url, request, db) {
  * hub = yêu cầu từ Đơn hàng gốc: chỉ POST /api/order-import, chỉ khách đã bật.
  */
 export async function khoaGhiDon(url, request, env, hub, headers) {
-  if (hub && !(url.pathname === '/api/order-import' && request.method === 'POST')) {
+  if (hub && !((url.pathname === '/api/order-import' && request.method === 'POST') || (url.pathname === '/api/datalog' && request.method === 'GET'))) {
     return reply({ success: false, error: 'Đơn hàng gốc chỉ được gọi /api/order-import' }, 403, headers);
   }
   if (!env || !env.DB) return hub ? reply({ success: false, error: 'Chưa có database' }, 503, headers) : null;
@@ -83,9 +85,9 @@ export async function khoaGhiDon(url, request, env, hub, headers) {
     const list = [...new Set(ids.filter(Boolean).map(String))];
     if (hub && !list.length) return reply({ success: false, error: 'Thiếu khách hàng' }, 400, headers);
     for (const id of list) {
-      const bat = await dungGoc(env.DB, id);
-      if (hub && !bat) return reply({ success: false, error: 'Khách này chưa bật nối với Đơn hàng gốc' }, 403, headers);
-      if (!hub && bat) return reply({ success: false, error: 'Đơn của khách này nhập ở Đơn hàng gốc (sổ đơn chung). Ở đây chỉ xem, không thêm / sửa / xoá PO' }, 403, headers);
+      const muc = await dungGoc(env.DB, id);
+      if (hub && muc < 1) return reply({ success: false, error: 'Khách này chưa bật nối với Đơn hàng gốc' }, 403, headers);
+      if (!hub && muc === 1) return reply({ success: false, error: 'Đơn của khách này nhập ở Đơn hàng gốc (sổ đơn chung). Ở đây chỉ xem, không thêm / sửa / xoá PO' }, 403, headers);
     }
     return null;
   } catch (err) {
