@@ -1,3 +1,5 @@
+import { laHub, handleHubApi, khoaGhiDon } from './hub.js';
+
 // Memory database initial seed (fallback for local dev without D1)
 const INITIAL_DB = {
   customers: [
@@ -1122,6 +1124,10 @@ async function initD1Tables(db) {
     try {
       await db.prepare("ALTER TABLE customers ADD COLUMN stages TEXT DEFAULT '[]'").run();
     } catch (e) {}
+    // Nối với Đơn hàng gốc (src/hub.js): 1 = đơn của khách nhập ở sổ đơn chung; mặc định 0 = như cũ
+    try {
+      await db.prepare("ALTER TABLE customers ADD COLUMN dung_goc INTEGER DEFAULT 0").run();
+    } catch (e) {}
     // Thả chuyền / đóng gói theo lô; p1..p4 = tên chi tiết của 4 ô Nhận (thả chuyền Chi tiết)
     for (const col of ["batch_name TEXT DEFAULT ''", "p1 TEXT DEFAULT ''", "p2 TEXT DEFAULT ''", "p3 TEXT DEFAULT ''", "p4 TEXT DEFAULT ''", "stage TEXT DEFAULT ''"]) {
       try {
@@ -1249,6 +1255,14 @@ export default {
 
     // Router for API endpoints
     if (url.pathname.startsWith('/api/')) {
+
+      // Đơn hàng gốc (sổ đơn chung): lối đọc riêng + khoá ghi đơn theo khách (src/hub.js)
+      const hub = await laHub(request, env);
+      if (url.pathname.startsWith('/api/hub/')) {
+        return hub ? handleHubApi(url, request, env, headers) : Response.json({ success: false, error: 'Không có quyền' }, { status: 403, headers });
+      }
+      const khoa = await khoaGhiDon(url, request, env, hub, headers);
+      if (khoa) return khoa;
 
       // ==========================================
       // AUTH & USER MANAGEMENT APIs

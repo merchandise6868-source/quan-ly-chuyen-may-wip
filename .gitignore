@@ -6,3 +6,4 @@ dist/
 *.log
 test_screenshots/
 scratch/
+.dev.vars
