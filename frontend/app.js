@@ -6435,7 +6435,7 @@ function bindSizeEditorEvents() {
 // ==========================================================
 // TAB 03: CHI TIẾT THEO ART (danh sách để chọn khi thả chuyền Chi tiết)
 // ==========================================================
-const artPartsState = { customerId: null, items: {}, dragFrom: null, seq: 0 };
+const artPartsState = { customerId: null, items: {}, skip: {}, dragFrom: null, seq: 0 };   // skip: {art: {mã công đoạn: [chi tiết tắt]}}
 
 // ==========================================================
 // TAB 03: BẢNG CÔNG ĐOẠN THẢ CHUYỀN CỦA KHÁCH (trình tự 1 → 10)
@@ -6576,6 +6576,7 @@ async function saveStages() {
     if (!data.success) throw new Error(data.error || "Không lưu được");
     cust.stages = data.stages || [];
     if (stageEditor.customerId === customerId) loadStageEditor(customerId);
+    if (artPartsState.customerId === customerId) renderArtParts();
     const n = (data.stages || []).length;
     showToast(n ? `✅ Đã lưu ${n} công đoạn của ${cust.name}${data.migrated ? ". Số thả chuyền nhập trước đây đã tính vào công đoạn 1" : ""}` : `Đã bỏ bảng công đoạn của ${cust.name}: thả chuyền nhập chung như cũ`);
   } catch (ex) {
@@ -6640,6 +6641,7 @@ async function loadArtParts(customerId) {
   const seq = ++artPartsState.seq;
   if (!customerId) {
     artPartsState.items = {};
+    artPartsState.skip = {};
     renderArtParts();
     return;
   }
@@ -6648,9 +6650,11 @@ async function loadArtParts(customerId) {
     const data = await res.json();
     if (seq !== artPartsState.seq) return;
     artPartsState.items = Object.fromEntries((data.items || []).map(it => [it.art, it.parts || []]));
+    artPartsState.skip = Object.fromEntries((data.items || []).map(it => [it.art, it.stage_skip || {}]));
   } catch (err) {
     if (seq !== artPartsState.seq) return;
     artPartsState.items = {};
+    artPartsState.skip = {};
   }
   renderArtParts();
 }
@@ -6696,18 +6700,72 @@ function renderArtParts() {
   const arts = customerArts(cust.id);
   if (tabCnt) tabCnt.textContent = arts.length;
   const usedArts = new Set(appState.orders.filter(o => o.customer_id === cust.id).map(o => String(o.style_code || "").trim()));
+  const stages = getCustomerStages(cust);
   box.innerHTML = `<table class="art-table">
     <colgroup><col class="art-col-name"><col></colgroup>
     <thead><tr><th>ART</th><th class="art-th-parts">Các chi tiết <span>· gõ tên rồi Enter (nhiều tên cách nhau dấu phẩy), bấm × để xóa, kéo thả để đổi thứ tự</span></th></tr></thead>
     <tbody>${arts.map(art => {
       const parts = artPartsState.items[art] || [];
       const canDelete = !usedArts.has(art);
-      return `<tr data-art="${escHtml(art)}"><td class="art-name"><span>${escHtml(art)}</span>${canDelete ? `<button type="button" class="art-del" aria-label="Xóa ART ${escHtml(art)}" title="Xóa ART (chưa có PO nào dùng)">×</button>` : ""}</td><td><div class="art-chips">${parts.map((p, i) => `<span class="art-chip" draggable="true" data-idx="${i}">${escHtml(p)}<button type="button" class="art-chip-x" data-del="${i}" aria-label="Xóa ${escHtml(p)}">×</button></span>`).join("")}<input type="text" class="form-control art-add-input" placeholder="+ Thêm chi tiết" autocomplete="off"></div></td></tr>`;
+      return `<tr data-art="${escHtml(art)}"><td class="art-name"><span>${escHtml(art)}</span>${canDelete ? `<button type="button" class="art-del" aria-label="Xóa ART ${escHtml(art)}" title="Xóa ART (chưa có PO nào dùng)">×</button>` : ""}</td><td><div class="art-chips">${parts.map((p, i) => `<span class="art-chip" draggable="true" data-idx="${i}">${escHtml(p)}<button type="button" class="art-chip-x" data-del="${i}" aria-label="Xóa ${escHtml(p)}">×</button></span>`).join("")}<input type="text" class="form-control art-add-input" placeholder="+ Thêm chi tiết" autocomplete="off"></div>${artStageGrid(art, parts, stages)}</td></tr>`;
     }).join("")}
     <tr class="art-new-row"><td colspan="2"><div class="art-new"><input type="text" class="form-control art-new-input" placeholder="Thêm ART mới, ví dụ DA-262" autocomplete="off"><button type="button" class="btn btn-primary art-new-btn">+ Thêm ART</button><span class="art-new-err"></span></div></td></tr>
     </tbody>
   </table>`;
   refreshPoArtOptions();
+}
+
+// Chi tiết theo công đoạn của 1 ART: dòng = chi tiết, cột = công đoạn; ô bật = công đoạn đó quản lý chi tiết đó
+// (tab Chi tiết của công đoạn chỉ hiện các chi tiết này, đủ bộ tính theo các chi tiết này)
+const artStageOff = (art, stageId) => ((artPartsState.skip[art] || {})[stageId]) || [];
+
+function artStageGrid(art, parts, stages) {
+  if (!stages.length || !parts.length) return "";
+  const cols = `minmax(150px, 1.6fr) repeat(${stages.length}, minmax(64px, 1fr))`;
+  const head = stages.map((st, i) => {
+    const n = parts.filter(p => !artStageOff(art, st.id).includes(p)).length;
+    return `<button type="button" class="asg-col${n ? "" : " is-none"}" data-stage="${escHtml(st.id)}" title="Bật / tắt cả cột">${i + 1}. ${escHtml(st.name)}<small>${n}/${parts.length}</small></button>`;
+  }).join("");
+  const rows = parts.map((p, pi) => `<div class="asg-pn">${escHtml(p)}</div>${stages.map(st => {
+    const on = !artStageOff(art, st.id).includes(p);
+    return `<button type="button" class="asg-cell${on ? " on" : ""}" data-stage="${escHtml(st.id)}" data-part="${pi}" aria-pressed="${on}" aria-label="${escHtml(st.name)} · ${escHtml(p)}">${on ? "✓" : "·"}</button>`;
+  }).join("")}`).join("");
+  return `<div class="asg-box">
+    <div class="asg-title">Chi tiết theo công đoạn <span>· bấm ô để bật hoặc tắt, bấm tên công đoạn để bật hoặc tắt cả cột. Công đoạn tắt hết thì chỉ nhập Đồng bộ.</span></div>
+    <div class="asg-grid" style="grid-template-columns:${cols}"><div class="asg-corner">Chi tiết \\ Công đoạn</div>${head}${rows}</div>
+  </div>`;
+}
+
+// Lưu chi tiết tắt ở các công đoạn của 1 ART (bấm là lưu)
+// Bấm nhanh nhiều ô: gửi lần lượt từng lần, chỉ lần gửi cuối mới vẽ lại theo máy chủ (không nháy về trạng thái cũ)
+const artSkipQueue = {};   // art -> { seq, chain }
+
+function saveArtStageSkip(art, skip) {
+  const customerId = artPartsState.customerId;
+  if (!customerId) return;
+  artPartsState.skip[art] = skip;
+  renderArtParts();
+  const q = artSkipQueue[art] || (artSkipQueue[art] = { seq: 0, chain: Promise.resolve() });
+  const mySeq = ++q.seq;
+  q.chain = q.chain.then(async () => {
+    try {
+      const res = await fetch("/api/art-parts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customer_id: customerId, art, parts: artPartsState.items[art] || [], stage_skip: skip, user: relUserName() })
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || "Không lưu được");
+      if (mySeq === q.seq && customerId === artPartsState.customerId) {
+        artPartsState.skip[art] = data.stage_skip || {};
+        renderArtParts();
+      }
+      showToast(`💾 Đã lưu chi tiết theo công đoạn ART ${art}${data.resynced ? ` · tính lại Đồng bộ ${data.resynced} lô` : ""}`);
+    } catch (err) {
+      showToast("⚠️ Chưa lưu được: " + err.message);
+      if (mySeq === q.seq) loadArtParts(customerId);
+    }
+  });
 }
 
 // Thêm ART mới cho khách (chưa cần có PO); sau đó nhập chi tiết và chọn ART này khi tạo PO
@@ -6769,15 +6827,16 @@ async function saveArtParts(art, parts) {
     const res = await fetch("/api/art-parts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ customer_id: customerId, art, parts })
+      body: JSON.stringify({ customer_id: customerId, art, parts, user: relUserName() })
     });
     const data = await res.json();
     if (!data.success) throw new Error(data.error || "Không lưu được");
     if (customerId === artPartsState.customerId) {
       artPartsState.items[art] = data.parts;
+      artPartsState.skip[art] = data.stage_skip || {};
       renderArtParts();
     }
-    showToast(`💾 Đã lưu chi tiết ART ${art}`);
+    showToast(`💾 Đã lưu chi tiết ART ${art}${data.resynced ? ` · tính lại Đồng bộ ${data.resynced} lô` : ""}`);
   } catch (err) {
     showToast("⚠️ Chưa lưu được chi tiết: " + err.message);
   }
@@ -6825,6 +6884,25 @@ function bindArtPartsEvents() {
     const delArt = e.target.closest(".art-del");
     if (delArt) {
       deleteArt(delArt.closest("tr").dataset.art);
+      return;
+    }
+    const cell = e.target.closest(".asg-cell");
+    const col = e.target.closest(".asg-col");
+    if (cell || col) {
+      const art = (cell || col).closest("tr[data-art]").dataset.art;
+      const parts = artPartsState.items[art] || [];
+      const stageId = (cell || col).dataset.stage;
+      const skip = { ...(artPartsState.skip[art] || {}) };
+      let off = [...(skip[stageId] || [])];
+      if (cell) {
+        const p = parts[Number(cell.dataset.part)];
+        off = off.includes(p) ? off.filter(x => x !== p) : [...off, p];
+      } else {
+        off = off.length ? [] : [...parts];   // đang tắt chi tiết nào thì bật hết, đang bật hết thì tắt hết
+      }
+      if (off.length) skip[stageId] = parts.filter(p => off.includes(p));
+      else delete skip[stageId];
+      saveArtStageSkip(art, skip);
       return;
     }
     const del = e.target.closest(".art-chip-x");
@@ -7269,7 +7347,8 @@ function renderRelease() {
   // Đồng bộ / Chi tiết (chỉ thả chuyền)
   const modeBox = document.getElementById("relMode");
   const note = document.getElementById("relModeNote");
-  const hasParts = (d.parts || []).length > 0;
+  // Chi tiết của công đoạn, hoặc chi tiết đã có số dù nay bị tắt (để xem / sửa số cũ)
+  const hasParts = relCtParts().length > 0;
   if (relState.mode === "ct" && !hasParts) relState.mode = "dong";
   modeBox.hidden = relState.kind !== "tha_chuyen";
   modeBox.querySelectorAll("[data-rel-mode]").forEach(b => {
@@ -7277,7 +7356,10 @@ function renderRelease() {
     if (b.dataset.relMode === "ct") b.disabled = !hasParts;
   });
   note.hidden = relState.kind !== "tha_chuyen" || hasParts;
-  note.textContent = "ART này chưa khai báo chi tiết. Admin khai báo ở tab Khách hàng & PO.";
+  // ART có chi tiết nhưng công đoạn đang chọn không quản lý chi tiết nào (admin tắt hết ở ART & chi tiết)
+  note.textContent = (d.partsAll || []).length
+    ? `Công đoạn ${relStageName() || "này"} không quản lý chi tiết nào của ART ${(d.po && d.po.style_code) || ""}. Nhập ở Đồng bộ.`
+    : "ART này chưa khai báo chi tiết. Admin khai báo ở tab Khách hàng & PO.";
 
   // Nhập đóng gói / Tổng hợp
   const segBox = document.getElementById("relSeg");
@@ -7804,7 +7886,7 @@ async function switchReleaseStage(stage) {
 // Đổi Đồng bộ / Chi tiết: lưu nốt chế độ đang gõ rồi đổi bảng (số của cả 2 chế độ đã có sẵn)
 async function switchReleaseMode(mode) {
   if (mode === relState.mode) return;
-  if (mode === "ct" && !((relState.data && relState.data.parts) || []).length) return;
+  if (mode === "ct" && !relCtParts().length) return;
   const ok = await saveRelease();
   if (ok === false) return;
   relState.mode = mode;

@@ -424,6 +424,32 @@ function cleanPartList(list) {
   return out.slice(0, 30);
 }
 
+// Chi tiết bị tắt ở từng công đoạn của 1 ART: {mã công đoạn: [tên chi tiết]}.
+// Chỉ ghi ô tắt: không có = công đoạn quản lý mọi chi tiết (chi tiết mới thêm tự bật ở mọi công đoạn).
+// Bỏ tên chi tiết không còn trong danh sách của ART.
+function cleanStageSkip(raw, parts) {
+  let v = raw;
+  if (typeof v === 'string') {
+    try { v = JSON.parse(v || '{}'); } catch (e) { v = {}; }
+  }
+  const out = {};
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return out;
+  const names = new Set(parts || []);
+  for (const [id, list] of Object.entries(v)) {
+    if (!/^st[a-z0-9]{2,20}$/.test(id) || !Array.isArray(list)) continue;
+    const off = [...new Set(list.map(x => String(x ?? '').trim()).filter(x => names.has(x)))];
+    if (off.length) out[id] = off;
+    if (Object.keys(out).length >= MAX_STAGES * 3) break;
+  }
+  return out;
+}
+
+// Chi tiết 1 công đoạn quản lý, theo thứ tự của ART (khách chưa có công đoạn: mọi chi tiết)
+function stagePartsOf(parts, skip, stageId) {
+  const off = (stageId && skip && skip[stageId]) || [];
+  return off.length ? parts.filter(p => !off.includes(p)) : [...parts];
+}
+
 // Bảng công đoạn của khách: [{id, name}] theo trình tự đi hàng, tối đa 10.
 // id giữ nguyên khi đổi tên / đổi thứ tự để số đã nhập không bị mất; công đoạn mới thì tạo id mới.
 function newStageId() {
@@ -504,7 +530,7 @@ const samePartQty = (a, b) => {
 
 // Gom dữ liệu thả chuyền / đóng gói của 1 PO tới ngày `date`, theo lô `batchReq`
 // rows: mọi dòng của PO có entry_date <= date (mọi lô); confs: các xác nhận của PO trong ngày
-function buildReleasePayload({ po, cust, rows, confs, parts }, date, batchReq, stageReq) {
+function buildReleasePayload({ po, cust, rows, confs, parts, stageSkip }, date, batchReq, stageReq) {
   const custSizes = cleanSizeList(parseSizeList(cust ? cust.size_list : []));
   // Công đoạn của khách; số thả chuyền nhập trước khi có công đoạn (stage rỗng) tính vào công đoạn 1.
   // Khách không có công đoạn: mọi số thả chuyền gộp chung như trước.
@@ -626,6 +652,7 @@ function buildReleasePayload({ po, cust, rows, confs, parts }, date, batchReq, s
 
   const conf = (confs || []).find(c => (c.batch_name || '') === batch) || null;
   const lotOrder = lot && Object.keys(lot.size_qty || {}).length ? lot.size_qty : {};
+  const partsAll = cleanPartList(parseSizeList(parts));
   return {
     success: true,
     po_id: po ? po.id : null,
@@ -644,7 +671,9 @@ function buildReleasePayload({ po, cust, rows, confs, parts }, date, batchReq, s
     ctOrder: Object.keys(lotOrder).length ? lotOrder : (lots.length <= 1 ? order : {}),
     poCum,
     poDgCum,
-    parts: cleanPartList(parseSizeList(parts)),
+    // Chi tiết của công đoạn đang xem (cột tab Chi tiết + tính đủ bộ); partsAll = mọi chi tiết của ART
+    parts: stagePartsOf(partsAll, cleanStageSkip(stageSkip, partsAll), stage),
+    partsAll,
     tc: day.tha_chuyen,
     // Chi tiết trong ngày: {size: {tên chi tiết: số}}. Tên mới (không dùng `ct`) để app cũ còn mở trên máy không đọc nhầm.
     ctDay: day.tha_chuyen_ct,
@@ -706,8 +735,8 @@ async function loadReleasePayload(env, poId, date, batch, stage) {
     const { results: confs } = await env.DB.prepare(
       "SELECT batch_name, leader_by, leader_at, packing_by, packing_at, reject_by, reject_at, reject_note, reject_sizes FROM release_confirms WHERE po_id = ? AND confirm_date = ?"
     ).bind(poId, date).all();
-    const partRow = po ? await env.DB.prepare("SELECT parts FROM art_parts WHERE id = ?").bind(`${po.customer_id}|${po.style_code}`).first() : null;
-    return buildReleasePayload({ po, cust, rows, confs, parts: partRow ? partRow.parts : [] }, date, batch, stage);
+    const partRow = po ? await env.DB.prepare("SELECT parts, stage_skip FROM art_parts WHERE id = ?").bind(`${po.customer_id}|${po.style_code}`).first() : null;
+    return buildReleasePayload({ po, cust, rows, confs, parts: partRow ? partRow.parts : [], stageSkip: partRow ? partRow.stage_skip : {} }, date, batch, stage);
   }
 
   const po = (memoryDB.orders || []).find(o => o.id === poId) || null;
@@ -715,7 +744,65 @@ async function loadReleasePayload(env, poId, date, batch, stage) {
   const rows = (memoryDB.release_entries || []).filter(r => r.po_id === poId && r.entry_date <= date);
   const confs = (memoryDB.release_confirms || []).filter(c => c.po_id === poId && c.confirm_date === date);
   const partRec = po ? (memoryDB.art_parts || {})[`${po.customer_id}|${po.style_code}`] : null;
-  return buildReleasePayload({ po, cust, rows, confs, parts: partRec ? partRec.parts : [] }, date, batch, stage);
+  return buildReleasePayload({ po, cust, rows, confs, parts: partRec ? partRec.parts : [], stageSkip: partRec ? partRec.stage_skip : {} }, date, batch, stage);
+}
+
+// Đổi chi tiết của ART (thêm / xóa chi tiết, bật / tắt ở công đoạn): công đoạn nào có danh sách chi tiết đổi thì
+// tính lại số Đồng bộ do Chi tiết tự ghi của mọi lô đã nhập Chi tiết (PO của ART đó), lấy ngày nhập mới nhất của lô.
+// Trả số lô + công đoạn đã tính lại.
+async function resyncArtStages(env, customerId, art, before, after, user) {
+  let rawStages = [];
+  if (env && env.DB) {
+    const c = await env.DB.prepare("SELECT stages FROM customers WHERE id = ?").bind(customerId).first();
+    rawStages = c ? c.stages : [];
+  } else {
+    const c = (memoryDB.customers || []).find(x => x.id === customerId);
+    rawStages = c ? c.stages : [];
+  }
+  const stages = cleanStageList(parseSizeList(rawStages));
+  const keys = stages.length ? stages.map(x => x.id) : [''];
+  const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
+  const changed = new Set(keys.filter(k => !same(stagePartsOf(before.parts, before.skip, k), stagePartsOf(after.parts, after.skip, k))));
+  if (!changed.size) return 0;
+
+  // Lô + công đoạn đã có số Chi tiết; số cũ chưa có công đoạn tính vào công đoạn 1
+  let rows;
+  if (env && env.DB) {
+    rows = (await env.DB.prepare(`
+      SELECT r.po_id, COALESCE(r.batch_name, '') AS batch, COALESCE(r.stage, '') AS stage, MAX(r.entry_date) AS last,
+        SUM(CASE WHEN r.kind = 'tha_chuyen_ct' THEN 1 ELSE 0 END) AS ct
+      FROM release_entries r JOIN po_orders o ON o.id = r.po_id
+      WHERE o.customer_id = ? AND o.style_code = ? AND r.kind IN ('tha_chuyen', 'tha_chuyen_ct')
+      GROUP BY r.po_id, COALESCE(r.batch_name, ''), COALESCE(r.stage, '')
+    `).bind(customerId, art).all()).results || [];
+  } else {
+    const poIds = new Set((memoryDB.orders || []).filter(o => o.customer_id === customerId && o.style_code === art).map(o => o.id));
+    const m = {};
+    for (const e of (memoryDB.release_entries || [])) {
+      if (!poIds.has(e.po_id) || (e.kind !== 'tha_chuyen' && e.kind !== 'tha_chuyen_ct')) continue;
+      const k = JSON.stringify([e.po_id, e.batch_name || '', e.stage || '']);
+      const g = m[k] || (m[k] = { po_id: e.po_id, batch: e.batch_name || '', stage: e.stage || '', last: '', ct: 0 });
+      if (e.entry_date > g.last) g.last = e.entry_date;
+      if (e.kind === 'tha_chuyen_ct') g.ct++;
+    }
+    rows = Object.values(m);
+  }
+  const combos = {};
+  for (const r of rows) {
+    const st = stages.length ? (r.stage || keys[0]) : '';
+    if (!changed.has(st)) continue;
+    const k = JSON.stringify([r.po_id, r.batch, st]);
+    const g = combos[k] || (combos[k] = { po_id: r.po_id, batch: r.batch, stage: st, last: '', ct: 0 });
+    if (String(r.last || '') > g.last) g.last = String(r.last || '');
+    g.ct += Number(r.ct) || 0;
+  }
+  let n = 0;
+  for (const g of Object.values(combos)) {
+    if (!g.ct || !/^\d{4}-\d{2}-\d{2}$/.test(g.last)) continue;
+    await syncCtAuto(env, g.po_id, g.batch, g.stage, g.last, user);
+    n++;
+  }
+  return n;
 }
 
 // Công đoạn để ghi số thả chuyền: khách có bảng công đoạn thì phải là 1 công đoạn trong bảng
@@ -992,6 +1079,10 @@ async function initD1Tables(db) {
     } catch (e) {}
     try {
       await db.prepare("ALTER TABLE po_orders ADD COLUMN crd TEXT DEFAULT ''").run();
+    } catch (e) {}
+    // Chi tiết bị tắt ở từng công đoạn của ART (JSON {mã công đoạn: [tên chi tiết]})
+    try {
+      await db.prepare("ALTER TABLE art_parts ADD COLUMN stage_skip TEXT DEFAULT '{}'").run();
     } catch (e) {}
 
     // Safe schema migrations for report_batches table (daily_out, note_export, shortage breakdown)
@@ -3439,11 +3530,17 @@ export default {
           const customerId = url.searchParams.get('customer_id') || '';
           let items = [];
           if (env && env.DB) {
-            const { results } = await env.DB.prepare("SELECT customer_id, art, parts, updated_at FROM art_parts WHERE customer_id = ?").bind(customerId).all();
-            items = (results || []).map(r => ({ customer_id: r.customer_id, art: r.art, parts: cleanPartList(parseSizeList(r.parts)), updated_at: r.updated_at }));
+            const { results } = await env.DB.prepare("SELECT customer_id, art, parts, stage_skip, updated_at FROM art_parts WHERE customer_id = ?").bind(customerId).all();
+            items = (results || []).map(r => {
+              const parts = cleanPartList(parseSizeList(r.parts));
+              return { customer_id: r.customer_id, art: r.art, parts, stage_skip: cleanStageSkip(r.stage_skip, parts), updated_at: r.updated_at };
+            });
           } else {
             items = Object.values(memoryDB.art_parts || {}).filter(r => r.customer_id === customerId)
-              .map(r => ({ customer_id: r.customer_id, art: r.art, parts: cleanPartList(r.parts), updated_at: r.updated_at }));
+              .map(r => {
+                const parts = cleanPartList(r.parts);
+                return { customer_id: r.customer_id, art: r.art, parts, stage_skip: cleanStageSkip(r.stage_skip, parts), updated_at: r.updated_at };
+              });
           }
           return Response.json({ success: true, items }, { headers });
         } catch (err) {
@@ -3462,16 +3559,25 @@ export default {
           const parts = cleanPartList(body.parts);
           const id = `${customerId}|${art}`;
           const updatedAt = new Date().toISOString();
+          const prev = env && env.DB
+            ? await env.DB.prepare("SELECT parts, stage_skip FROM art_parts WHERE id = ?").bind(id).first()
+            : (memoryDB.art_parts || {})[id] || null;
+          const oldParts = prev ? cleanPartList(parseSizeList(prev.parts)) : [];
+          const oldSkip = prev ? cleanStageSkip(prev.stage_skip, oldParts) : {};
+          // Không gửi stage_skip (thêm / xóa / đổi thứ tự chi tiết): giữ các ô đã tắt ở từng công đoạn
+          const stageSkip = cleanStageSkip(body.stage_skip !== undefined ? body.stage_skip : oldSkip, parts);
           if (env && env.DB) {
             await env.DB.prepare(`
-              INSERT INTO art_parts (id, customer_id, art, parts, updated_at) VALUES (?, ?, ?, ?, ?)
-              ON CONFLICT(id) DO UPDATE SET parts = excluded.parts, updated_at = excluded.updated_at
-            `).bind(id, customerId, art, JSON.stringify(parts), updatedAt).run();
+              INSERT INTO art_parts (id, customer_id, art, parts, stage_skip, updated_at) VALUES (?, ?, ?, ?, ?, ?)
+              ON CONFLICT(id) DO UPDATE SET parts = excluded.parts, stage_skip = excluded.stage_skip, updated_at = excluded.updated_at
+            `).bind(id, customerId, art, JSON.stringify(parts), JSON.stringify(stageSkip), updatedAt).run();
           } else {
             if (!memoryDB.art_parts) memoryDB.art_parts = {};
-            memoryDB.art_parts[id] = { customer_id: customerId, art, parts, updated_at: updatedAt };
+            memoryDB.art_parts[id] = { customer_id: customerId, art, parts, stage_skip: stageSkip, updated_at: updatedAt };
           }
-          return Response.json({ success: true, customer_id: customerId, art, parts, updated_at: updatedAt }, { headers });
+          const user = String(body.user || 'Admin').slice(0, 60);
+          const resynced = await resyncArtStages(env, customerId, art, { parts: oldParts, skip: oldSkip }, { parts, skip: stageSkip }, user);
+          return Response.json({ success: true, customer_id: customerId, art, parts, stage_skip: stageSkip, resynced, updated_at: updatedAt }, { headers });
         } catch (err) {
           return Response.json({ success: false, error: err.message }, { status: 500, headers });
         }
